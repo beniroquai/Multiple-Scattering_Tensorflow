@@ -1,0 +1,11 @@
+*.mat
+*.h5
+*.h5py
+*.npy
+*.zip
+
+*.pyc
+*.DS_Store
+.idea*
+
+Data/BEADS/RESULTS/*
