@@ -71,7 +71,7 @@ muscat = mus.MuScatModel(matlab_pars, is_optimization=True)
 muscat.Nz=50#int( np.double(np.array(self.myParamter.get('Nz'))))
 muscat.Nx=32#np.int(np.floor((2*self.Rsim)/self.dx)+1);
 muscat.Ny=32#np.int(np.floor((2*self.Rsim)/self.dy)+1)
-muscat.NAc = 0.3
+muscat.NAc = 0.5
 muscat.dz = muscat.lambda0/4
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
 
@@ -83,24 +83,18 @@ muscat.computesys(obj)
 tf_fwd = muscat.computemodel()
 
 #%%
-
-
 '''Regression + Regularization'''
 tf_meas = tf.placeholder(dtype=tf.complex64, shape=muscat.mysize)
              
 '''Define Cost-function'''
-tf_tvloss = lambda_tv*reg.total_variation(muscat.TF_obj)
+tf_tvloss = lambda_tv*reg.total_variation_rainer(muscat.TF_obj)  #Alernatively total_variation
 tf_posloss = lambda_neg*reg.posiminity(muscat.TF_obj, minval=0)
 tf_negloss = lambda_pos*reg.posimaxity(muscat.TF_obj, maxval=.2)  
 tf_fidelity = tf.reduce_sum(tf_helper.tf_abssqr(tf_meas - tf_fwd))
 
 tf_loss = tf_fidelity +  tf_negloss + tf_posloss + tf_tvloss
 
- 
-          # tf.reduce_sum(tf_helper.tf_abssqr(tf_meas - tf_fwd)) \
-          #tf.reduce_mean(1000*(tf.sign(-muscat.TF_obj)+1))
-          #\    loss.l2loss(tf_meas, tf_fwd) + my_gr*reg.goods_roughness(muscat.TF_obj)     
-# data fidelity
+ # data fidelity
 # TV regularization
 # Positivity Penalty          
 # eventually Goods Roughness reg
@@ -127,8 +121,8 @@ sess = tf.Session()
 sess.run(tf.global_variables_initializer())
 sess.run(tf.assign(muscat.TF_obj, init_guess)) # assign abs of measurement as initial guess of 
 
-#myres = sess.run(tf_myres, feed_dict={muscat.TF_obj:obj})
-#plt.imshow(np.abs(myres[:,50,:]))
+#my_res = sess.run(tf_my_res, feed_dict={muscat.TF_obj:obj})
+#plt.imshow(np.abs(my_res[:,50,:]))
 
 '''
 TODO: 
@@ -151,41 +145,48 @@ for iterx in range(1,1000):
     # try to optimize
     
     if(not np.mod(iterx, 10)):
-        my_opt, my_loss, myres = sess.run([tf_lossop, tf_loss, muscat.TF_obj], feed_dict={tf_meas:np_meas})
-        plt.imsave(savepath+'res_xz_'+str(iterx)+'.png', np.squeeze(np.abs(myres[:,muscat.mysize[1]//2,:])))
-        plt.imsave(savepath+'res_yz_'+str(iterx)+'.png', np.squeeze(np.abs(myres[:,:,muscat.mysize[2]//2])))
-        plt.imsave(savepath+'res_xy_'+str(iterx)+'.png', np.squeeze(np.abs(myres[muscat.mysize[0]//2,:,:]))) 
-        print('MY loss: @'+str(iterx)+': ' + str(my_loss))
+        my_opt, my_res, my_loss, my_fidelity, my_negloss, my_posloss, my_tvloss =  \
+            sess.run([tf_lossop, muscat.TF_obj, tf_loss, tf_fidelity, tf_negloss, tf_posloss, tf_tvloss], feed_dict={tf_meas:np_meas})
+        plt.imsave(savepath+'res_xz_'+str(iterx)+'.png', np.squeeze(np.abs(my_res[:,muscat.mysize[1]//2,:])))
+        plt.imsave(savepath+'res_yz_'+str(iterx)+'.png', np.squeeze(np.abs(my_res[:,:,muscat.mysize[2]//2])))
+        plt.imsave(savepath+'res_xy_'+str(iterx)+'.png', np.squeeze(np.abs(my_res[muscat.mysize[0]//2,:,:]))) 
+        print('MY loss: @'+str(iterx)+': ' + str(my_loss) + ' - Fidelity: '+str(my_fidelity)+', Neg: '+str(my_negloss)+', Pos: '+str(my_posloss)+', TV: '+str(my_tvloss))        
     else:
         sess.run([tf_lossop], feed_dict={tf_meas:np_meas})
-        #plt.imshow(np.abs(myres[:,50,:]))
+        #plt.imshow(np.abs(my_res[:,50,:]))
         
 #%% Display the results
-myfwd, mymeas, myres = sess.run([tf_fwd, tf_meas, muscat.TF_obj], feed_dict={tf_meas:np_meas})
+myfwd, mymeas, my_res = sess.run([tf_fwd, tf_meas, muscat.TF_obj], feed_dict={tf_meas:np_meas})
         
 if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(mymeas))**.2)[:,muscat.mysize[1]//2,:]), plt.colorbar(), plt.show()    
-if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(mymeas))**.2)[muscat.mysize[1]//2,:,:]), plt.colorbar(), plt.show()   
-if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(mymeas))**.2)[:,:,muscat.mysize[1]//2]), plt.colorbar(), plt.show()     
+if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(mymeas))**.2)[muscat.mysize[0]//2,:,:]), plt.colorbar(), plt.show()   
+if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(mymeas))**.2)[:,:,muscat.mysize[2]//2]), plt.colorbar(), plt.show()     
 if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2)[:,muscat.mysize[1]//2,:]), plt.colorbar(), plt.show()
-if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2)[muscat.mysize[1]//2,:,:]), plt.colorbar(), plt.show()    
-if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2)[:,:,muscat.mysize[1]//2]), plt.colorbar(), plt.show()    
+if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2)[muscat.mysize[0]//2,:,:]), plt.colorbar(), plt.show()    
+if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2)[:,:,muscat.mysize[2]//2]), plt.colorbar(), plt.show()    
 tf_helper.saveHDF5(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))), 'FFT3D_FWD')
 
 if(is_display): plt.title('XZ'),plt.imshow(np.abs(myfwd)[:,muscat.mysize[1]//2,:]), plt.colorbar(), plt.show()
 if(is_display): plt.title('XZ'),plt.imshow(np.abs(myfwd)[:,:,muscat.mysize[2]//2]), plt.colorbar(), plt.show()
-if(is_display): plt.title('XY'),plt.imshow(np.abs(myfwd)[muscat.mysize[2]//2,:,:]), plt.colorbar(), plt.show()
+if(is_display): plt.title('XY'),plt.imshow(np.abs(myfwd)[muscat.mysize[0]//2,:,:]), plt.colorbar(), plt.show()
 
 if(is_display): plt.title('XZ'),plt.imshow(np.angle(myfwd)[:,muscat.mysize[1]//2,:]), plt.colorbar(), plt.show()
 if(is_display): plt.title('XZ'),plt.imshow(np.angle(myfwd)[:,:,muscat.mysize[2]//2]), plt.colorbar(), plt.show()
-if(is_display): plt.title('XY'),plt.imshow(np.angle(myfwd)[muscat.mysize[2]//2,:,:]), plt.colorbar(), plt.show()
+if(is_display): plt.title('XY'),plt.imshow(np.angle(myfwd)[muscat.mysize[0]//2,:,:]), plt.colorbar(), plt.show()
 
 
-myresidual = tf_helper.abssqr(myfwd-mymeas)
-if(is_display): plt.title('Residual: XZ'),plt.imshow(myresidual [:,muscat.mysize[1]//2,:]), plt.colorbar(), plt.show()
-if(is_display): plt.title('Residual: XZ'),plt.imshow(myresidual [:,:,muscat.mysize[2]//2]), plt.colorbar(), plt.show()
-if(is_display): plt.title('Residual: XY'),plt.imshow(myresidual [muscat.mysize[2]//2,:,:]), plt.colorbar(), plt.show()
+my_residual = tf_helper.abssqr(myfwd-mymeas)
+if(is_display): plt.title('Residual: XZ'),plt.imshow(my_residual [:,muscat.mysize[1]//2,:]), plt.colorbar(), plt.show()
+if(is_display): plt.title('Residual: XZ'),plt.imshow(my_residual [:,:,muscat.mysize[2]//2]), plt.colorbar(), plt.show()
+if(is_display): plt.title('Residual: XY'),plt.imshow(my_residual [muscat.mysize[0]//2,:,:]), plt.colorbar(), plt.show()
+
+
+if(is_display): plt.title('Result: XZ'),plt.imshow(my_res[:,muscat.mysize[1]//2,:]), plt.colorbar(), plt.show()
+if(is_display): plt.title('Result: XZ'),plt.imshow(my_res[:,:,muscat.mysize[2]//2]), plt.colorbar(), plt.show()
+if(is_display): plt.title('Result: XY'),plt.imshow(my_res[muscat.mysize[0]//2,:,:]), plt.colorbar(), plt.show()
+
 
 #%% save the results
-np.save(savepath+'/rec.npy', myres)
-tf_helper.saveHDF5(myres, 'Obj_Orig')
+np.save(savepath+'/rec.npy', my_res)
+tf_helper.saveHDF5(my_res, 'Obj_Orig')
 

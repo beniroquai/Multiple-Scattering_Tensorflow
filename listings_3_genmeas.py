@@ -49,7 +49,7 @@ muscat = mus.MuScatModel(matlab_pars, is_optimization=False)
 muscat.Nz=50#int( np.double(np.array(self.myParamter.get('Nz'))))
 muscat.Nx=32#np.int(np.floor((2*self.Rsim)/self.dx)+1);
 muscat.Ny=32#np.int(np.floor((2*self.Rsim)/self.dy)+1)
-muscat.NAc = 0.3
+muscat.NAc = 0.5
 muscat.dz = muscat.lambda0/4
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
 

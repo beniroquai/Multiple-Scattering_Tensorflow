@@ -554,14 +554,13 @@ def goods_roughness_rainer(im, eps=0.1, step_sizes=(1, 1, 1)):
 def posiminity(im, minval=0):
     # Clip Values below zero => add to error function
     print('Regularizer: Penalize Values less then '+str(minval))
-    reg = tf.nn.l2_loss(tf.nn.relu(-im))  # avdoid values smaller then zero
-    #reg = reg  + tf.nn.l2_loss(tf.nn.relu(im - (minval)))
+    reg = tf.reduce_sum(tf.square(tf.nn.relu(-im)))  # avdoid values smaller then zero
     return reg
 
 def posimaxity(im, maxval=1):
     # Clip Values below zero => add to error function
     print('Regularizer: Penalize Values higher then '+str(maxval))
-    reg = tf.nn.l2_loss(tf.nn.relu(im - (maxval)))
+    reg = tf.reduce_sum(tf.square(tf.nn.relu(im - (maxval))))
     return reg
 
 def gaussivity(im, sigma=0.1, minval=0.1):
