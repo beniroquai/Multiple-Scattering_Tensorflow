@@ -21,6 +21,9 @@ else:
 from warnings import warn
 
 
+def tf_abssqr(inputar):
+    return tf.real(inputar*tf.conj(inputar))
+
 # %% intesity penalty
 
 def l2_reg(im):
@@ -598,3 +601,47 @@ def gaussivity(im, sigma=0.1, minval=0.1):
 #                               [[ 0, 0, 0],
 #                                [ 0, 1, 0],
 #                                [ 0, 0, 0]]]
+    
+
+def tf_total_variation_regularization(toRegularize, BetaVals = [1,1,1], epsR = 1, epsC=1e-10):
+    # used rainers version to realize the tv regularizer   
+    #% The Regularisation modification with epsR was introduced, according to
+    #% Ferreol Soulez et al. "Blind deconvolution of 3D data in wide field fluorescence microscopy
+    #%
+    #
+    #function [myReg,myRegGrad]=RegularizeTV(toRegularize,BetaVals,epsR)
+    #epsC=1e-10;
+
+
+    toRegularize_sub = toRegularize[1:-2,1:-2,1:-2]
+    
+    
+    aGradL_1 = (toRegularize_sub - toRegularize[2:-1,1:-2,1:-2])/BetaVals[0] # cyclic rotation
+    aGradL_2 = (toRegularize_sub - toRegularize[1:-1-1,2:-1,1:-1-1])/BetaVals[1] # cyclic rotation
+    aGradL_3 = (toRegularize_sub - toRegularize[1:-1-1,1:-1-1,2:-1])/BetaVals[2] # cyclic rotation
+    
+    
+    aGradR_1 = (toRegularize_sub - toRegularize[0:-3,1:-2,1:-2])/BetaVals[0] # cyclic rotation
+    aGradR_2 = (toRegularize_sub - toRegularize[1:-2,0:-3,1:-2])/BetaVals[1] # cyclic rotation
+    aGradR_3 = (toRegularize_sub - toRegularize[1:-2,1:-2,0:-3])/BetaVals[2] # cyclic rotation
+    
+    
+    mySqrtL = tf.sqrt(tf_abssqr(aGradL_1)+tf_abssqr(aGradL_2)+tf_abssqr(aGradL_3)+epsR)
+    mySqrtR = tf.sqrt(tf_abssqr(aGradR_1)+tf_abssqr(aGradR_2)+tf_abssqr(aGradR_3)+epsR)
+     
+    
+    
+    mySqrt = mySqrtL + mySqrtR; 
+    
+    if(1):
+        mySqrt = tf.where(
+                    tf.less(mySqrt , epsC*tf.ones_like(mySqrt)),
+                    epsC*tf.ones_like(mySqrt),
+                    mySqrt) # To avoid divisions by zero
+    else:               
+        mySqrt = tf.clip_by_value(mySqrt, 0, np.inf)    
+        
+        
+    myReg = tf.reduce_sum(mySqrt)
+
+    return myReg

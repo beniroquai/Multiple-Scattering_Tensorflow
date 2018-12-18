@@ -27,7 +27,6 @@ import src.data as data
 import src.optimization.tf_lossfunctions as loss
 import src.optimization.tf_regularizers as reg
 
-from src import tf_helper as tf_helper, tf_generate_object as tf_go, data as data, model as mus
 
 tf.reset_default_graph()
 is_display = True
@@ -54,7 +53,7 @@ muscat.dz = muscat.lambda0/4
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
 
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
-obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='eigtsphere', diameter = .5, dn = muscat.dn)
+obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = .5, dn = muscat.dn)
 
 ''' Compute the systems model'''
 muscat.computesys(obj)
@@ -65,10 +64,12 @@ sess = tf.Session()
 sess.run(tf.initialize_all_variables())
 myres = sess.run(tf_fwd, feed_dict={muscat.TF_obj:obj})
 
-# save result 
-np.save('myres.npy', myres)
 
 #%% Display results
+
+# add noise
+myres_noise = myres + 0.005*np.random.randn(muscat.Nz,muscat.Nx,muscat.Ny)
+
 if(is_display): plt.title('XZ-PLot of the result (magn)'), plt.imshow(np.abs(myres[:,muscat.mysize[1]//2,:])), plt.colorbar(), plt.show()
 if(is_display): plt.title('YZ-PLot of the result (angle)'),plt.imshow(np.abs(myres[:,:,muscat.mysize[2]//2])), plt.colorbar(), plt.show()
 
@@ -76,11 +77,14 @@ if(is_display): plt.title('YZ-PLot of the result (angle)'),plt.imshow(np.abs(myr
 if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(myres))**.2)[:,muscat.Nx//2,:]), plt.colorbar(), plt.show()
 if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(myres))**.2)[muscat.Nz//2+1,:,:]), plt.colorbar(), plt.show()
 
-if(is_display): plt.title('XZ'),plt.imshow(np.angle(myfwd)[:,muscat.mysize[1]//2,:]), plt.colorbar(), plt.show()
-if(is_display): plt.title('XZ'),plt.imshow(np.angle(myfwd)[:,:,muscat.mysize[2]//2]), plt.colorbar(), plt.show()
-if(is_display): plt.title('XY'),plt.imshow(np.angle(myfwd)[muscat.mysize[0]//2,:,:]), plt.colorbar(), plt.show()
+if(is_display): plt.title('XZ'),plt.imshow(np.angle(myres_noise)[:,muscat.mysize[1]//2,:]), plt.colorbar(), plt.show()
+if(is_display): plt.title('XZ'),plt.imshow(np.angle(myres_noise)[:,:,muscat.mysize[2]//2]), plt.colorbar(), plt.show()
+if(is_display): plt.title('XY'),plt.imshow(np.angle(myres_noise)[muscat.mysize[0]//2,:,:]), plt.colorbar(), plt.show()
 
-
+# save result 
+np.save('myres.npy', myres)
+np.save('myobj.npy', obj)
+np.save('myres_noisy.npy', myres_noise)
 '''
 TODO: 
 - Decaying Learning Rate

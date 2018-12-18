@@ -45,7 +45,6 @@ def abssqr(inputar):
 
 def tf_abssqr(inputar):
     return tf.real(inputar*tf.conj(inputar))
-    #return tf.abs(inputar)**2
 
 def cart2pol(x, y):
     rho = np.sqrt(x**2 + y**2)

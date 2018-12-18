@@ -7,6 +7,8 @@ import h5py
 import scipy.io
 import scipy as scipy
 import scipy.misc
+import os
+import tifffile as tif
 
 
 
@@ -50,3 +52,10 @@ def import_parameters_mat(filename = None, matname = None):
     myParamter = mat_matlab_data['myParameter']
     
     return myParamter 
+
+def save_as_tif(image, experiment_name, myfile_dir='./'):   
+    """ Save images from results. """
+    
+    out_path_inputs = os.path.join(myfile_dir, experiment_name+'.tif')
+    tif.imsave(out_path_inputs, image, append=True, bigtiff=True) #compression='lzw', 
+    

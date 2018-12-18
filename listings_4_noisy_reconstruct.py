@@ -9,6 +9,20 @@ This file creates a fwd-model for the TESCAN Q-PHASE under
 multiple-scattering. It is majorly derived from  "LEarning approach for optical tomography"
 U. S. Kamilov, BIG, EPFL, 2014.
 """
+
+'''
+TODO: 
+- Decaying Learning Rate
+- Tensorboard INtegration
+- Write Samples to disc
+- Load external data in the placeholder
+tf_helper.saveHDF5(results, 'Obj_Guess')
+muscat.sess.run(tf.assign(muscat.TF_obj, results))
+- Why there is this asymmetry?
+- Normalization of Phase and Amplitude? 
+'''
+
+
 # %load_ext autoreload
 import tensorflow as tf
 import numpy as np
@@ -18,6 +32,7 @@ import scipy.io
 import scipy as scipy
 import scipy.misc
 import os
+from datetime import datetime
 
 # load own functions
 import src.model as mus
@@ -28,12 +43,12 @@ import src.data as data
 import src.optimization.tf_lossfunctions as loss
 import src.optimization.tf_regularizers as reg
 
-from src import tf_helper as tf_helper, tf_generate_object as tf_go, data as data, model as mus
 
 tf.reset_default_graph()
 
 # savepath
-savepath = './Data/BEADS/RESULTS/'
+mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+savepath = os.path.join('./Data/BEADS/RESULTS/', mytimestamp)
 is_display = False
 
 '''Define Optimization Parameters'''
@@ -60,7 +75,8 @@ matlab_val = data.import_realdata_h5(filename = matlab_val_file, matname='allAmp
 # np_allAmpSimu = data.import_realdata_mat(filename = matlab_val_file)
 
 ''' 3.) Load simulated measurements from generator file '''
-np_meas = np.load('myres.npy')#np.flip(), 2)
+np_meas = np.load('myres_noisy.npy') #np_meas = np.load('myres.npy')
+np_obj = np.load('myobj.npy')
 #np_meas = np.flip(np.flip(np_meas,2),1)
 
 ''' Create the Model'''
@@ -104,13 +120,6 @@ tf_loss = tf_fidelity +  tf_negloss + tf_posloss + tf_tvloss
 tf_optimizer = tf.train.AdamOptimizer(my_learningrate)
 tf_lossop = tf_optimizer.minimize(tf_loss)
 
-#%
-
-#np_meas = np.flip(np_meas,0)
-if(is_display): plt.title('XZ'),plt.imshow(np.abs(np_meas)[:,muscat.mysize[1]//2,:]), plt.colorbar(), plt.show()
-if(is_display): plt.title('XZ'),plt.imshow(np.abs(np_meas)[:,:,muscat.mysize[2]//2]), plt.colorbar(), plt.show()
-if(is_display): plt.title('XY'),plt.imshow(np.abs(np_meas)[muscat.mysize[2]//2,:,:]), plt.colorbar(), plt.show()
-
 
 # this is the initial guess of the reconstruction
 init_guess = np.angle(np_meas) - np.min(np.angle(np_meas))
@@ -121,23 +130,6 @@ sess = tf.Session()
 sess.run(tf.global_variables_initializer())
 sess.run(tf.assign(muscat.TF_obj, init_guess)) # assign abs of measurement as initial guess of 
 
-#my_res = sess.run(tf_my_res, feed_dict={muscat.TF_obj:obj})
-#plt.imshow(np.abs(my_res[:,50,:]))
-
-'''
-TODO: 
-- Decaying Learning Rate
-- Tensorboard INtegration
-- Write Samples to disc
-- Load external data in the placeholder
-tf_helper.saveHDF5(results, 'Obj_Guess')
-muscat.sess.run(tf.assign(muscat.TF_obj, results))
-- Why there is this asymmetry? 
-'''
-
-
-
-
 #%%
 ''' Optimize the model '''
 print('Start optimizing')
@@ -147,9 +139,11 @@ for iterx in range(1,1000):
     if(not np.mod(iterx, 10)):
         my_opt, my_res, my_loss, my_fidelity, my_negloss, my_posloss, my_tvloss =  \
             sess.run([tf_lossop, muscat.TF_obj, tf_loss, tf_fidelity, tf_negloss, tf_posloss, tf_tvloss], feed_dict={tf_meas:np_meas})
-        plt.imsave(savepath+'res_xz_'+str(iterx)+'.png', np.squeeze(np.abs(my_res[:,muscat.mysize[1]//2,:])))
-        plt.imsave(savepath+'res_yz_'+str(iterx)+'.png', np.squeeze(np.abs(my_res[:,:,muscat.mysize[2]//2])))
-        plt.imsave(savepath+'res_xy_'+str(iterx)+'.png', np.squeeze(np.abs(my_res[muscat.mysize[0]//2,:,:]))) 
+        
+        data.save_as_tif(np.squeeze(np.abs(my_res[:,muscat.mysize[1]//2,:])), 'res_xz', savepath)
+        data.save_as_tif(np.squeeze(np.abs(my_res[:,:,muscat.mysize[2]//2])), 'res_yz', savepath)
+        data.save_as_tif(np.squeeze(np.abs(my_res[muscat.mysize[0]//2,:,:])), 'res_xy', savepath)
+
         print('MY loss: @'+str(iterx)+': ' + str(my_loss) + ' - Fidelity: '+str(my_fidelity)+', Neg: '+str(my_negloss)+', Pos: '+str(my_posloss)+', TV: '+str(my_tvloss))        
     else:
         sess.run([tf_lossop], feed_dict={tf_meas:np_meas})
@@ -188,5 +182,9 @@ if(is_display): plt.title('Result: XY'),plt.imshow(my_res[muscat.mysize[0]//2,:,
 
 #%% save the results
 np.save(savepath+'/rec.npy', my_res)
-tf_helper.saveHDF5(my_res, 'Obj_Orig')
+ 
+tf_helper.saveHDF5(my_res, savepath+'Obj_Reconstruction')
+tf_helper.saveHDF5(np_obj, savepath+'Obj_Orig')
+tf_helper.saveHDF5(np.abs(np_meas), savepath+'Amplitude_abs')
+tf_helper.saveHDF5(np.angle(np_meas), savepath+'Amplitude_angle')
 
