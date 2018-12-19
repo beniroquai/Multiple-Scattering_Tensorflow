@@ -79,7 +79,7 @@ np_meas = np.load('myres_noisy.npy') #np_meas = np.load('myres.npy')
 np_obj = np.load('myobj.npy')
 #np_meas = np.flip(np.flip(np_meas,2),1)
 
-''' Create the Model'''
+''' 4.) Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=True)
 
 ''' Adjust some parameters to fit it in the memory '''

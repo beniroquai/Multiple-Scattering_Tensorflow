@@ -13,8 +13,10 @@ import scipy.io
 import scipy as scipy
 import scipy.misc
 
+
 # own functions
 from src import tf_helper as tf_helper
+from src import zernike as zern
 
 
 
@@ -35,6 +37,10 @@ class MuScatModel(object):
         self.NAo= np.squeeze(np.array(self.myParamter.get('NAo'))); # Numerical aperture objective
         self.NAc= np.squeeze(np.array(self.myParamter.get('NAc'))); # Numerical aperture condenser
         self.NAci = np.squeeze(np.array(self.myParamter.get('NAci'))); # Numerical aperture condenser
+        
+        # eventually decenter the illumination source - only integer!
+        self.shiftIcX = int(np.squeeze(np.array(self.myParamter.get('shiftIcX'))))
+        self.shiftIcY = int(np.squeeze(np.array(self.myParamter.get('shiftIcY'))))
         
         self.nEmbb = np.squeeze(np.array(self.myParamter.get('nEmbb'))) 
         self.dn=.1; # self.nImm - self.nEmbb
@@ -59,7 +65,7 @@ class MuScatModel(object):
         # kamilov uses 420 z-planes with an overall size of 30µm; dx=72nm
 
     #@define_scope
-    def computesys(self, obj):
+    def computesys(self, obj, is_zernike=False):
         """ This computes the FWD-graph of the Q-PHASE microscope;
         1.) Compute the physical dimensions
         2.) Compute the sampling for the waves
@@ -91,20 +97,40 @@ class MuScatModel(object):
         # AbbeLimit=lambda0/NAo;  # Rainer's Method
         # RelFreq = rr(mysize,'freq')*AbbeLimit/dx;  # Is not generally right (dx and dy)
         self.RelFreq = np.sqrt(tf_helper.abssqr(vxx) + tf_helper.abssqr(vyy));    # spanns the frequency grid of normalized pupil coordinates
-        self.Po=self.RelFreq < 1.0;   # Create the pupil of the objective lens
+        self.Po=self.RelFreq < 1.0;   # Create the pupil of the objective lens        
+        # eventually introduce a phase factor to approximate the experimental data better
+        if is_zernike:
+            print('----------> Be aware: We are taking aberrations into account!')
+            r, theta = zern.cart2pol(vxx, vyy)
+            # Assuming: System has coma along X-direction
+            self.myaberration = self.comaX*zern.zernike(r, theta, 8, norm=False) # or 8 in X-direction
+            self.myaberration += self.comaY*zern.zernike(r, theta, 7, norm=False) # or 8 in Y-direction            
+            self.Po = self.Po*np.exp(1j*self.myaberration)
         self.Po = np.fft.fftshift(self.Po*1.)# Need to shift it before using as a low-pass filter    Po=np.ones((np.shape(Po)))
         
+                
         # Prepare the normalized spatial-frequency grid.
         self.S=self.NAc/self.NAo;   # Coherence factor
         self.Ic = self.RelFreq <= self.S
         #self.Ic = np.roll(self.Ic, -1, 1)
         if hasattr(self, 'NAci'):
-            if self.NAci != None:
+            if self.NAci != None and self.NAci > 0:
                 #print('I detected a darkfield illumination aperture!')
                 self.S_o = self.NAc/self.NAo;   # Coherence factor
                 self.S_i = self.NAci/self.NAo;   # Coherence factor
                 self.Ic = (1.*(self.RelFreq < self.S_o) * 1.*(self.RelFreq > self.S_i))>0 # Create the pupil of the condenser plane
-            
+        
+        # Shift the pupil in X-direction (optical missalignment)
+        if hasattr(self, 'shiftIcX'):
+            if self.shiftIcX != None:
+                print('Shifting the illumination in X by: ' + str(self.shiftIcX) + ' Pixel')
+                self.Ic = np.roll(self.Ic, self.shiftIcX, axis=1)
+
+        # Shift the pupil in Y-direction (optical missalignment)
+        if hasattr(self, 'shiftIcY'):
+            if self.shiftIcY != None:
+                print('Shifting the illumination in Y by: ' + str(self.shiftIcY) + ' Pixel')
+                self.Ic = np.roll(self.Ic, self.shiftIcY, axis=0)
 
         ## Forward propagator  (Ewald sphere based) DO NOT USE NORMALIZED COORDINATES HERE
         self.kxysqr= (tf_helper.abssqr(tf_helper.xx_freq(self.mysize[1], self.mysize[2]) / self.dx) + tf_helper.abssqr(
@@ -205,7 +231,7 @@ class MuScatModel(object):
 
         # create Z-Stack by backpropagating Information in BFP to Z-Position
         # self.mid3D = ([np.int(np.ceil(self.A_input.shape[0] / 2) + 1), np.int(np.ceil(self.A_input.shape[1] / 2) + 1), np.int(np.ceil(self.mysize[0] / 2) + 1)])
-        self.mid3D = ([np.int(self.A_input.shape[0] // 2), np.int(self.A_input.shape[1]//2), np.int(self.mysize[0]//2)])
+        self.mid3D = ([np.int(self.mysize[0]//2), np.int(self.A_input.shape[0] // 2), np.int(self.A_input.shape[1]//2)])
 
         with tf.name_scope('Back_Propagate'):
             for pillu in range(0, self.Nc):
