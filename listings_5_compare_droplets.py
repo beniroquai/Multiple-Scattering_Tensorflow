@@ -24,9 +24,6 @@ import src.tf_helper as tf_helper
 import src.tf_generate_object as tf_go
 import src.data as data
 
-import src.optimization.tf_lossfunctions as loss
-import src.optimization.tf_regularizers as reg
-import src.zernike as zer
 
 tf.reset_default_graph()
 is_display = True
@@ -43,17 +40,19 @@ matlab_val = np.flip(matlab_val,0)
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=False)
 muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(matlab_pars['Ny'].value))
+
 # INVERTING THE MISAGLINMENT OF THE SYSTEM! Its consered to be coma and/or shifted optical axis of the illumination in Y-direction!
 muscat.shiftIcX = 0 # shifts pupil along X; >0 -> shifts down (influences YZ-Plot)
-muscat.shiftIcY = 1 # shifts pupil along Y; >0 -> shifts right (influences XZ-Plot)
+muscat.shiftIcY = 0 # shifts pupil along Y; >0 -> shifts right (influences XZ-Plot)
 muscat.comaX = 0 # introduces Coma in X direction 
-muscat.comaY = -2 # introduces Coma in X direction 
-muscat.dn = .04
+muscat.comaY = 0 # introduces Coma in X direction 
+muscat.dn = .05
+ 
 ''' Adjust some parameters to fit it in the memory '''
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
 
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
-obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = 2, dn = muscat.dn)
+obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = 1, dn = muscat.dn)
 
 ''' Compute the systems model'''
 muscat.computesys(obj, is_zernike=True)
@@ -69,7 +68,7 @@ myres = sess.run(tf_fwd, feed_dict={muscat.TF_obj:obj})
 
 #%% Display results
 # add noise
-myres_noise = myres + 0.001*np.random.randn(muscat.Nz,muscat.Nx,muscat.Ny)
+myres_noise = myres# + 0.001*np.random.randn(muscat.Nz,muscat.Nx,muscat.Ny)
 
 
 # dipslay spectrum
@@ -97,8 +96,8 @@ if(is_display):
     plt.title('XY'),plt.imshow(np.angle(myres_noise)[muscat.mysize[0]//2,:,:]), plt.colorbar()
     plt.subplot(122)
     plt.title('Experiment: XY'),plt.imshow(np.angle(matlab_val)[muscat.mysize[0]//2,:,:]), plt.colorbar(), plt.show()
-    save_timeseries(np.angle(matlab_val), 'droplet_meas_angle')
-    save_timeseries(np.angle(myres), 'droplet_simu_angle')    
+    data.save_timeseries(np.angle(matlab_val), 'droplet_meas_angle')
+    data.save_timeseries(np.angle(myres), 'droplet_simu_angle')    
 
     plt.subplot(121)
     plt.title('YZ'),plt.imshow(np.abs(myres_noise)[:,muscat.mysize[1]//2,:]), plt.colorbar()

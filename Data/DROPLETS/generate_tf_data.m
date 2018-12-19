@@ -22,9 +22,9 @@ allAmp = myamps*exp(1i*myangs);
 zreduce_fac = 6;
 allAmp_red = allAmp(:,:,1:zreduce_fac:end);
 % cut out part around the sphere so that sphere is in center
-if(0)
-mycenter = [mysize(1)/2 mysize(2)/2 60];
-mysize = [mysize(1) mysize(2) 120];
+if(1)
+mycenter = [mysize(1)/2 mysize(2)/2 35];
+mysize = [mysize(1) mysize(2) 70];
 allAmp_red = extract(allAmp_red, mysize, mycenter);
 end
 % normalize amplitudes and get rid of the stripes
@@ -49,7 +49,7 @@ myParameterNew.NAci = 0;
 myParameterNew.nEmbb = myParameter.nEmbb;
 myParameterNew.dx = myParameter.dx;
 myParameterNew.dy = myParameter.dy;
-myParameterNew.dz = dz*zreduce_fac;
+myParameterNew.dz = myParameter.dz*zreduce_fac;
 myParameterNew.Nx = size(allAmp_red,1);
 myParameterNew.Ny = size(allAmp_red,2);
 myParameterNew.Nz = size(allAmp_red,3);
