@@ -61,7 +61,9 @@ class MuScatModel(object):
         # create the first guess of the initial obj 
         self.obj = np.ones((self.Nz, self.Nx, self.Ny))
 
-
+        # add a vector of zernike factors
+        self.nzernikes = 9
+        self.zernikefactors = np.zeros((1,self.nzernikes))
         # kamilov uses 420 z-planes with an overall size of 30µm; dx=72nm
 
     #@define_scope
@@ -98,15 +100,20 @@ class MuScatModel(object):
         # RelFreq = rr(mysize,'freq')*AbbeLimit/dx;  # Is not generally right (dx and dy)
         self.RelFreq = np.sqrt(tf_helper.abssqr(vxx) + tf_helper.abssqr(vyy));    # spanns the frequency grid of normalized pupil coordinates
         self.Po=self.RelFreq < 1.0;   # Create the pupil of the objective lens        
+        
+        # Precomputing the first 9 zernike coefficients 
+        self.myzernikes = np.zeros((self.Po.shape[0],self.Po.shape[1],self.nzernikes))+ 1j*np.zeros((self.Po.shape[0],self.Po.shape[1],self.nzernikes))
+        r, theta = zern.cart2pol(vxx, vyy)        
+        for i in range(0,self.nzernikes):
+            self.myzernikes[:,:,i] = np.exp(1j*zern.zernike(r, theta, i+1, norm=False)) # or 8 in X-direction
+            
         # eventually introduce a phase factor to approximate the experimental data better
         if is_zernike:
             print('----------> Be aware: We are taking aberrations into account!')
-            r, theta = zern.cart2pol(vxx, vyy)
             # Assuming: System has coma along X-direction
-            self.myaberration = self.comaX*zern.zernike(r, theta, 8, norm=False) # or 8 in X-direction
-            self.myaberration += self.comaY*zern.zernike(r, theta, 7, norm=False) # or 8 in Y-direction            
-            self.Po = self.Po*np.exp(1j*self.myaberration)
-        self.Po = np.fft.fftshift(self.Po*1.)# Need to shift it before using as a low-pass filter    Po=np.ones((np.shape(Po)))
+            self.myaberration = np.sum(self.zernikefactors * self.myzernikes, axis=2)
+            self.Po = np.float32(self.Po)*self.myaberration
+        self.Po = np.fft.fftshift(self.Po)# Need to shift it before using as a low-pass filter    Po=np.ones((np.shape(Po)))
         
                 
         # Prepare the normalized spatial-frequency grid.
@@ -195,9 +202,11 @@ class MuScatModel(object):
             self.TF_A_input = tf.constant(A_prop, dtype=tf.complex64)
             self.TF_RefrEffect = tf.reshape(tf.constant(RefrEffect, dtype=tf.complex64), [self.Nc, 1, 1])
             self.TF_myprop = tf.squeeze(tf.constant(myprop, dtype=tf.complex64))
-            self.TF_Po = tf.cast(tf.constant(self.Po + 1j * 0 * self.Po), tf.complex64)
+            self.TF_Po = tf.cast(tf.constant(self.Po), tf.complex64)
+            self.TF_zernikefactors = tf.Variable(self.zernikefactors, dtype = tf.float32)
+            self.TF_Zernikes = tf.cast(tf.constant(self.myzernikes), dtype=tf.complex64)
         # TODO: Introduce the averraged RI along Z - MWeigert
-
+        TF_zernikefactors_cmplx = tf.cast(self.TF_zernikefactors, tf.complex64)
         self.TF_A_prop = tf.squeeze(self.TF_A_input);
         self.U_z_list = []
 
@@ -224,7 +233,7 @@ class MuScatModel(object):
                 # print('Current Z-Slice # is: ' + str(pz))
 
         # in a final step limit this to the detection NA:
-        self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * self.TF_Po)
+        self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * tf.reduce_sum(TF_zernikefactors_cmplx*self.TF_Zernikes, axis=2) * self.TF_Po)
 
         self.TF_myAllSlicePropagator = tf.constant(self.myAllSlicePropagator, dtype=tf.complex64)
         self.kzcoord = np.reshape(self.kz[self.Ic], [1, 1, 1, self.Nc]);
