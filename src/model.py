@@ -70,7 +70,7 @@ class MuScatModel(object):
         self.lambdaM = self.lambda0/self.nEmbb; # wavelength in the medium
 
     #@define_scope
-    def computesys(self, obj, is_zernike=False):
+    def computesys(self, obj, is_zernike=False, is_padding=False):
         """ This computes the FWD-graph of the Q-PHASE microscope;
         1.) Compute the physical dimensions
         2.) Compute the sampling for the waves
@@ -80,20 +80,39 @@ class MuScatModel(object):
         The ordering of the channels is as follows:
             Nillu, Nz, Nx, Ny
         """
+        # define whether we want to pad the experiment 
+        self.is_padding = is_padding
+        
+        if(is_padding):
+            # add padding in X/Y to avoid wrap-arounds
+            self.Nx=self.Nx*2
+            self.Ny=self.Ny*2
+            self.mysize=np.array((self.Nz, self.Nx, self.Ny))
+            #self.dx=self.dx/2
+            #self.dy=self.dy/2
+            
+            # Pad object with zeros along X/Y
+            obj_tmp = np.zeros(self.mysize)
+            obj_tmp[:,self.Nx//2-self.Nx//4:self.Nx//2+self.Nx//4, self.Ny//2-self.Ny//4:self.Ny//2+self.Ny//4] = obj
+            self.obj = obj_tmp
+        else:
+            self.mysize=np.array((self.Nz, self.Nx, self.Ny))
+            self.obj = obj
+    
+            
 
         # Decide whether we wan'T to optimize or simply execute the model
         if (self.is_optimization):
             # in case one wants to use this as a fwd-model for an inverse problem
-            self.TF_obj = tf.Variable(obj, dtype=tf.float32, name='Object_Variable')
+            self.TF_obj = tf.Variable(self.obj, dtype=tf.float32, name='Object_Variable')
 
         else:
             # Variables of the computational graph
-            self.TF_obj = tf.placeholder(dtype=tf.float32, shape=obj.shape)
+            self.TF_obj = tf.placeholder(dtype=tf.float32, shape=self.obj.shape)
 
         
         ## Establish normalized coordinates.
         #-----------------------------------------
-        self.mysize=np.array((self.Nz, self.Nx, self.Ny))
         vxx= tf_helper.xx_freq(self.mysize[1], self.mysize[2]) * self.lambdaM * self.nEmbb / (self.dx * self.NAo);    # normalized optical coordinates in X
         vyy= tf_helper.yy_freq(self.mysize[1], self.mysize[2]) * self.lambdaM * self.nEmbb / (self.dy * self.NAo);    # normalized optical coordinates in Y
         
@@ -284,6 +303,11 @@ class MuScatModel(object):
 
         # Normalize amplitude
         self.TF_allSumAmp = self.TF_allSumAmp / self.Nc  # tf.reduce_max(TF_allSumAmp)
+
+        # negate padding        
+        if self.is_padding:
+            self.TF_allSumAmp = self.TF_allSumAmp[:,self.Nx//2-self.Nx//4:self.Nx//2+self.Nx//4, self.Ny//2-self.Ny//4:self.Ny//2+self.Ny//4]
+            
         return self.TF_allSumAmp
     
     
