@@ -21,18 +21,19 @@ muscat.sess.run(tf.assign(muscat.TF_obj, results))
 - Why there is this asymmetry?
 - Normalization of Phase and Amplitude? 
 '''
-
-
 # %load_ext autoreload
 import tensorflow as tf
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
-import h5py 
-import scipy.io
-import scipy as scipy
-import scipy.misc
-import os
+import os 
 from datetime import datetime
+# change the following to %matplotlib notebook for interactive plotting
+# %matplotlib inline
+
+# Optionally, tweak styles.
+mpl.rc('figure',  figsize=(10, 6))
+mpl.rc('image', cmap='gray')
 
 # load own functions
 import src.model as mus
@@ -66,12 +67,12 @@ except(FileExistsError): print('Folder exists already')
 
 ''' File which stores the experimental parameters from the Q-PHASE setup 
     1.) Read in the parameters of the dataset ''' 
-matlab_par_file = './Data/BEADS/Beads_40x_100a_myParameter.mat'   
-matlab_pars = data.import_parameters_mat(filename = matlab_par_file)
+matlab_par_file = './Data/DROPLETS/myParameterNew.mat'   
+matlab_pars = data.import_parameters_mat(filename = matlab_par_file, matname='myParameterNew')
 
 ''' 2.) Read in the parameters of the dataset ''' 
-matlab_val_file = './Data/BEADS/Beads_40x_100a_allAmp.mat'   
-matlab_val = data.import_realdata_h5(filename = matlab_val_file, matname='allAmpSimu', is_complex=True)
+matlab_val_file = './Data/DROPLETS/allAmp_red.mat'   
+matlab_val = data.import_realdata_h5(filename = matlab_val_file, matname='allAmp_red', is_complex=True)
 # np_allAmpSimu = data.import_realdata_mat(filename = matlab_val_file)
 
 ''' 3.) Load simulated measurements from generator file '''
@@ -128,7 +129,7 @@ init_guess = init_guess/np.max(init_guess)*muscat.dn
 ''' Evaluate the model '''
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
-sess.run(tf.assign(muscat.TF_obj, init_guess)) # assign abs of measurement as initial guess of 
+sess.run(tf.assign(muscat.TF_obj,  )) # assign abs of measurement as initial guess of 
 
 #%%
 ''' Optimize the model '''

@@ -19,10 +19,7 @@ import scipy.misc
 
 
 
-def saveHDF5(mydata, myfilename):
-     hf = h5py.File(myfilename+'.h5', 'w')
-     hf.create_dataset(myfilename, data=mydata)
-     hf.close()
+
     
 
 def get_available_gpus():

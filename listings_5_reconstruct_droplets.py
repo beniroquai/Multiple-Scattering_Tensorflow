@@ -38,18 +38,7 @@ except(FileExistsError):
     print('Folder exists already')
 
 is_display = False
-is_optimization = True 
-
-'''Define Optimization Parameters'''
-my_learningrate = 1e-2  # learning rate
-lambda_tv = 1e-4 # lambda for Total variation
-lambda_gr = 0 # lambda for Goods Roughness 
-lambda_pos = 10
-lambda_neg = 10
-
-Niter = 1000
-Ndisplay = 10
-
+is_optimization = False 
 
 tf.reset_default_graph()
 is_display = False
@@ -58,21 +47,14 @@ is_display = False
 matlab_par_file = './Data/DROPLETS/myParameterNew.mat'   
 matlab_pars = data.import_parameters_mat(filename = matlab_par_file, matname='myParameterNew')
 
-''' 2.) Read in the parameters of the dataset ''' 
-matlab_val_file = './Data/DROPLETS/allAmp_red.mat'   
-matlab_val = data.import_realdata_h5(filename = matlab_val_file, matname='allAmp_red', is_complex=True)
-np_meas = np.flip(matlab_val,0)
 
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
 muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(matlab_pars['Ny'].value))
-muscat.NAc = .3
-muscat.NAo = .4
+
 # INVERTING THE MISAGLINMENT OF THE SYSTEM! Its consered to be coma and/or shifted optical axis of the illumination in Y-direction!
 muscat.shiftIcX = 0 # shifts pupil along X; >0 -> shifts down (influences YZ-Plot)
-muscat.shiftIcY = 1 # shifts pupil along Y; >0 -> shifts right (influences XZ-Plot)
-muscat.comaX = 0 # introduces Coma in X direction 
-muscat.comaY = -2 # introduces Coma in X direction 
+muscat.shiftIcY = 0 # shifts pupil along Y; >0 -> shifts right (influences XZ-Plot)
 muscat.dn = .04
 
 ''' Adjust some parameters to fit it in the memory '''
@@ -169,9 +151,6 @@ if(is_display): plt.title('Result: XY'),plt.imshow(my_res[muscat.mysize[0]//2,:,
 
 
 #%% save the results
-np.save(savepath+'/rec.npy', my_res)
- 
-tf_helper.saveHDF5(my_res, savepath+'/Obj_Reconstruction.h5')
-tf_helper.saveHDF5(np.abs(np_meas), savepath+'/Amplitude_abs.h5')
-tf_helper.saveHDF5(np.angle(np_meas), savepath+'/Amplitude_angle.h5')
+np.save(savepath+'/my_res.npy', my_res)
+data.export_realdata_h5(filename = './Data/DROPLETS/allAmp_simu.mat', matname = 'allAmp_red', data=my_res)
 

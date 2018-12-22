@@ -21,16 +21,16 @@ from src import zernike as zern
 
 
 class MuScatModel(object):
-    def __init__(self, my_mat_paras, is_optimization = False):
+    def __init__(self, my_mat_paras, is_optimization = False, is_optimization_psf = False):
 
         ''' Create Multiple Scattering Class;
         INPUTS:
         my_mat_paras - parameter file from MATLAB containing the experimental details - has to be load previously!
         '''
-        
         # new MATLAB v7.3 Format!
         self.myParamter = my_mat_paras
         self.is_optimization = is_optimization
+        self.is_optimization_psf = is_optimization_psf 
                 
         # ASsign variables from Experiment
         self.lambda0 = np.squeeze(np.array(self.myParamter.get('lambda0')))                 # free space wavelength (µm)
@@ -66,6 +66,9 @@ class MuScatModel(object):
         self.zernikefactors = np.zeros((1,self.nzernikes))
         # kamilov uses 420 z-planes with an overall size of 30µm; dx=72nm
 
+        # refractive index immersion and embedding
+        self.lambdaM = self.lambda0/self.nEmbb; # wavelength in the medium
+
     #@define_scope
     def computesys(self, obj, is_zernike=False):
         """ This computes the FWD-graph of the Q-PHASE microscope;
@@ -87,8 +90,6 @@ class MuScatModel(object):
             # Variables of the computational graph
             self.TF_obj = tf.placeholder(dtype=tf.float32, shape=obj.shape)
 
-        # refractive index immersion and embedding
-        self.lambdaM = self.lambda0/self.nEmbb; # wavelength in the medium
         
         ## Establish normalized coordinates.
         #-----------------------------------------
@@ -105,14 +106,14 @@ class MuScatModel(object):
         self.myzernikes = np.zeros((self.Po.shape[0],self.Po.shape[1],self.nzernikes))+ 1j*np.zeros((self.Po.shape[0],self.Po.shape[1],self.nzernikes))
         r, theta = zern.cart2pol(vxx, vyy)        
         for i in range(0,self.nzernikes):
-            self.myzernikes[:,:,i] = np.exp(1j*zern.zernike(r, theta, i+1, norm=False)) # or 8 in X-direction
+            self.myzernikes[:,:,i] = zern.zernike(r, theta, i+1, norm=False) # or 8 in X-direction
             
         # eventually introduce a phase factor to approximate the experimental data better
         if is_zernike:
             print('----------> Be aware: We are taking aberrations into account!')
             # Assuming: System has coma along X-direction
             self.myaberration = np.sum(self.zernikefactors * self.myzernikes, axis=2)
-            self.Po = np.float32(self.Po)*self.myaberration
+            self.Po = np.float32(self.Po)*np.exp(1j*self.myaberration)
         self.Po = np.fft.fftshift(self.Po)# Need to shift it before using as a low-pass filter    Po=np.ones((np.shape(Po)))
         
                 
@@ -203,7 +204,11 @@ class MuScatModel(object):
             self.TF_RefrEffect = tf.reshape(tf.constant(RefrEffect, dtype=tf.complex64), [self.Nc, 1, 1])
             self.TF_myprop = tf.squeeze(tf.constant(myprop, dtype=tf.complex64))
             self.TF_Po = tf.cast(tf.constant(self.Po), tf.complex64)
-            self.TF_zernikefactors = tf.Variable(self.zernikefactors, dtype = tf.float32)
+            
+            if(self.is_optimization_psf):
+                self.TF_zernikefactors = tf.Variable(self.zernikefactors, dtype = tf.float32)
+            else:
+                self.TF_zernikefactors = tf.constant(self.zernikefactors, dtype = tf.float32)
             self.TF_Zernikes = tf.cast(tf.constant(self.myzernikes), dtype=tf.complex64)
         # TODO: Introduce the averraged RI along Z - MWeigert
         TF_zernikefactors_cmplx = tf.cast(self.TF_zernikefactors, tf.complex64)
@@ -233,7 +238,8 @@ class MuScatModel(object):
                 # print('Current Z-Slice # is: ' + str(pz))
 
         # in a final step limit this to the detection NA:
-        self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * tf.reduce_sum(TF_zernikefactors_cmplx*self.TF_Zernikes, axis=2) * self.TF_Po)
+        self.Po_aberr = tf.exp(1j*tf.reduce_sum(TF_zernikefactors_cmplx*self.TF_Zernikes, axis=2)) * self.TF_Po
+        self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * self.Po_aberr)
 
         self.TF_myAllSlicePropagator = tf.constant(self.myAllSlicePropagator, dtype=tf.complex64)
         self.kzcoord = np.reshape(self.kz[self.Ic], [1, 1, 1, self.Nc]);
@@ -279,6 +285,29 @@ class MuScatModel(object):
         # Normalize amplitude
         self.TF_allSumAmp = self.TF_allSumAmp / self.Nc  # tf.reduce_max(TF_allSumAmp)
         return self.TF_allSumAmp
+    
+    
+    def computetrans(self):
+        # compute the transferfunction
+        # does this makes any sense?
+        ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
+        print('Computing the APSF/ATF of the system')
+        pointscat = np.zeros(self.mysize)
+        pointscat[pointscat.shape[0]//2, pointscat.shape[1]//2, pointscat.shape[2]//2] = .1
+        # introduce zernike factors here
+        
+        ''' Compute the systems model'''
+        self.computesys(pointscat, is_zernike=True)
+        
+        ''' Evaluate the model '''
+        sess = tf.Session()
+        sess.run(tf.global_variables_initializer())
+        apsf = sess.run(self.computemodel())
+        atf = np.fft.fftshift(np.fft.fftn(apsf))
+        
+
+        return atf, apsf 
+    
 
 
 
