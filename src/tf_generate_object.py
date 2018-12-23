@@ -18,7 +18,7 @@ import scipy.misc
 from src import tf_helper as tf_helper
 
 
-def generateObject(mysize = [100, 100, 100], obj_dim = 0.1, obj_type ='sphere', diameter = 1, dn = 0.1):
+def generateObject(mysize = [100, 100, 100], obj_dim = [0.1, 0.1, 0.1], obj_type ='sphere', diameter = 1, dn = 0.1):
     ''' Function to generate a 3D RI distribution to give an artificial sample for testing the FWD system
     INPUTS:
         obj_shape - Nx, Ny, Nz e.g. [100, 100, 100]
@@ -36,9 +36,18 @@ def generateObject(mysize = [100, 100, 100], obj_dim = 0.1, obj_type ='sphere', 
             
     '''
     
+
+    dx = obj_dim[1]
+    dy = obj_dim[2]
+    dz = obj_dim[0]
+    
     if(obj_type=='sphere'):
         # one spherical object inside a volume
-        obj = dn*(tf_helper.rr(mysize[0], mysize[1], mysize[2]) * obj_dim < diameter);
+        xx = tf_helper.xx(mysize[0], mysize[1], mysize[2]) * dx
+        yy = tf_helper.yy(mysize[0], mysize[1], mysize[2]) * dy
+        zz = tf_helper.zz(mysize[0], mysize[1], mysize[2]) * dz
+        obj = (np.sqrt(xx**2+yy**2+zz**2)<diameter)*dn
+        
     elif(obj_type == 'twosphere'):
         # two spherical objects inside a volume
         sphere = dn*(tf_helper.rr(mysize[0], mysize[1], mysize[2], x_center=5, y_center = 0, z_center=10)* obj_dim < diameter)

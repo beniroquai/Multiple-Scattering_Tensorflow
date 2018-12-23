@@ -22,14 +22,17 @@ def import_realdata_h5(filename = None, matname = None, is_complex = False):
     # readin HDF5 container and extract the data matrix
     mat_matlab_data = h5py.File(filename)
     myData = mat_matlab_data[matname]
+    try:
+        if is_complex:
+    #        raw_obj  = myData.value.view(np.complex64)#.value.view(np.complex)
+            raw_obj = myData.value.view(np.double).reshape((myData.shape[0],myData.shape[1],myData.shape[1],2))
+            raw_obj = raw_obj[:,:,:,0]+1j*raw_obj[:,:,:,1]
+        else:
+            raw_obj = np.array(myData) # For converting to numpy array
+    except 'ValueError':
+        mat_matlab_data.close()
     
-    if is_complex:
-#        raw_obj  = myData.value.view(np.complex64)#.value.view(np.complex)
-        raw_obj = myData.value.view(np.double).reshape((myData.shape[0],myData.shape[1],myData.shape[1],2))
-        raw_obj = raw_obj[:,:,:,0]+1j*raw_obj[:,:,:,1]
-    else:
-        raw_obj = np.array(myData) # For converting to numpy array
-
+    mat_matlab_data.close()        
     return raw_obj
 
 def saveHDF5(mydata, myfilename):

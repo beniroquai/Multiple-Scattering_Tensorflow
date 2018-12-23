@@ -108,7 +108,7 @@ class MuScatModel(object):
 
         else:
             # Variables of the computational graph
-            self.TF_obj = tf.placeholder(dtype=tf.float32, shape=self.obj.shape)
+            self.TF_obj = tf.constant(self.obj, dtype=tf.float32)
 
         
         ## Establish normalized coordinates.
@@ -257,8 +257,8 @@ class MuScatModel(object):
                 # print('Current Z-Slice # is: ' + str(pz))
 
         # in a final step limit this to the detection NA:
-        self.Po_aberr = tf.exp(1j*tf.reduce_sum(TF_zernikefactors_cmplx*self.TF_Zernikes, axis=2)) * self.TF_Po
-        self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * self.Po_aberr)
+        self.TF_Po_aberr = tf.exp(1j*tf.reduce_sum(TF_zernikefactors_cmplx*self.TF_Zernikes, axis=2)) * self.TF_Po
+        self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * self.TF_Po_aberr)
 
         self.TF_myAllSlicePropagator = tf.constant(self.myAllSlicePropagator, dtype=tf.complex64)
         self.kzcoord = np.reshape(self.kz[self.Ic], [1, 1, 1, self.Nc]);
