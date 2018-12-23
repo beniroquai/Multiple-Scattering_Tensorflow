@@ -66,6 +66,155 @@ def ind2sub(array_shape, ind):
     cols = ind # array_shape[1]
     return (rows, cols)
 
+def rr(inputsize_x=100, inputsize_y=100, inputsize_z=0, x_center=0, y_center = 0, z_center=0):
+    resid_x = resid_y = resid_z = 0
+    if(np.mod(inputsize_x,2)==1):
+        resid_x = 1
+    if(np.mod(inputsize_y,2)==1):
+        resid_y = 1
+    if(np.mod(inputsize_z,2)==1):
+        resid_z = 1        
+    x = np.arange(-inputsize_x//2,inputsize_x//2+1, 1)+resid_x
+    y = np.arange(-inputsize_y//2,inputsize_y//2+1, 1)+resid_y
+    if inputsize_z<=1:
+        xx, yy = np.meshgrid(x+x_center, y+y_center)
+        r = np.sqrt(xx**2+yy**2)
+        r = np.transpose(r, [1, 0]) #???? why that?!
+    else:
+        z = np.arange(-inputsize_z//2,inputsize_z//2, 1) + resid_z
+        xx, yy, zz = np.meshgrid(x+x_center, y+y_center, z+z_center)
+        xx, yy, zz = np.meshgrid(x, y, z)
+        r = np.sqrt(xx**2+yy**2+zz**2)
+        r = np.transpose(r, [1, 0, 2]) #???? why that?!
+        
+    return (r)
+
+def rr_freq(inputsize_x=100, inputsize_y=100, inputsize_z=100, x_center=0, y_center = 0, z_center=0):
+    resid_x = resid_y = resid_z = 0
+    if(np.mod(inputsize_x,2)==1):
+        resid_x = 1
+    if(np.mod(inputsize_y,2)==1):
+        resid_y = 1
+    if(np.mod(inputsize_z,2)==1):
+        resid_z = 1        
+        
+    x = (np.arange(-inputsize_x//2,inputsize_x//2+1, 1)+resid_x)/inputsize_x
+    y = (np.arange(-inputsize_y//2,inputsize_y//2+1, 1)+resid_y)/inputsize_y
+    if inputsize_z<=1:
+        xx, yy = np.meshgrid(x+x_center, y+y_center)
+        r = np.sqrt(xx**2+yy**2)
+        r = np.transpose(r, [1, 0]) #???? why that?!
+    else:
+        z = (np.arange(-inputsize_z//2,inputsize_z//2, 1) + resid_z)/inputsize_z
+        xx, yy, zz = np.meshgrid(x+x_center, y+y_center, z+z_center)
+        xx, yy, zz = np.meshgrid(x, y, z)
+        r = np.sqrt(xx**2+yy**2+zz**2)
+        r = np.transpose(r, [1, 0, 2]) #???? why that?!
+        
+    return (r)    
+
+
+
+
+def xx(inputsize_x=128, inputsize_y=128, inputsize_z=1):
+    resid_x = resid_y = resid_z = 0
+    if(np.mod(inputsize_x,2)==1):
+        resid_x = 1
+    if(np.mod(inputsize_y,2)==1):
+        resid_y = 1
+    if(np.mod(inputsize_z,2)==1):
+        resid_z = 1        
+    x = np.arange(-inputsize_x//2,inputsize_x//2+1, 1)+resid_x
+    y = np.arange(-inputsize_y//2,inputsize_y//2+1, 1)+resid_y
+
+    if inputsize_z<=1:
+        xx, yy = np.meshgrid(x, y)
+        xx = np.transpose(xx, [1, 0]) #???? why that?!
+    else:
+        z = np.arange(-inputsize_z/2,inputsize_z/2, 1)
+        xx, yy, zz = np.meshgrid(x, y, z)
+        xx = np.transpose(xx, [1, 0, 2]) #???? why that?!
+    return (xx)
+
+def xx_freq(inputsize_x=128, inputsize_y=128, inputsize_z=1):
+    resid_x = resid_y = resid_z = 0
+    if(np.mod(inputsize_x,2)==1):
+        resid_x = 1
+    if(np.mod(inputsize_y,2)==1):
+        resid_y = 1
+    if(np.mod(inputsize_z,2)==1):
+        resid_z = 1        
+    x = (np.arange(-inputsize_x//2,inputsize_x//2+1, 1)+resid_x)/inputsize_x
+    y = (np.arange(-inputsize_y//2,inputsize_y//2+1, 1)+resid_y)/inputsize_y
+    if inputsize_z<=1:
+        xx, yy = np.meshgrid(x, y)
+        xx = np.transpose(xx, [1, 0]) #???? why that?!
+    else:
+        z = np.arange(-inputsize_z/2,inputsize_z/2, 1)/inputsize_x
+        xx, yy, zz = np.meshgrid(x, y, z)
+        xx = np.transpose(xx, [1, 0, 2]) #???? why that?!
+    return (xx)
+
+def yy(inputsize_x=128, inputsize_y=128, inputsize_z=1):
+    resid_x = resid_y = resid_z = 0
+    if(np.mod(inputsize_x,2)==1):
+        resid_x = 1
+    if(np.mod(inputsize_y,2)==1):
+        resid_y = 1
+    if(np.mod(inputsize_z,2)==1):
+        resid_z = 1        
+    x = np.arange(-inputsize_x//2,inputsize_x//2+1, 1)+resid_x
+    y = np.arange(-inputsize_y//2,inputsize_y//2+1, 1)+resid_y
+
+    if inputsize_z<=1:
+        xx, yy = np.meshgrid(x, y)
+        yy = np.transpose(yy, [1, 0]) #???? why that?!
+    else:
+        z = np.arange(-inputsize_z/2,inputsize_z/2, 1)
+        xx, yy, zz = np.meshgrid(x, y, z)
+        yy = np.transpose(yy, [1, 0, 2]) #???? why that?!
+    return (yy)
+
+def yy_freq(inputsize_x=128, inputsize_y=128, inputsize_z=1):
+    resid_x = resid_y = resid_z = 0
+    if(np.mod(inputsize_x,2)==1):
+        resid_x = 1
+    if(np.mod(inputsize_y,2)==1):
+        resid_y = 1
+    if(np.mod(inputsize_z,2)==1):
+        resid_z = 1        
+    x = (np.arange(-inputsize_x//2,inputsize_x//2+1, 1)+resid_x)/inputsize_x
+    y = (np.arange(-inputsize_y//2,inputsize_y//2+1, 1)+resid_y)/inputsize_y    
+    if inputsize_z<=1:
+        xx, yy = np.meshgrid(x, y)
+        yy = np.transpose(yy, [1, 0]) #???? why that?!
+    else:
+        z = np.arange(-inputsize_z/2,inputsize_z/2, 1)/inputsize_x
+        xx, yy, zz = np.meshgrid(x, y, z)
+        yy = np.transpose(xx, [1, 0, 2]) #???? why that?!
+    return (yy)
+
+def zz(inputsize_x=128, inputsize_y=128, inputsize_z=1):
+    nx = np.arange(-inputsize_x/2,inputsize_x/2, 1)
+    ny = np.arange(-inputsize_y/2,inputsize_y/2, 1)
+    nz = np.arange(-inputsize_z/2,inputsize_z/2, 1)
+    xxr, yyr, zzr = np.meshgrid(nx, ny, nz)
+    zzr = np.transpose(zzr, [1, 0, 2]) #???? why that?!
+    return (zzr)
+
+
+def phiphi(inputsize_x, inputsize_y, inputsize_z):
+    nx = np.linspace(-np.pi, np.pi, inputsize_x)
+    ny = np.linspace(-np.pi, np.pi, inputsize_y)
+    nz = np.linspace(-np.pi, np.pi, inputsize_z)
+    xx, yy, zz = np.meshgrid(nx, ny, nz)
+    phi = np.arctan2(xx, yy)
+    phi = np.transpose(phi, [1, 0, 2]) #???? why that?!
+    
+    theta = np.arcsin(yy/np.sqrt(xx**2+yy**2+zz**2))
+    theta = np.transpose(theta, [1, 0, 2]) #???? why that?!
+    return phi, theta
+
 def binary_activation(x):
 
     cond = tf.less(x, tf.zeros(tf.shape(x)))
@@ -206,8 +355,6 @@ def my_ift3d(tensor):
 
 
 ###### CHRISTIANS STUFF
-    # Copyright Christian Karras
-    
 def ramp(mysize=(256,256), ramp_dim=0, corner='center'):
     '''
     creates a ramp in the given direction direction 
@@ -221,8 +368,8 @@ def ramp(mysize=(256,256), ramp_dim=0, corner='center'):
         positvie : goes from 0 size_x to positive
         int number: is the index where the center is!
     '''
-    
-    if type(mysize)== np.ndarray:
+    from .image import image;
+    if type(mysize)== np.ndarray or type(mysize) == image:
         mysize = mysize.shape;
     
     res = np.ones(mysize);
@@ -231,8 +378,6 @@ def ramp(mysize=(256,256), ramp_dim=0, corner='center'):
         miniramp = np.arange(-mysize[ramp_dim]+1,1,1);
     elif corner == 'positive':
         miniramp = np.arange(0,mysize[ramp_dim],1);
-    elif corner == 'freq':
-        miniramp = np.arange(-mysize[ramp_dim]//2+np.mod(mysize[ramp_dim],2),mysize[ramp_dim]//2+np.mod(mysize[ramp_dim],2),1)/mysize[ramp_dim];
     elif corner == 'center':
         miniramp = np.arange(-mysize[ramp_dim]//2+np.mod(mysize[ramp_dim],2),mysize[ramp_dim]//2+np.mod(mysize[ramp_dim],2),1);
     elif (type(corner) == int or type(corner) == float):
@@ -291,7 +436,7 @@ def zz(mysize = (256,256), mode = 'center'):
     '''
     return(ramp(mysize,2,mode))
 
-def rr(mysize=(256,256), offset = (0,0,0),scale = None, mode='center'):
+def rr(mysize=(256,256), offset = (0,0),scale = None):
     '''
     creates a ramp in r direction 
     standart size is 256 X 256
@@ -301,25 +446,23 @@ def rr(mysize=(256,256), offset = (0,0,0),scale = None, mode='center'):
     '''
     import numbers;
     if offset is None:
-        scale = [0,0,0];
+        scale = [0,0];
     elif isinstance(offset, numbers.Number):
-        offset = [offset];
+        offset = [offset, 0];
     elif type(offset)  == list or type(offset) == tuple:
-        offset = list(offset[0:3]);
+        offset = list(offset[0:2]);
     else:
         raise TypeError('Wrong data type for offset -> must be Number, list, tuple or none')
         
     if scale is None:
-        scale = [1,1,1];
+        scale = [1,1];
     elif isinstance(scale, numbers.Integral):
         scale = [scale, scale];
     elif type(scale)  == list or type(scale) == tuple:
-        scale = list(scale[0:3]);
+        scale = list(scale[0:2]);
     else:
         raise TypeError('Wrong data type for scale -> must be integer, list, tuple or none')
-    return(np.sqrt(((ramp(mysize,0, mode)-offset[0])*scale[0])**2
-                   +((ramp(mysize,1, mode)-offset[1])*scale[1])**2
-                   +((ramp(mysize,2, mode)-offset[2])*scale[2])**2))
+    return(np.sqrt(((ramp(mysize,0,'center')-offset[0])*scale[0])**2+((ramp(mysize,1,'center')-offset[1])*scale[1])**2))
    
 def phiphi(mysize=(256,256), offset = 0, angle_range = 1):
     '''

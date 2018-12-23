@@ -18,8 +18,6 @@ import scipy.misc
 from src import tf_helper as tf_helper
 from src import zernike as zern
 
-
-
 class MuScatModel(object):
     def __init__(self, my_mat_paras, is_optimization = False, is_optimization_psf = False):
 
@@ -113,8 +111,8 @@ class MuScatModel(object):
         
         ## Establish normalized coordinates.
         #-----------------------------------------
-        vxx= tf_helper.xx_freq(self.mysize[1], self.mysize[2]) * self.lambdaM * self.nEmbb / (self.dx * self.NAo);    # normalized optical coordinates in X
-        vyy= tf_helper.yy_freq(self.mysize[1], self.mysize[2]) * self.lambdaM * self.nEmbb / (self.dy * self.NAo);    # normalized optical coordinates in Y
+        vxx= tf_helper.xx((self.mysize[1], self.mysize[2]),'freq')* self.lambdaM * self.nEmbb / (self.dx * self.NAo);    # normalized optical coordinates in X
+        vyy= tf_helper.yy((self.mysize[1], self.mysize[2]),'freq') * self.lambdaM * self.nEmbb / (self.dy * self.NAo);    # normalized optical coordinates in Y
         
         # AbbeLimit=lambda0/NAo;  # Rainer's Method
         # RelFreq = rr(mysize,'freq')*AbbeLimit/dx;  # Is not generally right (dx and dy)
@@ -125,17 +123,16 @@ class MuScatModel(object):
         self.myzernikes = np.zeros((self.Po.shape[0],self.Po.shape[1],self.nzernikes))+ 1j*np.zeros((self.Po.shape[0],self.Po.shape[1],self.nzernikes))
         r, theta = zern.cart2pol(vxx, vyy)        
         for i in range(0,self.nzernikes):
-            self.myzernikes[:,:,i] = zern.zernike(r, theta, i+1, norm=False) # or 8 in X-direction
+            self.myzernikes[:,:,i] = np.fft.fftshift(zern.zernike(r, theta, i+1, norm=False)) # or 8 in X-direction
             
         # eventually introduce a phase factor to approximate the experimental data better
+        self.Po = np.fft.fftshift(self.Po)# Need to shift it before using as a low-pass filter    Po=np.ones((np.shape(Po)))
         if is_zernike:
             print('----------> Be aware: We are taking aberrations into account!')
             # Assuming: System has coma along X-direction
             self.myaberration = np.sum(self.zernikefactors * self.myzernikes, axis=2)
-            self.Po = np.float32(self.Po)*np.exp(1j*self.myaberration)
-        self.Po = np.fft.fftshift(self.Po)# Need to shift it before using as a low-pass filter    Po=np.ones((np.shape(Po)))
+            self.Po = 1.*self.Po
         
-                
         # Prepare the normalized spatial-frequency grid.
         self.S=self.NAc/self.NAo;   # Coherence factor
         self.Ic = self.RelFreq <= self.S
@@ -160,8 +157,8 @@ class MuScatModel(object):
                 self.Ic = np.roll(self.Ic, self.shiftIcY, axis=0)
 
         ## Forward propagator  (Ewald sphere based) DO NOT USE NORMALIZED COORDINATES HERE
-        self.kxysqr= (tf_helper.abssqr(tf_helper.xx_freq(self.mysize[1], self.mysize[2]) / self.dx) + tf_helper.abssqr(
-            tf_helper.yy_freq(self.mysize[1], self.mysize[2]) / self.dy)) + 0j;
+        self.kxysqr= (tf_helper.abssqr(tf_helper.xx((self.mysize[1], self.mysize[2]), 'freq') / self.dx) + tf_helper.abssqr(
+            tf_helper.yy((self.mysize[1], self.mysize[2]), 'freq') / self.dy)) + 0j;
         self.k0=1/self.lambdaM;
         self.kzsqr= tf_helper.abssqr(self.k0) - self.kxysqr;
         self.kz=np.sqrt(self.kzsqr);
@@ -169,8 +166,8 @@ class MuScatModel(object):
         self.dphi = 2*np.pi*self.kz*self.dz;  # exp(1i*kz*dz) would be the propagator for one slice
 
         ## Get a list of vector coordinates corresponding to the pixels in the mask
-        xfreq= tf_helper.xx_freq(self.mysize[1], self.mysize[2]);
-        yfreq= tf_helper.yy_freq(self.mysize[1], self.mysize[2]);
+        xfreq= tf_helper.xx((self.mysize[1], self.mysize[2]),'freq');
+        yfreq= tf_helper.yy((self.mysize[1], self.mysize[2]),'freq');
         self.Nc=np.sum(self.Ic); 
         print('Number of Illumination Angles / Plane waves: '+str(self.Nc))
         
@@ -181,8 +178,8 @@ class MuScatModel(object):
         
         ## Generate the illumination amplitudes
         self.A_input = np.exp((2*np.pi*1j) * (self.kxcoord * tf_helper.repmat4d(
-            tf_helper.xx(self.mysize[1], self.mysize[2]), self.Nc) + self.kycoord * tf_helper.repmat4d(
-            tf_helper.yy(self.mysize[1], self.mysize[2]), self.Nc))) # Corresponds to a plane wave under many oblique illumination angles - bfxfun
+            tf_helper.xx((self.mysize[1], self.mysize[2])), self.Nc) + self.kycoord * tf_helper.repmat4d(
+            tf_helper.yy((self.mysize[1], self.mysize[2])), self.Nc))) # Corresponds to a plane wave under many oblique illumination angles - bfxfun
         
         ## propagate field to z-stack and sum over all illumination angles
         self.Alldphi = -np.reshape(np.arange(0, self.mysize[0], 1), [1, 1, self.mysize[0]])*np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2)
@@ -223,14 +220,15 @@ class MuScatModel(object):
             self.TF_RefrEffect = tf.reshape(tf.constant(RefrEffect, dtype=tf.complex64), [self.Nc, 1, 1])
             self.TF_myprop = tf.squeeze(tf.constant(myprop, dtype=tf.complex64))
             self.TF_Po = tf.cast(tf.constant(self.Po), tf.complex64)
+            self.TF_Zernikes = tf.constant(self.myzernikes, dtype=tf.float32)
             
             if(self.is_optimization_psf):
-                self.TF_zernikefactors = tf.Variable(self.zernikefactors, dtype = tf.float32)
+                self.TF_zernikefactors = tf.Variable(self.zernikefactors, dtype = tf.float32, name='var_zernikes')
             else:
-                self.TF_zernikefactors = tf.constant(self.zernikefactors, dtype = tf.float32)
-            self.TF_Zernikes = tf.cast(tf.constant(self.myzernikes), dtype=tf.complex64)
+                self.TF_zernikefactors = tf.constant(self.zernikefactors, dtype = tf.float32, name='const_zernikes')
+
         # TODO: Introduce the averraged RI along Z - MWeigert
-        TF_zernikefactors_cmplx = tf.cast(self.TF_zernikefactors, tf.complex64)
+
         self.TF_A_prop = tf.squeeze(self.TF_A_input);
         self.U_z_list = []
 
@@ -257,7 +255,7 @@ class MuScatModel(object):
                 # print('Current Z-Slice # is: ' + str(pz))
 
         # in a final step limit this to the detection NA:
-        self.TF_Po_aberr = tf.exp(1j*tf.reduce_sum(TF_zernikefactors_cmplx*self.TF_Zernikes, axis=2)) * self.TF_Po
+        self.TF_Po_aberr = tf.exp(1j*tf.cast(tf.reduce_sum(self.TF_zernikefactors*self.TF_Zernikes, axis=2), tf.complex64)) * self.TF_Po
         self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * self.TF_Po_aberr)
 
         self.TF_myAllSlicePropagator = tf.constant(self.myAllSlicePropagator, dtype=tf.complex64)

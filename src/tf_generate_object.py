@@ -35,22 +35,14 @@ def generateObject(mysize = [100, 100, 100], obj_dim = [0.1, 0.1, 0.1], obj_type
         f - 3D RI distribution
             
     '''
-    
 
-    dx = obj_dim[1]
-    dy = obj_dim[2]
-    dz = obj_dim[0]
-    
     if(obj_type=='sphere'):
         # one spherical object inside a volume
-        xx = tf_helper.xx(mysize[0], mysize[1], mysize[2]) * dx
-        yy = tf_helper.yy(mysize[0], mysize[1], mysize[2]) * dy
-        zz = tf_helper.zz(mysize[0], mysize[1], mysize[2]) * dz
-        obj = (np.sqrt(xx**2+yy**2+zz**2)<diameter)*dn
+        obj = (tf_helper.rr((mysize[0], mysize[1], mysize[2]), mode='center')<diameter)*dn
         
     elif(obj_type == 'twosphere'):
         # two spherical objects inside a volume
-        sphere = dn*(tf_helper.rr(mysize[0], mysize[1], mysize[2], x_center=5, y_center = 0, z_center=10)* obj_dim < diameter)
+        sphere = dn*(tf_helper.rr((mysize[0], mysize[1], mysize[2]))* obj_dim < diameter)
         sphere1 = np.roll(np.roll(np.roll(sphere,5,0),-5,1),5,2);
         sphere2 = np.roll(np.roll(np.roll(sphere,-5,0),-5,1),-5,2);
         obj = sphere1 + sphere2 

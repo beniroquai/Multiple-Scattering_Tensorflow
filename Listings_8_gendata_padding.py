@@ -26,7 +26,7 @@ import src.data as data
 # %matplotlib inline
 
 # Optionally, tweak styles.
-mpl.rc('figure',  figsize=(10, 6))
+#mpl.rc('figure',  figsize=(10, 6))
 mpl.rc('image', cmap='gray')
 
 
@@ -44,8 +44,8 @@ except(FileExistsError):
 is_padding = False
 is_display = True
 is_optimization = True 
-is_optimization_psf = False
-is_flip = False
+is_optimization_psf = True
+
 
 # data files for parameters and measuremets 
 matlab_par_file = './Data/DROPLETS/myParameterNew.mat'   
@@ -69,6 +69,8 @@ muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(m
 muscat.shiftIcY=0
 muscat.shiftIcX=0
 muscat.dn = dn
+muscat.Nx = muscat.Nx
+muscat.Ny = muscat.Ny
 #muscat.NAc =.4
 muscat.dz = muscat.lambda0/4
 print('Attention: Changed Z-sampling!!')
@@ -77,18 +79,16 @@ print('Attention: Changed Z-sampling!!')
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
 
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
-obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=(muscat.dx, muscat.dx, muscat.dx), obj_type ='sphere', diameter = 1, dn = muscat.dn)
+obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=(muscat.dx, muscat.dx, muscat.dx), obj_type ='sphere', diameter = 4, dn = muscat.dn)
+obj = np.roll(np.roll(obj,0,1),-5,2)
+plt.title('My object'), plt.imshow(obj[:,16,:]), plt.colorbar(), plt.show()
 
 # introduce zernike factors here
 muscat.zernikefactors = zernikefactors
 ''' Compute the systems model'''
 muscat.computesys(obj, is_zernike=True, is_padding=is_padding)
 tf_fwd = muscat.computemodel()
-
-if(is_display): 
-    plt.subplot(131), plt.title('Ic'), plt.imshow(muscat.Ic)
-    plt.subplot(132), plt.title('Po'),plt.imshow(np.fft.fftshift(np.abs(muscat.Po))), plt.colorbar()
-    plt.subplot(133), plt.title('Po'),plt.imshow(np.fft.fftshift(np.angle(muscat.Po))), plt.colorbar(), plt.show()
+   
 
 #%% Display the results
 ''' Evaluate the model '''
@@ -97,6 +97,14 @@ sess.run(tf.global_variables_initializer())
 my_fwd, my_res = sess.run([tf_fwd, muscat.TF_obj])
 mysize = my_fwd.shape
 
+'''Display all trainable values'''
+variables_names = [v.name for v in tf.trainable_variables()]
+values = sess.run(variables_names)
+for k, v in zip(variables_names, values):
+    print("Variable: ", k)
+    print("Shape: ", v.shape)
+
+    
 if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(my_fwd))**.2)[:,mysize[1]//2,:]), plt.colorbar(), plt.show()
 if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(my_fwd))**.2)[mysize[0]//2,:,:]), plt.colorbar(), plt.show()    
 if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(my_fwd))**.2)[:,:,mysize[2]//2]), plt.colorbar(), plt.show()    
@@ -114,3 +122,8 @@ if(is_display): plt.subplot(236), plt.title('Angle XY'),plt.imshow(np.angle(my_f
 #%% save the results
 np.save('./Data/DROPLETS/allAmp_simu.npy', my_fwd)
 data.export_realdata_h5(filename = './Data/DROPLETS/allAmp_simu.mat', matname = 'allAmp_red', data=my_fwd)
+
+if(is_display): 
+    plt.subplot(131), plt.title('Ic'), plt.imshow(muscat.Ic)
+    plt.subplot(132), plt.title('Po'),plt.imshow(np.fft.fftshift(np.abs(sess.run(muscat.TF_Po_aberr)))), plt.colorbar()
+    plt.subplot(133), plt.title('Po'),plt.imshow(np.fft.fftshift(np.angle(sess.run(muscat.TF_Po_aberr)))), plt.colorbar(), plt.show()
