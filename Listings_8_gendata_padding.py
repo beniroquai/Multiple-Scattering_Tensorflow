@@ -94,7 +94,7 @@ tf_fwd = muscat.computemodel()
 ''' Evaluate the model '''
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
-my_fwd, my_res = sess.run([tf_fwd, muscat.TF_obj])
+my_fwd, my_res_real, my_res_imag = sess.run([tf_fwd, muscat.TF_obj_real, muscat.TF_obj_imag])
 mysize = my_fwd.shape
 
 '''Display all trainable values'''

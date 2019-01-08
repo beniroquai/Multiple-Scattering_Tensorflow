@@ -58,7 +58,8 @@ class MuScatModel(object):
         
         # create the first guess of the initial obj 
         self.obj = np.ones((self.Nz, self.Nx, self.Ny))
-
+        self.obj = self.obj + 1j*self.obj*0
+        
         # add a vector of zernike factors
         self.nzernikes = 9
         self.zernikefactors = np.zeros((1,self.nzernikes))
@@ -95,19 +96,19 @@ class MuScatModel(object):
             self.obj = obj_tmp
         else:
             self.mysize=np.array((self.Nz, self.Nx, self.Ny))
-            self.obj = obj
+            self.obj = obj + 1j*0*obj
     
             
 
         # Decide whether we wan'T to optimize or simply execute the model
         if (self.is_optimization):
             # in case one wants to use this as a fwd-model for an inverse problem
-            self.TF_obj = tf.Variable(self.obj, dtype=tf.float32, name='Object_Variable')
-
+            self.TF_obj_abs = tf.Variable(np.real(self.obj), dtype=tf.float32, name='Object_Variable_real')
+            self.TF_obj_phase = tf.Variable(np.imag(self.obj), dtype=tf.float32, name='Object_Variable_imag')
         else:
             # Variables of the computational graph
-            self.TF_obj = tf.constant(self.obj, dtype=tf.float32)
-
+            self.TF_obj_abs = tf.constant(np.real(self.obj), dtype=tf.float32, name='Object_const_real')
+            self.TF_obj_phase = tf.constant(np.imag(self.obj), dtype=tf.float32, name='Object_const_imag')
         
         ## Establish normalized coordinates.
         #-----------------------------------------
@@ -245,8 +246,15 @@ class MuScatModel(object):
                 self.tf_iterator += self.tf_iterator
                 #self.TF_A_prop = tf.Print(self.TF_A_prop, [self.tf_iterator], 'Prpagation step: ')
                 with tf.name_scope('Refract'):
-                    self.TF_f = tf.complex(self.TF_obj[pz,:,:], self.TF_obj[pz,:,:] * 0)
-                    self.TF_A_prop = self.TF_A_prop * tf.exp(self.TF_f * self.TF_RefrEffect);  # refraction step - bfxfun
+                    a = tf.cast(self.TF_obj_phase[pz,:,:], tf.complex64)
+                    b = self.TF_RefrEffect
+                    c = tf.cast(self.TF_obj_abs[pz,:,:], tf.complex64)
+                    print(a)
+                    print(b)
+                    print(c)
+                    print(1j)
+                    self.TF_f = c*tf.exp(1j*a*b)
+                    self.TF_A_prop = self.TF_A_prop * self.TF_f  # refraction step - bfxfun
 
                 with tf.name_scope('Propagate'):
                     self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * self.TF_myprop)

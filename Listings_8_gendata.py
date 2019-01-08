@@ -76,7 +76,7 @@ muscat.dz = muscat.lambda0/4
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
 
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
-obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = 1, dn = muscat.dn)
+obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = 5, dn = muscat.dn)
 
 # introduce zernike factors here
 muscat.zernikefactors = np.array((0,0,0,0,0,0,.5,-.5,0))*0
@@ -93,7 +93,7 @@ if(is_display):
 ''' Evaluate the model '''
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
-myfwd, my_res = sess.run([tf_fwd, muscat.TF_obj])
+myfwd, my_res_real, my_res_imag = sess.run([tf_fwd, muscat.TF_obj_real, muscat.TF_obj_imag])
 
 
 if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2)[:,muscat.mysize[1]//2,:]), plt.colorbar(), plt.show()
@@ -113,4 +113,4 @@ if(is_display): plt.subplot(236), plt.title('Angle XY'),plt.imshow(np.angle(myfw
 #%% save the results
 np.save(savepath+'/rec.npy', myfwd)
 
-data.export_realdata_h5(filename = './Data/DROPLETS/allAmp_simu.mat', matname = 'allAmp_red', data=my_res)
+data.export_realdata_h5(filename = './Data/DROPLETS/allAmp_simu.mat', matname = 'allAmp_red', data=myfwd)

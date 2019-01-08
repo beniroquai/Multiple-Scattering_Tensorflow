@@ -9,5 +9,6 @@
 *.pyc
 *.DS_Store
 .idea*
+*.avi 
 
 Data/BEADS/RESULTS/*
