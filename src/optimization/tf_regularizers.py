@@ -553,6 +553,14 @@ def goods_roughness_rainer(im, eps=0.1, step_sizes=(1, 1, 1)):
                          (tf.abs(im[1:-1, 1:-1, 1:-1]) + eps))
 
 
+def RegularizeNegSqr(toRegularize):
+    mySqrt = tf.where( # Just affects the real part
+                    tf.less(toRegularize , tf.zeros_like(toRegularize)),
+                    tf_abssqr(toRegularize), tf.zeros_like(toRegularize))
+    
+    myReg = tf.reduce_sum(mySqrt)
+    return myReg
+
 
 def posiminity(im, minval=0):
     # Clip Values below zero => add to error function
@@ -576,34 +584,7 @@ def gaussivity(im, sigma=0.1, minval=0.1):
     return reg
 
 
-# TODO: main function
-
-
-# %% stuff
-
-#    diff_kernel = [[[ 0, 0, 0], [ 0,-1, 0], [ 0, 0, 0]],
-#                   [[ 0,-1, 0], [-1, 0, 1], [ 0, 1, 0]],
-#                   [[ 0, 0, 0], [ 0, 1, 0], [ 0, 0, 0]]]
-
-#    laplace_kernel = [[[0, 0, 0], [0, 1, 0], [0, 0, 0]],
-#                      [[0, 1, 0], [1, -6, 1], [0, 1, 0]],
-#                      [[0, 0, 0], [0, 1, 0], [0, 0, 0]]]
-
-#    laplace_kernel = np.array(laplace_kernel)
-
-# basic kernel of 1st derivative in 3d
-#                              [[[ 0, 0, 0],
-#                                [ 0,-1, 0],
-#                                [ 0, 0, 0]],
-#                               [[ 0,-1, 0],
-#                                [-1, 0, 1],
-#                                [ 0, 1, 0]],
-#                               [[ 0, 0, 0],
-#                                [ 0, 1, 0],
-#                                [ 0, 0, 0]]]
-    
-
-def tf_total_variation_regularization(toRegularize, BetaVals = [1,1,1], epsR = 1, epsC=1e-10):
+def tf_total_variation_regularization(toRegularize, BetaVals = [1,1,1], epsR = 1, epsC=1e-10, is_circ = True):
     # used rainers version to realize the tv regularizer   
     #% The Regularisation modification with epsR was introduced, according to
     #% Ferreol Soulez et al. "Blind deconvolution of 3D data in wide field fluorescence microscopy
@@ -612,20 +593,26 @@ def tf_total_variation_regularization(toRegularize, BetaVals = [1,1,1], epsR = 1
     #function [myReg,myRegGrad]=RegularizeTV(toRegularize,BetaVals,epsR)
     #epsC=1e-10;
 
+    
+    if(is_circ):
+        aGradL_1 = (toRegularize - tf.roll(toRegularize, 1, 0))/BetaVals[0]
+        aGradL_2 = (toRegularize - tf.roll(toRegularize, 1, 1))/BetaVals[1]
+        aGradL_3 = (toRegularize - tf.roll(toRegularize, 1, 2))/BetaVals[2]
 
-    toRegularize_sub = toRegularize[1:-2,1:-2,1:-2]
-    
-    
-    aGradL_1 = (toRegularize_sub - toRegularize[2:-1,1:-2,1:-2])/BetaVals[0] # cyclic rotation
-    aGradL_2 = (toRegularize_sub - toRegularize[1:-1-1,2:-1,1:-1-1])/BetaVals[1] # cyclic rotation
-    aGradL_3 = (toRegularize_sub - toRegularize[1:-1-1,1:-1-1,2:-1])/BetaVals[2] # cyclic rotation
-    
-    
-    aGradR_1 = (toRegularize_sub - toRegularize[0:-3,1:-2,1:-2])/BetaVals[0] # cyclic rotation
-    aGradR_2 = (toRegularize_sub - toRegularize[1:-2,0:-3,1:-2])/BetaVals[1] # cyclic rotation
-    aGradR_3 = (toRegularize_sub - toRegularize[1:-2,1:-2,0:-3])/BetaVals[2] # cyclic rotation
-    
-    
+        aGradR_1 = (toRegularize - tf.roll(toRegularize, -1, 0))/BetaVals[0]
+        aGradR_2 = (toRegularize - tf.roll(toRegularize, -1, 1))/BetaVals[1]
+        aGradR_3 = (toRegularize - tf.roll(toRegularize, -1, 2))/BetaVals[2]
+        print('We use circular shift for the TV regularizer')
+    else:    
+        toRegularize_sub = toRegularize[1:-2,1:-2,1:-2]
+        aGradL_1 = (toRegularize_sub - toRegularize[2:-1,1:-2,1:-2])/BetaVals[0] # cyclic rotation
+        aGradL_2 = (toRegularize_sub - toRegularize[1:-1-1,2:-1,1:-1-1])/BetaVals[1] # cyclic rotation
+        aGradL_3 = (toRegularize_sub - toRegularize[1:-1-1,1:-1-1,2:-1])/BetaVals[2] # cyclic rotation
+        
+        aGradR_1 = (toRegularize_sub - toRegularize[0:-3,1:-2,1:-2])/BetaVals[0] # cyclic rotation
+        aGradR_2 = (toRegularize_sub - toRegularize[1:-2,0:-3,1:-2])/BetaVals[1] # cyclic rotation
+        aGradR_3 = (toRegularize_sub - toRegularize[1:-2,1:-2,0:-3])/BetaVals[2] # cyclic rotation
+            
     mySqrtL = tf.sqrt(tf_abssqr(aGradL_1)+tf_abssqr(aGradL_2)+tf_abssqr(aGradL_3)+epsR)
     mySqrtR = tf.sqrt(tf_abssqr(aGradR_1)+tf_abssqr(aGradR_2)+tf_abssqr(aGradR_3)+epsR)
      

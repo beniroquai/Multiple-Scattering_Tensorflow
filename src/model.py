@@ -69,7 +69,7 @@ class MuScatModel(object):
         self.lambdaM = self.lambda0/self.nEmbb; # wavelength in the medium
 
     #@define_scope
-    def computesys(self, obj, is_zernike=False, is_padding=False):
+    def computesys(self, obj, is_zernike=False, is_padding=False, is_dropout=False):
         """ This computes the FWD-graph of the Q-PHASE microscope;
         1.) Compute the physical dimensions
         2.) Compute the sampling for the waves
@@ -97,18 +97,21 @@ class MuScatModel(object):
         else:
             self.mysize=np.array((self.Nz, self.Nx, self.Ny))
             self.obj = obj + 1j*0*obj
-    
-            
 
         # Decide whether we wan'T to optimize or simply execute the model
         if (self.is_optimization):
             # in case one wants to use this as a fwd-model for an inverse problem
             self.TF_obj_abs = tf.Variable(np.real(self.obj), dtype=tf.float32, name='Object_Variable_real')
             self.TF_obj_phase = tf.Variable(np.imag(self.obj), dtype=tf.float32, name='Object_Variable_imag')
+
+            # eventually apply dropout 
+            if(is_dropout):
+                self.TF_obj_abs_do = tf.nn.dropout(self.TF_obj_abs, keep_prob = .999)
+                self.TF_obj_phase_do = tf.nn.dropout(self.TF_obj_phase, keep_prob = .999)
         else:
             # Variables of the computational graph
-            self.TF_obj_abs = tf.constant(np.real(self.obj), dtype=tf.float32, name='Object_const_real')
-            self.TF_obj_phase = tf.constant(np.imag(self.obj), dtype=tf.float32, name='Object_const_imag')
+            self.TF_obj_abs_do = tf.constant(np.real(self.obj), dtype=tf.float32, name='Object_const_real')
+            self.TF_obj_phase_do = tf.constant(np.imag(self.obj), dtype=tf.float32, name='Object_const_imag')
         
         ## Establish normalized coordinates.
         #-----------------------------------------
@@ -246,13 +249,9 @@ class MuScatModel(object):
                 self.tf_iterator += self.tf_iterator
                 #self.TF_A_prop = tf.Print(self.TF_A_prop, [self.tf_iterator], 'Prpagation step: ')
                 with tf.name_scope('Refract'):
-                    a = tf.cast(self.TF_obj_phase[pz,:,:], tf.complex64)
+                    a = tf.cast(self.TF_obj_phase_do[pz,:,:], tf.complex64)
                     b = self.TF_RefrEffect
-                    c = tf.cast(self.TF_obj_abs[pz,:,:], tf.complex64)
-                    print(a)
-                    print(b)
-                    print(c)
-                    print(1j)
+                    c = tf.cast(self.TF_obj_abs_do[pz,:,:], tf.complex64)
                     self.TF_f = c*tf.exp(1j*a*b)
                     self.TF_A_prop = self.TF_A_prop * self.TF_f  # refraction step - bfxfun
 
