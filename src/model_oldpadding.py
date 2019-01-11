@@ -245,7 +245,6 @@ class MuScatModel(object):
         self.TF_allSumAmp = tf.zeros([self.mysize[0], self.Nx, self.Ny], dtype=tf.complex64)
         self.TF_allSumInt = tf.zeros([self.mysize[0], self.Nx, self.Ny], dtype=tf.float32)
 
-
         self.tf_iterator = tf.Variable(1)
         # simulate multiple scattering through object
         with tf.name_scope('Fwd_Propagate'):
@@ -258,8 +257,7 @@ class MuScatModel(object):
                     self.TF_A_prop = self.TF_A_prop * self.TF_f  # refraction step
 
                 with tf.name_scope('Propagate'):
-                    if(True):
-                        self.TF_A_prop = self.tf_convft_prop(self.TF_A_prop, self.TF_myprop)
+                    self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * self.TF_myprop) # diffraction step
 
         # in a final step limit this to the detection NA:
         self.TF_Po_aberr = tf.exp(1j*tf.cast(tf.reduce_sum(self.TF_zernikefactors*self.TF_Zernikes, axis=2), tf.complex64)) * self.TF_Po
@@ -350,25 +348,3 @@ class MuScatModel(object):
         self.writer = tf.summary.FileWriter(logs_path, graph=tf.get_default_graph())
        
         
-    def tf_convft_prop(self, tf_slice, tf_propagator):
-        # calculate the padding - in this case half of the #pixel
-        padsize_x = self.mysize[1]//2
-        padsize_y = self.mysize[2]//2
-        TF_paddings = tf.constant([[0, 0], [padsize_x, padsize_x], [padsize_y, padsize_y]]) # should we pad at the edges?!
-
-        sess = tf.InteractiveSession()
-#        plt.imshow(np.angle(sess.run(tf_slice))[1,:,:]), plt.show()        
-        
-        # pad the tensors
-        tf_propagator = tf_helper.fftshift2d(tf_propagator)
-        tf_slice = tf.pad(tf_slice, TF_paddings, "CONSTANT")                           
-        tf_propagator = tf.pad(tf_propagator, TF_paddings, "CONSTANT")
-        
-#        plt.imshow(np.angle(sess.run(tf_slice))[1,:,:]), plt.show()
-#        plt.imshow(np.angle(sess.run(tf_propagator))[1,:,:]), plt.show()
-
-        tensor_out = tf_helper.my_ift2d(tf_helper.my_ft2d(tf_slice) * tf_propagator) # diffraction step
-        #plt.imshow(np.angle(sess.run(tf_helper.my_ft2d(tf_slice)))[1,:,:]), plt.show()        
-        tensor_out = tensor_out[:,self.mysize[1]-padsize_x:self.mysize[1]+padsize_x, self.mysize[2]-padsize_y:self.mysize[2]+padsize_y] 
-        #plt.imshow(np.angle(sess.run(tensor_out))[1,:,:]), plt.show()        
-        return tensor_out
