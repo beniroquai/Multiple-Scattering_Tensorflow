@@ -88,8 +88,8 @@ class MuScatModel(object):
             self.Ny=self.Ny*2
             self.mysize=np.array((self.Nz, self.Nx, self.Ny))
             self.obj = obj
-            #self.dx=self.dx
-            #self.dy=self.dy
+            self.dx=self.dx
+            self.dy=self.dy
 
         else:
             self.mysize=np.array((self.Nz, self.Nx, self.Ny))
@@ -143,7 +143,11 @@ class MuScatModel(object):
         # Prepare the normalized spatial-frequency grid.
         self.S = self.NAc/self.NAo;   # Coherence factor
         self.Ic = self.RelFreq <= self.S
-        #self.Ic = np.roll(self.Ic, -1, 1)
+        myIntensityFactor = 70
+        self.Ic_map = np.cos((myIntensityFactor *tf_helper.xx((self.Nx, self.Ny), mode='freq')**2+myIntensityFactor *tf_helper.yy((self.Nx, self.Ny), mode='freq')**2))**2 
+        self.Ic = self.Ic * self.Ic_map # weight the intensity in the condenser aperture, unlikely to be uniform
+        print('We are weighing the Intensity int the illu-pupil!')
+
         if hasattr(self, 'NAci'):
             if self.NAci != None and self.NAci > 0:
                 #print('I detected a darkfield illumination aperture!')
@@ -175,16 +179,17 @@ class MuScatModel(object):
         ## Get a list of vector coordinates corresponding to the pixels in the mask
         xfreq= tf_helper.xx((self.mysize[1], self.mysize[2]),'freq');
         yfreq= tf_helper.yy((self.mysize[1], self.mysize[2]),'freq');
-        self.Nc=np.sum(self.Ic); 
+        self.Nc=np.sum(self.Ic>0); 
         print('Number of Illumination Angles / Plane waves: '+str(self.Nc))
         
         # Calculate the computatonal grid/sampling
-        self.kxcoord = np.reshape(xfreq[self.Ic],[1, 1, 1, self.Nc]);    # NA-positions in condenser aperture plane in x-direction
-        self.kycoord = np.reshape(yfreq[self.Ic],[1, 1, 1, self.Nc]);    # NA-positions in condenser aperture plane in y-direction
-        self.RefrCos = np.reshape(self.k0/self.kz[self.Ic],[1, 1, 1, self.Nc]);   # 1/cosine used for the application of the refractive index steps to acount for longer OPD in medium under an oblique illumination angle
+        self.kxcoord = np.reshape(xfreq[self.Ic>0],[1, 1, 1, self.Nc]);    # NA-positions in condenser aperture plane in x-direction
+        self.kycoord = np.reshape(yfreq[self.Ic>0],[1, 1, 1, self.Nc]);    # NA-positions in condenser aperture plane in y-direction
+        self.RefrCos = np.reshape(self.k0/self.kz[self.Ic>0],[1, 1, 1, self.Nc]);   # 1/cosine used for the application of the refractive index steps to acount for longer OPD in medium under an oblique illumination angle
         
         ## Generate the illumination amplitudes
-        self.A_input = np.exp((2*np.pi*1j) * 
+        self.intensityweights = self.Ic[self.Ic>0]
+        self.A_input = self.intensityweights *np.exp((2*np.pi*1j) * 
             (self.kxcoord * tf_helper.repmat4d(tf_helper.xx((self.mysize[1], self.mysize[2])), self.Nc) 
            + self.kycoord * tf_helper.repmat4d(tf_helper.yy((self.mysize[1], self.mysize[2])), self.Nc))) # Corresponds to a plane wave under many oblique illumination angles - bfxfun
         
@@ -243,8 +248,6 @@ class MuScatModel(object):
         self.allInt = 0;
         self.allSumAmp = 0;
         self.TF_allSumAmp = tf.zeros([self.mysize[0], self.Nx, self.Ny], dtype=tf.complex64)
-        self.TF_allSumInt = tf.zeros([self.mysize[0], self.Nx, self.Ny], dtype=tf.float32)
-
 
         self.tf_iterator = tf.Variable(1)
         # simulate multiple scattering through object
@@ -258,15 +261,19 @@ class MuScatModel(object):
                     self.TF_A_prop = self.TF_A_prop * self.TF_f  # refraction step
 
                 with tf.name_scope('Propagate'):
-                    if(True):
-                        self.TF_A_prop = self.tf_convft_prop(self.TF_A_prop, self.TF_myprop)
+                    self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * self.TF_myprop) # diffraction step
 
+        # Bring the slice back to focus - does this make any sense?! 
+        if(True):
+            print('----------> Bringing back Field to focus')
+            self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * (-self.Nz/2*self.dz*self.TF_myprop)) # diffraction step
+        
         # in a final step limit this to the detection NA:
         self.TF_Po_aberr = tf.exp(1j*tf.cast(tf.reduce_sum(self.TF_zernikefactors*self.TF_Zernikes, axis=2), tf.complex64)) * self.TF_Po
         self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * self.TF_Po_aberr)
 
         self.TF_myAllSlicePropagator = tf.constant(self.myAllSlicePropagator, dtype=tf.complex64)
-        self.kzcoord = np.reshape(self.kz[self.Ic], [1, 1, 1, self.Nc]);
+        self.kzcoord = np.reshape(self.kz[self.Ic>0], [1, 1, 1, self.Nc]);
 
         # create Z-Stack by backpropagating Information in BFP to Z-Position
         # self.mid3D = ([np.int(np.ceil(self.A_input.shape[0] / 2) + 1), np.int(np.ceil(self.A_input.shape[1] / 2) + 1), np.int(np.ceil(self.mysize[0] / 2) + 1)])
@@ -300,14 +307,23 @@ class MuScatModel(object):
 
                     # print(tf.exp(-1j*tf.cast(angle(TF_allAmp[self.mid3D[2], self.mid3D[0], self.mid3D[2]]), tf.complex64)).eval())
 
-                    with tf.name_scope('Sum_Amps'):
-                        self.TF_allSumAmp = self.TF_allSumAmp + self.TF_allAmp;  # Superpose the Amplitudes
-                        self.TF_allSumInt = self.TF_allSumInt + tf_helper.tf_abssqr(self.TF_allAmp)
-
+                    with tf.name_scope('Sum_Amps'): # Normalize amplitude by condenser intensity
+                        self.TF_allSumAmp = self.TF_allSumAmp + self.TF_allAmp #/ self.intensityweights[pillu];  # Superpose the Amplitudes
                     # print('Current illumination angle # is: ' + str(pillu))
 
-        # Normalize amplitude
-        self.TF_allSumAmp = self.TF_allSumAmp / self.Nc  # tf.reduce_max(TF_allSumAmp)
+
+        # Normalize the image such that the values do not depend on the fineness of
+        # the source grid.
+        self.TF_allSumAmp = self.TF_allSumAmp/tf.cast(tf.reduce_max(tf.abs(self.TF_allSumAmp)), tf.complex64)#self.Nc
+        
+        # Following is the normalization according to Martin's book. It ensures
+        # that a transparent specimen is imaged with unit intensity.
+        # normfactor=abs(Po).^2.*abs(Ic); We do not use it, because it leads to
+        # divide by zero for dark-field system. Instead, through normalizations
+        # perfomed above, we ensure that image of a point under matched
+        # illumination is unity. The brightness of all the other configurations is
+        # relative to this benchmark.
+        #         
 
         # negate padding        
         if self.is_padding:
@@ -350,25 +366,3 @@ class MuScatModel(object):
         self.writer = tf.summary.FileWriter(logs_path, graph=tf.get_default_graph())
        
         
-    def tf_convft_prop(self, tf_slice, tf_propagator):
-        # calculate the padding - in this case half of the #pixel
-        padsize_x = self.mysize[1]//2
-        padsize_y = self.mysize[2]//2
-        TF_paddings = tf.constant([[0, 0], [padsize_x, padsize_x], [padsize_y, padsize_y]]) # should we pad at the edges?!
-
-        sess = tf.InteractiveSession()
-#        plt.imshow(np.angle(sess.run(tf_slice))[1,:,:]), plt.show()        
-        
-        # pad the tensors
-        tf_propagator = tf_helper.fftshift2d(tf_propagator)
-        tf_slice = tf.pad(tf_slice, TF_paddings, "CONSTANT")                           
-        tf_propagator = tf.pad(tf_propagator, TF_paddings, "CONSTANT")
-        
-#        plt.imshow(np.angle(sess.run(tf_slice))[1,:,:]), plt.show()
-#        plt.imshow(np.angle(sess.run(tf_propagator))[1,:,:]), plt.show()
-
-        tensor_out = tf_helper.my_ift2d(tf_helper.my_ft2d(tf_slice) * tf_propagator) # diffraction step
-        #plt.imshow(np.angle(sess.run(tf_helper.my_ft2d(tf_slice)))[1,:,:]), plt.show()        
-        tensor_out = tensor_out[:,self.mysize[1]-padsize_x:self.mysize[1]+padsize_x, self.mysize[2]-padsize_y:self.mysize[2]+padsize_y] 
-        #plt.imshow(np.angle(sess.run(tensor_out))[1,:,:]), plt.show()        
-        return tensor_out

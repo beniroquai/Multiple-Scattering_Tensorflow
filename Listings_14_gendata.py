@@ -8,7 +8,7 @@ Created on Sat Jun 10 19:53:32 2017
 This file creates a fwd-model for the TESCAN Q-PHASE under 
 multiple-scattering. It is majorly derived from  "LEarning approach for optical tomography"
 U. S. Kamilov, BIG, EPFL, 2014.
-"""
+    """
 # %load_ext autoreload
 import tensorflow as tf
 import numpy as np
@@ -42,7 +42,7 @@ except(FileExistsError):
     print('Folder exists already')
 
 # Define parameters 
-is_padding = False
+is_padding = False # better don't do it! 
 is_display = True
 is_optimization = False 
 is_optimization_psf = False
@@ -66,7 +66,7 @@ muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(m
 muscat.shiftIcY=0
 muscat.shiftIcX=0
 muscat.dn = .075
-muscat.NAc = .3
+muscat.NAc = .52
 muscat.dz = muscat.lambda0/4
 ''' Adjust some parameters to fit it in the memory '''
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
@@ -76,12 +76,13 @@ obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='t
 
 # introduce zernike factors here
 muscat.zernikefactors = np.array((0,0,0,0,0,0,.5,-.5,0))*0
+    
 ''' Compute the systems model'''
 muscat.computesys(obj, is_zernike=True, is_padding=is_padding)
 tf_fwd = muscat.computemodel()
 
 if(is_display): 
-    plt.subplot(131), plt.title('Ic'), plt.imshow(muscat.Ic)
+    plt.subplot(131), plt.title('Ic'), plt.imshow(muscat.Ic), plt.colorbar()
     plt.subplot(132), plt.title('Po'),plt.imshow(np.fft.fftshift(np.abs(muscat.Po))), plt.colorbar()
     plt.subplot(133), plt.title('Po'),plt.imshow(np.fft.fftshift(np.angle(muscat.Po))), plt.colorbar(), plt.show()
 

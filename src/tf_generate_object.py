@@ -44,7 +44,7 @@ def generateObject(mysize = [100, 100, 100], obj_dim = [0.1, 0.1, 0.1], obj_type
         # two spherical objects inside a volume
         sphere = dn*(tf_helper.rr((mysize[0], mysize[1], mysize[2]))* obj_dim < diameter)
         sphere1 = np.roll(np.roll(np.roll(sphere,5,0),-5,1),5,2);
-        sphere2 = np.roll(np.roll(np.roll(sphere,-5,0),-5,1),-5,2);
+        sphere2 = np.roll(np.roll(np.roll(sphere,-5,0),5,1),-5,2);
         obj = sphere1 + sphere2 
     elif(obj_type == 'eigtsphere'):
         # two spherical objects inside a volume
