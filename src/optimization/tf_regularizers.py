@@ -24,6 +24,26 @@ from warnings import warn
 def tf_abssqr(inputar):
     return tf.real(inputar*tf.conj(inputar))
 
+
+# %% sparsity penalty
+
+def l1_reg(im):
+    # ready for 3D!
+    """
+    aka sparsity penalty
+
+    Args:
+        im (tf-tensor, 2d): image
+
+    Returns:
+        l1_regularization (float, 1d):  sum of absolute differences of pixel values
+    """
+    # Can also be used in case some values become negative.
+    # then increase values and add intensity penalty
+    # in other case:  spread out values?
+    return tf.reduce_sum(tf.abs(im))
+
+
 # %% intesity penalty
 
 def l2_reg(im):

@@ -65,7 +65,7 @@ class MuScatModel(object):
         # kamilov uses 420 z-planes with an overall size of 30µm; dx=72nm
 
         # refractive index immersion and embedding
-        self.lambdaM = self.lambda0/self.nEmbb; # wavelength in the medium
+             = self.lambda0/self.nEmbb; # wavelength in the medium
 
     #@define_scope
     def computesys(self, obj, is_zernike=False, is_padding=False, dropout_prob=1):
@@ -130,10 +130,10 @@ class MuScatModel(object):
         self.myzernikes = np.zeros((self.Po.shape[0],self.Po.shape[1],self.nzernikes))+ 1j*np.zeros((self.Po.shape[0],self.Po.shape[1],self.nzernikes))
         r, theta = zern.cart2pol(vxx, vyy)        
         for i in range(0,self.nzernikes):
-            self.myzernikes[:,:,i] = np.fft.fftshift(zern.zernike(r, theta, i+1, norm=False)) # or 8 in X-direction
+            self.myzernikes[:,:,i] = np.fft.ifftshift(zern.zernike(r, theta, i+1, norm=False)) # or 8 in X-direction
             
         # eventually introduce a phase factor to approximate the experimental data better
-        self.Po = np.fft.fftshift(self.Po)# Need to shift it before using as a low-pass filter    Po=np.ones((np.shape(Po)))
+        self.Po = np.fft.ifftshift(self.Po)# Need to shift it before using as a low-pass filter    Po=np.ones((np.shape(Po)))
         if is_zernike:
             print('----------> Be aware: We are taking aberrations into account!')
             # Assuming: System has coma along X-direction
@@ -264,9 +264,8 @@ class MuScatModel(object):
                     self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * self.TF_myprop) # diffraction step
 
         # Bring the slice back to focus - does this make any sense?! 
-        if(True):
-            print('----------> Bringing back Field to focus')
-            self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * (-self.Nz/2*self.dz*self.TF_myprop)) # diffraction step
+        print('----------> Bringing field back to focus')
+        self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * (-self.Nz/2*self.TF_myprop)) # diffraction step
         
         # in a final step limit this to the detection NA:
         self.TF_Po_aberr = tf.exp(1j*tf.cast(tf.reduce_sum(self.TF_zernikefactors*self.TF_Zernikes, axis=2), tf.complex64)) * self.TF_Po
@@ -284,7 +283,7 @@ class MuScatModel(object):
                 with tf.name_scope('Back_Propagate_Step'):
                     with tf.name_scope('Adjust'):
                         #    fprintf('BackpropaAngle no: #d\n',pillu);
-                        OneAmp = tf.expand_dims(self.TF_A_prop[pillu, :, :, ], 0)
+                        OneAmp = tf.expand_dims(self.TF_A_prop[pillu, :, :], 0)
 
                         # Fancy backpropagation assuming what would be measured if the sample was moved under oblique illumination:
                         # The trick is: First use conceptually the normal way
@@ -301,11 +300,9 @@ class MuScatModel(object):
                         with tf.name_scope('Propagate'):
                             self.TF_allAmp_3dft = tf.fft3d(tf.expand_dims(self.TF_allAmp, axis=0))
                             self.TF_allAmp = self.TF_allAmp * tf.exp(-1j * tf.cast(
-                                tf_helper.tf_angle(self.TF_allAmp_3dft[self.mid3D[2], self.mid3D[1], self.mid3D[0]]),
+                                tf.angle(self.TF_allAmp_3dft[self.mid3D[2], self.mid3D[1], self.mid3D[0]]),
                                 tf.complex64));  # Global Phases need to be adjusted at this step!  Use the zero frequency
-
-
-                    # print(tf.exp(-1j*tf.cast(angle(TF_allAmp[self.mid3D[2], self.mid3D[0], self.mid3D[2]]), tf.complex64)).eval())
+                    #print('Global phase: '+str(tf.exp(1j*tf.cast(tf.angle(self.TF_allAmp[self.mid3D[0],self.mid3D[1],self.mid3D[2]]), tf.complex64).eval()))
 
                     with tf.name_scope('Sum_Amps'): # Normalize amplitude by condenser intensity
                         self.TF_allSumAmp = self.TF_allSumAmp + self.TF_allAmp #/ self.intensityweights[pillu];  # Superpose the Amplitudes
@@ -314,7 +311,7 @@ class MuScatModel(object):
 
         # Normalize the image such that the values do not depend on the fineness of
         # the source grid.
-        self.TF_allSumAmp = self.TF_allSumAmp/tf.cast(tf.reduce_max(tf.abs(self.TF_allSumAmp)), tf.complex64)#self.Nc
+        self.TF_allSumAmp = self.TF_allSumAmp/self.Nc #/tf.cast(tf.reduce_max(tf.abs(self.TF_allSumAmp)), tf.complex64)
         
         # Following is the normalization according to Martin's book. It ensures
         # that a transparent specimen is imaged with unit intensity.

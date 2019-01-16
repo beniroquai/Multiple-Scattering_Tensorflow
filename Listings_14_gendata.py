@@ -63,11 +63,12 @@ print('do we need to flip the data?! -> Observe FFT!!')
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization, is_optimization_psf = is_optimization_psf)
 muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(matlab_pars['Ny'].value))
-muscat.shiftIcY=0
-muscat.shiftIcX=0
-muscat.dn = .075
+muscat.shiftIcY=-1
+muscat.shiftIcX=-1
+muscat.dn = .05
 muscat.NAc = .52
-muscat.dz = muscat.lambda0/4
+#muscat.dz = muscat.lambda0/4
+
 ''' Adjust some parameters to fit it in the memory '''
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
 
@@ -75,16 +76,16 @@ muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny
 obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='twosphere', diameter = 1, dn = muscat.dn)
 
 # introduce zernike factors here
-muscat.zernikefactors = np.array((0,0,0,0,0,0,.5,-.5,0))*0
+muscat.zernikefactors = np.array((0,0,0,0,0,0,.0,-.0,0))
     
 ''' Compute the systems model'''
 muscat.computesys(obj, is_zernike=True, is_padding=is_padding)
 tf_fwd = muscat.computemodel()
 
 if(is_display): 
-    plt.subplot(131), plt.title('Ic'), plt.imshow(muscat.Ic), plt.colorbar()
+    plt.subplot(131), plt.title('Ic'),plt.imshow(muscat.Ic), plt.colorbar()
     plt.subplot(132), plt.title('Po'),plt.imshow(np.fft.fftshift(np.abs(muscat.Po))), plt.colorbar()
-    plt.subplot(133), plt.title('Po'),plt.imshow(np.fft.fftshift(np.angle(muscat.Po))), plt.colorbar(), plt.show()
+    plt.subplot(133), plt.title('Po'),plt.imshow(np.fft.fftshift(np.abs(muscat.myaberration))), plt.colorbar(), plt.show()
 
 #%% Display the results
 ''' Evaluate the model '''
@@ -93,10 +94,14 @@ sess.run(tf.global_variables_initializer())
 myfwd  = sess.run(tf_fwd)
 
 # display the results
+if(is_display): plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(obj)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+if(is_display): plt.subplot(232), plt.title('ABS YZ'),plt.imshow(np.abs(obj)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+if(is_display): plt.subplot(233), plt.title('ABS XY'),plt.imshow(np.abs(obj)[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+
 if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2)[:,myfwd.shape[1]//2,:]), plt.colorbar(), plt.show()
 if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2)[myfwd.shape[0]//2,:,:]), plt.colorbar(), plt.show()    
 if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2)[:,:,myfwd.shape[2]//2]), plt.colorbar(), plt.show()    
-
+if(is_display): plt.imshow(np.sum(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2),0)), plt.colorbar(), plt.show()    
 
 if(is_display): plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
 if(is_display): plt.subplot(232), plt.title('ABS XZ'),plt.imshow(np.abs(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
