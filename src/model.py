@@ -103,8 +103,12 @@ class MuScatModel(object):
                 obj_tmp = np.zeros(self.mysize)# + 1j*np.zeros(muscat.mysize)
                 obj_tmp[:,self.Nx//2-self.Nx//4:self.Nx//2+self.Nx//4, self.Ny//2-self.Ny//4:self.Ny//2+self.Ny//4] = self.obj
                 self.obj = obj_tmp
-            # in case one wants to use this as a fwd-model for an inverse problem
-            self.TF_obj = tf.Variable(self.obj, dtype=tf.float32, name='Object_Variable')
+            # in case one wants to use this as a fwd-model for an inverse problem            
+            if np.sum(1*(np.iscomplex(self.obj))) > 0:#isinstance(self.obj, complex):isinstance(self.obj, complex):
+                self.TF_obj = tf.Variable(np.real(self.obj), dtype=tf.float32, name='Object_Variable')
+                self.TF_obj_absorption = tf.Variable(np.imag(self.obj), dtype=tf.float32, name='Object_Variable')                
+            else:
+                self.TF_obj = tf.Variable(self.obj, dtype=tf.float32, name='Object_Variable')
             
 
         else:
@@ -114,7 +118,13 @@ class MuScatModel(object):
                 obj_tmp = np.zeros(self.mysize)# + 1j*np.zeros(muscat.mysize)
                 obj_tmp[:,self.Nx//2-self.Nx//4:self.Nx//2+self.Nx//4, self.Ny//2-self.Ny//4:self.Ny//2+self.Ny//4] = self.obj
                 self.obj = obj_tmp
-            self.TF_obj = tf.constant(self.obj, dtype=tf.float32, name='Object_const')
+            
+            if np.sum(1*(np.iscomplex(self.obj))) > 0:#isinstance(self.obj, complex):isinstance(self.obj, complex):
+                self.TF_obj = tf.constant(self.obj, dtype=tf.float32, name='Object_const')
+                self.TF_obj_absorption = tf.constant(np.imag(self.obj), dtype=tf.float32, name='Object_const')
+            else:
+                self.TF_obj = tf.constant(np.real(self.obj), dtype=tf.float32, name='Object_const')
+                
 
         
         ## Establish normalized coordinates.
@@ -262,7 +272,10 @@ class MuScatModel(object):
             for pz in range(0, self.mysize[0]):
                 #self.TF_A_prop = tf.Print(self.TF_A_prop, [self.tf_iterator], 'Prpagation step: ')
                 with tf.name_scope('Refract'):
-                    self.TF_f = tf.exp(1j*self.TF_RefrEffect*tf.cast(self.TF_obj[pz,:,:], tf.complex64))
+                    if np.sum(1*(np.iscomplex(self.obj))) > 0:#isinstance(self.obj, complex):
+                        self.TF_f = tf.exp(1j*self.TF_RefrEffect*tf.complex(self.TF_obj[pz,:,:], self.TF_obj_absorption[pz,:,:]))
+                    else:
+                        self.TF_f = tf.exp(1j*self.TF_RefrEffect*tf.cast(self.TF_obj[pz,:,:], tf.complex64))
                     self.TF_A_prop = self.TF_A_prop * self.TF_f  # refraction step
 
                 with tf.name_scope('Propagate'):

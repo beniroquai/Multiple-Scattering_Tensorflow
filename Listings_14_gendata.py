@@ -63,23 +63,26 @@ print('do we need to flip the data?! -> Observe FFT!!')
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization, is_optimization_psf = is_optimization_psf)
 muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(matlab_pars['Ny'].value))
-muscat.shiftIcY=-0
-muscat.shiftIcX=-0
+muscat.shiftIcY=-1
+muscat.shiftIcX=-1
 muscat.dn = .05
-muscat.NAc = .3
+muscat.NAc = .52
 muscat.dz = muscat.lambda0/4
 
 ''' Adjust some parameters to fit it in the memory '''
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
 
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
-obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='twosphere', diameter = 1, dn = muscat.dn)
-
+obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = 10, dn = .5)
+obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = 10, dn = 1)
+obj = obj+1j*obj_absorption*.2
+obj = np.load('my_res_cmplx.npy')
 # introduce zernike factors here
-muscat.zernikefactors = np.array((0,0,0,0,0,0,.0,-.0,0))
+muscat.zernikefactors = np.array((0,0,0,0,0,0,.5,-.5,0))
     
 ''' Compute the systems model'''
 muscat.computesys(obj, is_zernike=True, is_padding=is_padding)
+#muscat.A_input = muscat.A_input*np.exp(1j*np.random.rand(muscat.A_input.shape[3])*2*np.pi)
 tf_fwd = muscat.computemodel()
 
 #%% Display the results
