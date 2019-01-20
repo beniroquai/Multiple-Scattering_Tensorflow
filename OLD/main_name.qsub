@@ -1,0 +1,50 @@
+#!/bin/bash -l
+
+
+
+
+
+# Specify the project name
+#$-P cislidt
+
+
+
+# Specify the time limit
+#$-l h_rt=24:00:00
+
+# Job Name
+#$-N big
+
+# Send email at the end of the job
+#$-m e
+
+# Join error and output streams
+#$-j y
+
+# Output can be appended to the log file
+#$-o log_file
+
+# Specify the number of cores
+#$-pe omp 1
+
+#Specify the number of GPUs (1 is recommended!)
+#$-l gpus=1
+
+#Specify the minimum gpu capability
+#$-l gpu_c=6.0
+
+#Specify GPU type
+#$-l gpu_type=P100
+
+
+#Load modules:
+module load python/3.6.2
+module load cuda/8.0
+module load cudnn/6.0
+module load tensorflow/r1.4
+module load hdf5
+
+
+
+#Run the program
+python Listings_8_recondata_padding.py 

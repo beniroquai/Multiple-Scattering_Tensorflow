@@ -42,7 +42,7 @@ except(FileExistsError):
     print('Folder exists already')
 
 # Define parameters 
-is_padding = False # better don't do it! 
+is_padding = False # better don't do it, some normalization is probably incorrect
 is_display = True
 is_optimization = False 
 is_optimization_psf = False
@@ -54,7 +54,7 @@ tf.reset_default_graph()
 
 ''' File which stores the experimental parameters from the Q-PHASE setup 
     1.) Read in the parameters of the dataset ''' 
-matlab_par_file = './Data/DROPLETS/myParameterNew.mat'   
+matlab_par_file = './Data/DROPLETS/myParameterNew.mat'    #'./Data/DROPLETS/myParameterNew.mat'   
 matlab_pars = data.import_parameters_mat(filename = matlab_par_file, matname='myParameterNew')
 
 
@@ -63,11 +63,11 @@ print('do we need to flip the data?! -> Observe FFT!!')
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization, is_optimization_psf = is_optimization_psf)
 muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(matlab_pars['Ny'].value))
-muscat.shiftIcY=-1
-muscat.shiftIcX=-1
+muscat.shiftIcY=-0
+muscat.shiftIcX=-0
 muscat.dn = .05
-muscat.NAc = .52
-#muscat.dz = muscat.lambda0/4
+muscat.NAc = .3
+muscat.dz = muscat.lambda0/4
 
 ''' Adjust some parameters to fit it in the memory '''
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
@@ -82,11 +82,6 @@ muscat.zernikefactors = np.array((0,0,0,0,0,0,.0,-.0,0))
 muscat.computesys(obj, is_zernike=True, is_padding=is_padding)
 tf_fwd = muscat.computemodel()
 
-if(is_display): 
-    plt.subplot(131), plt.title('Ic'),plt.imshow(muscat.Ic), plt.colorbar()
-    plt.subplot(132), plt.title('Po'),plt.imshow(np.fft.fftshift(np.abs(muscat.Po))), plt.colorbar()
-    plt.subplot(133), plt.title('Po'),plt.imshow(np.fft.fftshift(np.abs(muscat.myaberration))), plt.colorbar(), plt.show()
-
 #%% Display the results
 ''' Evaluate the model '''
 sess = tf.Session()
@@ -94,22 +89,23 @@ sess.run(tf.global_variables_initializer())
 myfwd  = sess.run(tf_fwd)
 
 # display the results
-if(is_display): plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(obj)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
-if(is_display): plt.subplot(232), plt.title('ABS YZ'),plt.imshow(np.abs(obj)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-if(is_display): plt.subplot(233), plt.title('ABS XY'),plt.imshow(np.abs(obj)[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
-
-if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2)[:,myfwd.shape[1]//2,:]), plt.colorbar(), plt.show()
-if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2)[myfwd.shape[0]//2,:,:]), plt.colorbar(), plt.show()    
-if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2)[:,:,myfwd.shape[2]//2]), plt.colorbar(), plt.show()    
-if(is_display): plt.imshow(np.sum(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2),0)), plt.colorbar(), plt.show()    
+if(0):
+    if(is_display): plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(obj)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+    if(is_display): plt.subplot(232), plt.title('ABS YZ'),plt.imshow(np.abs(obj)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+    if(is_display): plt.subplot(233), plt.title('ABS XY'),plt.imshow(np.abs(obj)[myfwd.shape[0]//2,:,:]), plt.colorbar(), plt.show()
+    
+    if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2)[:,myfwd.shape[1]//2,:]), plt.colorbar(), plt.show()
+    if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2)[myfwd.shape[0]//2,:,:]), plt.colorbar(), plt.show()    
+    if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2)[:,:,myfwd.shape[2]//2]), plt.colorbar(), plt.show()    
+    if(is_display): plt.imshow(np.sum(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2),0)), plt.colorbar(), plt.show()    
 
 if(is_display): plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
 if(is_display): plt.subplot(232), plt.title('ABS XZ'),plt.imshow(np.abs(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-if(is_display): plt.subplot(233), plt.title('ABS XY'),plt.imshow(np.abs(myfwd)[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+if(is_display): plt.subplot(233), plt.title('ABS XY'),plt.imshow(np.abs(myfwd)[myfwd.shape[0]//2,:,:]), plt.colorbar()# plt.show()
 
 if(is_display): plt.subplot(234), plt.title('Angle XZ'),plt.imshow(np.angle(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
 if(is_display): plt.subplot(235), plt.title('Angle XZ'),plt.imshow(np.angle(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-if(is_display): plt.subplot(236), plt.title('Angle XY'),plt.imshow(np.angle(myfwd)[myfwd.shape[0]//2,:,:]), plt.colorbar(), plt.show()
+if(is_display): plt.subplot(236), plt.title('Angle XY'),plt.imshow(np.angle(myfwd)[myfwd.shape[0]//2+1,:,:]), plt.colorbar(), plt.show()
 
 if(is_display): plt.subplot(231), plt.title('Obj Angle XZ'),plt.imshow(np.angle(obj)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
 if(is_display): plt.subplot(232), plt.title('Obj Angle XZ'),plt.imshow(np.angle(obj)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()

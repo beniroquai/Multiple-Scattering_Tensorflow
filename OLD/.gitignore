@@ -1,0 +1,14 @@
+*.tiff
+*.png
+*.mat
+*.h5
+*.h5py
+*.npy
+*.zip
+*.tif
+*.pyc
+*.DS_Store
+.idea*
+*.avi 
+
+Data/BEADS/RESULTS/*

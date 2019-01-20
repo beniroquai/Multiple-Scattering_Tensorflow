@@ -7,7 +7,7 @@ Created on Wed Oct 11 14:14:21 2017
 """
 
 import tensorflow as tf
-
+import numpy as np
 
 if __name__ == '__main__':
     from derivatives import d1x, d1y, d1z, d1x_central_conv, d1y_central_conv, \
@@ -603,6 +603,27 @@ def gaussivity(im, sigma=0.1, minval=0.1):
         (1 - tf.exp(-.5 * tf.square((im - minval) / sigma))))
     return reg
 
+def tf_total_variation_regularization_sobel(toRegularize):
+    with tf.name_scope("tv_reg_sobel"):
+        sobel_one_direction = np.array([[[1, 2, 1],
+                                         [2, 4, 2],
+                                         [1, 2, 1]],
+
+                                        [[0, 0, 0],
+                                         [0, 0, 0],
+                                         [0, 0, 0]],
+
+                                        [[-1, -2, -1],
+                                         [-2, -4, -2],
+                                         [-1, -2, -1]]], dtype=np.float32)
+        sobel = np.stack([sobel_one_direction,
+                          sobel_one_direction.transpose((2, 0, 1)),
+                          sobel_one_direction.transpose((1, 2, 0))],
+                         axis=-1) #3x3x3x3
+
+        sobel = tf.constant(sobel[..., np.newaxis, :]) #3x3x3x1x3
+        tv_loss = tf.reduce_sum(tf.abs(tf.nn.conv3d(tf.sigmoid(toRegularize), sobel, (1,) * 5, "VALID"))) # tf.nn.conv3d filter shape: [filter_depth, filter_height, filter_width, in_channels, out_channels]
+        return tv_loss
 
 def tf_total_variation_regularization(toRegularize, BetaVals = [1,1,1], epsR = 1, epsC=1e-10, is_circ = True):
     # used rainers version to realize the tv regularizer   
@@ -640,13 +661,13 @@ def tf_total_variation_regularization(toRegularize, BetaVals = [1,1,1], epsR = 1
     
     mySqrt = mySqrtL + mySqrtR; 
     
-    if(1):
+    if(0):
         mySqrt = tf.where(
                     tf.less(mySqrt , epsC*tf.ones_like(mySqrt)),
                     epsC*tf.ones_like(mySqrt),
                     mySqrt) # To avoid divisions by zero
     else:               
-        mySqrt = tf.clip_by_value(mySqrt, 0, np.inf)    
+        mySqrt = mySqrt
         
         
     myReg = tf.reduce_sum(mySqrt)

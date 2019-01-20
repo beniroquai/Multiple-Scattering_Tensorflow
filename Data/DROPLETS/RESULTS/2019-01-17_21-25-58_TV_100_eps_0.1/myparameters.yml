@@ -1,0 +1,98 @@
+NAc: 0.52
+NAo: !!python/object/apply:numpy.core.multiarray._reconstruct
+  args:
+  - &id002 !!python/name:numpy.ndarray ''
+  - !!python/tuple
+    - 0
+  - !!binary |
+    Yg==
+  state: !!python/tuple
+  - 1
+  - !!python/tuple []
+  - &id001 !!python/object/apply:numpy.dtype
+    args:
+    - f8
+    - 0
+    - 1
+    state: !!python/tuple
+    - 3
+    - <
+    - null
+    - null
+    - null
+    - -1
+    - -1
+    - 0
+  - false
+  - !!binary |
+    ZmZmZmZm7j8=
+Nc: !!python/object/apply:numpy.core.multiarray.scalar
+- !!python/object/apply:numpy.dtype
+  args:
+  - i8
+  - 0
+  - 1
+  state: !!python/tuple
+  - 3
+  - <
+  - null
+  - null
+  - null
+  - -1
+  - -1
+  - 0
+- !!binary |
+  MQAAAAAAAAA=
+Nx: 32
+Ny: 32
+Nz: 70
+dn: 0.5
+dx: !!python/object/apply:numpy.core.multiarray.scalar
+- *id001
+- !!binary |
+  Wolmi5ESxD8=
+dy: !!python/object/apply:numpy.core.multiarray.scalar
+- *id001
+- !!binary |
+  Wolmi5ESxD8=
+dz: !!python/object/apply:numpy.core.multiarray.scalar
+- *id001
+- !!binary |
+  mpmZmZmZyT8=
+eps_tv: 0.1
+lambda0: !!python/object/apply:numpy.core.multiarray._reconstruct
+  args:
+  - *id002
+  - !!python/tuple
+    - 0
+  - !!binary |
+    Yg==
+  state: !!python/tuple
+  - 1
+  - !!python/tuple []
+  - *id001
+  - false
+  - !!binary |
+    zczMzMzM5D8=
+lambdaM: !!python/object/apply:numpy.core.multiarray.scalar
+- *id001
+- !!binary |
+  c/TN0TdH3z8=
+lambda_tv: 100
+learningrate: 0.005
+zernikfactors: !!python/object/apply:numpy.core.multiarray._reconstruct
+  args:
+  - *id002
+  - !!python/tuple
+    - 0
+  - !!binary |
+    Yg==
+  state: !!python/tuple
+  - 1
+  - !!python/tuple
+    - 9
+  - *id001
+  - false
+  - !!binary |
+    AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    AAAAAAAAAAAAAAAAAAAA
