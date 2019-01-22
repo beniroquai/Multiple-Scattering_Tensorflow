@@ -636,13 +636,23 @@ def tf_total_variation_regularization(toRegularize, BetaVals = [1,1,1], epsR = 1
 
     
     if(is_circ):
-        aGradL_1 = (toRegularize - tf.roll(toRegularize, 1, 0))/BetaVals[0]
-        aGradL_2 = (toRegularize - tf.roll(toRegularize, 1, 1))/BetaVals[1]
-        aGradL_3 = (toRegularize - tf.roll(toRegularize, 1, 2))/BetaVals[2]
-
-        aGradR_1 = (toRegularize - tf.roll(toRegularize, -1, 0))/BetaVals[0]
-        aGradR_2 = (toRegularize - tf.roll(toRegularize, -1, 1))/BetaVals[1]
-        aGradR_3 = (toRegularize - tf.roll(toRegularize, -1, 2))/BetaVals[2]
+        if(0): # TF>1.11
+            aGradL_1 = (toRegularize - tf.roll(toRegularize, 1, 0))/BetaVals[0]
+            aGradL_2 = (toRegularize - tf.roll(toRegularize, 1, 1))/BetaVals[1]
+            aGradL_3 = (toRegularize - tf.roll(toRegularize, 1, 2))/BetaVals[2]
+    
+            aGradR_1 = (toRegularize - tf.roll(toRegularize, -1, 0))/BetaVals[0]
+            aGradR_2 = (toRegularize - tf.roll(toRegularize, -1, 1))/BetaVals[1]
+            aGradR_3 = (toRegularize - tf.roll(toRegularize, -1, 2))/BetaVals[2]
+        else:
+            aGradL_1 = (toRegularize - tf.manip.roll(toRegularize, 1, 0))/BetaVals[0]
+            aGradL_2 = (toRegularize - tf.manip.roll(toRegularize, 1, 1))/BetaVals[1]
+            aGradL_3 = (toRegularize - tf.manip.roll(toRegularize, 1, 2))/BetaVals[2]
+    
+            aGradR_1 = (toRegularize - tf.manip.roll(toRegularize, -1, 0))/BetaVals[0]
+            aGradR_2 = (toRegularize - tf.manip.roll(toRegularize, -1, 1))/BetaVals[1]
+            aGradR_3 = (toRegularize - tf.manip.roll(toRegularize, -1, 2))/BetaVals[2]
+            
         print('We use circular shift for the TV regularizer')
     else:    
         toRegularize_sub = toRegularize[1:-2,1:-2,1:-2]

@@ -31,8 +31,17 @@ plt.switch_backend('agg')
 
 
 #%%
+'''Define some stuff related to infrastructure'''
+mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+savepath = os.path.join('./Data/DROPLETS/RESULTS/', mytimestamp)
 
-'''Control Swithces for Optimization'''
+# Create directory
+try: 
+    os.mkdir(savepath)
+except(FileExistsError): 
+    print('Folder exists already')
+
+# Define parameters 
 is_padding = False 
 is_display = True
 is_optimization = True 
@@ -48,7 +57,7 @@ if is_measurement:
         matlab_val_name = 'allAmp_red'
         matlab_par_name = 'myParameterNew'  
     if(True):
-        matlab_val_file = './Data/DROPLETS/S19_multiple/S19_subroi3.mat'      #'./Data/DROPLETS/allAmp_simu.npy' #
+        matlab_val_file = './Data/DROPLETS/S19_multiple/S19_subroi5.mat'      #'./Data/DROPLETS/allAmp_simu.npy' #
         matlab_par_file = './Data/DROPLETS/S19_multiple/Parameter.mat'   
         matlab_val_name = 'allAmp_red'
         matlab_par_name = 'myParameter' 
@@ -59,21 +68,23 @@ else:
     matlab_val_name = 'allAmp_red'
     matlab_par_name = 'myParameterNew'
 
-'''Define Additional Experiment Parameters'''    
-zernikefactors = np.array((0,0,0,0,0,0,0.,0.,0)) # representing the 9 first zernike coefficients in noll-writings 
-dn = .5 # refractive index of the object (difference)
+# microscope parameters
+zernikefactors = np.array((0,0,0,0,0,0,0.5,-0.5,0)) # representing the 9 first zernike coefficients in noll-writings 
+shiftIcY=-1
+shiftIcX=-0
+dn = .1
 NAc = .52
-shiftIcY = -1
-shiftIcX = -1
+
+'''START CODE'''
+tf.reset_default_graph() # just in case there was an open session
 
 '''Define Optimization Parameters'''
 # these are hyperparameters
 my_learningrate = 1e-3  # learning rate
-lambda_tv =  ((100, 10, 1, 1e-1)) # lambda for Total variation
-eps_tv = ((1e-2, 1e-1, 1, 10))
+lambda_tv =  ((1e-1)) # ((100, 10, 1, 1e-1)) # lambda for Total variation
+eps_tv = ((1e-1)) #  ((1e-2, 1e-1, 1, 10))
 
 # these are fixed parameters
-lambda_pos = 0
 lambda_neg = 10
 Niter = 1000
 Ndisplay = 15
@@ -106,15 +117,14 @@ muscat.shiftIcY=shiftIcY
 muscat.shiftIcX=shiftIcX
 muscat.dn = dn
 muscat.NAc = NAc
-#muscat.lambdaM = .7
-#muscat.dz = muscat.lambdaM/4
-#print('Attention: Changed Z-sampling!!')
+muscat.dz = muscat.lambda0/4
 
 ''' Adjust some parameters to fit it in the memory '''
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
 
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
 obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=(muscat.dz,muscat.dx,muscat.dy), obj_type ='sphere', diameter = 1, dn = muscat.dn)
+obj = obj+1j*obj
 
 # introduce zernike factors here
 muscat.zernikefactors = zernikefactors
@@ -127,13 +137,13 @@ print(muscat.Ic.shape)
 # Generate Computational Graph (fwd model)
 tf_fwd = muscat.computemodel()
 
-# Define Optimizer and Cost-function
 print('Evtl unwrap it!')
 
 # this is the initial guess of the reconstruction
 np_meas=np_meas_raw#*np.exp(1j*np.pi)
 
-if(True): # good for the experiment
+
+if(False): # good for the experiment
     init_guess = np.angle(np_meas)
     init_guess = init_guess - np.min(init_guess)
     init_guess = init_guess**2
@@ -146,46 +156,79 @@ elif(False): # good for the simulation
     init_guess = np.flip(init_guess,0)
 elif(False):
     init_guess = np.ones(np_meas.shape)*muscat.dn
-elif(True):
+elif(False):
     init_guess = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = 7, dn = muscat.dn)
 else:
-    init_guess = np.random.randn(np_meas.shape[0],init_guess.shape[1],init_guess.shape[2])*muscat.dn
+    init_guess = np_meas
+    ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
+    mydiameter = 7
+    obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .4)
+    obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = 1)
+    obj = obj+1j*obj_absorption*.1
+    obj = np.roll(obj,12,0)
+    init_guess = obj
+    #init_guess = np.load('my_res_cmplx.npy')
+    #init_guess = np.random.randn(np_meas.shape[0],init_guess.shape[1],init_guess.shape[2])*muscat.dn
+
+
+if(is_display): plt.subplot(231), plt.title('Angle YZ'),plt.imshow(np.real(init_guess[:,init_guess.shape[1]//2,:])), plt.colorbar()
+if(is_display): plt.subplot(232), plt.title('Angle XZ'),plt.imshow(np.real(init_guess[:,:,init_guess.shape[1]//2])), plt.colorbar()
+if(is_display): plt.subplot(233), plt.title('Angle XZ'),plt.imshow(np.real(init_guess[init_guess.shape[0]//2,:,:])), plt.colorbar(),plt.show()
 
 
 # Estimate the Phase difference between Measurement and Simulation
 #%%
+@tf.custom_gradient
+def clip_grad_layer(x):
+    def grad(dy):
+        return tf.clip_by_value(dy, -5, 5)
+    return tf.identity(x), grad
+
 '''Regression + Regularization'''
-tf_meas = tf.placeholder(dtype=tf.complex64, shape=init_guess.shape, name='my_measurment_placeholder')
+tf_meas = tf.placeholder(dtype=tf.complex64, shape=init_guess.shape)
              
 '''Define Cost-function'''
-tf_lambda_tv = tf.placeholder(tf.float32, [], name = 'TV_reg_placeholder')
-tf_epsTV = tf.placeholder(tf.float32, [], name = 'TV_eps_placeholder')
-tf_tvloss = tf_lambda_tv*reg.tf_total_variation_regularization(muscat.TF_obj_phase, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=tf_epsTV)  #Alernatively tf_total_variation_regularization # total_variation
-#tf_tvloss = tf_lambda_tv*reg.total_variation_iso_conv(muscat.TF_obj_phase,  eps=epsTV, step_sizes = [muscat.dx,muscat.dy,muscat.dz])  #Alernatively tf_total_variation_regularization # total_variation
-#tf_tvloss = tf_lambda_tv*10*reg.l1_reg(muscat.TF_obj_phase)
-#tf_tvloss = tf_lambda_tv*reg.l2_reg(muscat.TF_obj_phase)
+tf_lambda_tv = tf.placeholder(tf.float32, [])
+tf_epsTV = tf.placeholder(tf.float32, [])
+#tf_tvloss = tf_lambda_tv*reg.tf_total_variation_regularization(muscat.TF_obj, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=epsTV, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
+tf_tvloss = tf_lambda_tv*reg.total_variation_iso_conv(muscat.TF_obj,  eps=tf_epsTV, step_sizes = [muscat.dx,muscat.dy,muscat.dz])  #Alernatively tf_total_variation_regularization # total_variation
+tf_tvloss += tf_lambda_tv*reg.total_variation_iso_conv(muscat.TF_obj_absorption,  eps=tf_epsTV, step_sizes = [muscat.dx,muscat.dy,muscat.dz])  #Alernatively tf_total_variation_regularization # total_variation
 
-#tf_posloss = lambda_neg*reg.posiminity(muscat.TF_obj_phase, minval=0)
-#tf_negloss = lambda_pos*reg.posimaxity(muscat.TF_obj_phase, maxval=.2) 
-tf_negsqrloss = lambda_neg*reg.RegularizeNegSqr(muscat.TF_obj_phase)
+tf_negsqrloss = lambda_neg*reg.RegularizeNegSqr(muscat.TF_obj)
 tf_globalphase = tf.Variable(0., tf.float32, name='var_phase')
 tf_globalabs = tf.Variable(1., tf.float32, name='var_abs')# 
-tf_fidelity = tf.reduce_sum(tf_helper.tf_abssqr(tf_fwd  - (tf_meas/tf.cast(tf.abs(tf_globalabs), tf.complex64)*tf.exp(1j*tf.cast(tf_globalphase, tf.complex64))))) # allow a global phase parameter to avoid unwrapping effects
+tf_fidelity = tf.reduce_sum((tf_helper.tf_abssqr(tf_fwd  - (tf_meas/tf.cast(tf.abs(tf_globalabs), tf.complex64)*tf.exp(1j*tf.cast(tf_globalphase, tf.complex64)))))) # allow a global phase parameter to avoid unwrapping effects
+#tf_fidelity = clip_grad_layer(tf_fidelity)
+tf_grads = tf.gradients(tf_fidelity, [muscat.TF_obj])[0]
+
 tf_loss = tf_fidelity +  tf_negsqrloss + tf_tvloss #tf_negloss + tf_posloss + tf_tvloss
 
+ # data fidelity
+# TV regularization
+# Positivity Penalty          
+# eventually Goods Roughness reg
 '''Define Optimizer'''
-tf_learningrate = tf.placeholder(tf.float32, [], 'my_learningrate_placeholder') 
+tf_learningrate = tf.placeholder(tf.float32, []) 
 tf_optimizer = tf.train.AdamOptimizer(tf_learningrate)
-tf_grads = tf.gradients(tf_loss, [muscat.TF_obj_phase])[0]
-#tf_optimizer = tf.train.MomentumOptimizer(tf_learningrate, momentum = .9, use_nesterov=True)
+if(False):
+    gradients, variables = zip(*tf_optimizer.compute_gradients(tf_loss))
+    gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
+    tf_lossop = tf_optimizer.apply_gradients(zip(gradients, variables))
 
+#tf_optimizer = tf.train.MomentumOptimizer(tf_learningrate, momentum = .9, use_nesterov=True)
 #tf_optimizer = tf.train.ProximalGradientDescentOptimizer(tf_learningrate)
-tf_lossop = tf_optimizer.minimize(tf_loss)
+else:
+    tf_lossop = tf_optimizer.minimize(tf_loss)
+
 
 # optimize over the hyperparameters
-for mytvregval in lambda_tv:
-    for myepstvval in eps_tv:
-        
+#for mytvregval in lambda_tv:
+#    for myepstvval in eps_tv:
+if(1):
+    if(1):
+        mytvregval = lambda_tv
+        myepstvval = eps_tv
+       
         '''Define some stuff related to infrastructure'''
         mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         savepath = os.path.join('./Data/DROPLETS/RESULTS/', mytimestamp+'_TV_'+str(mytvregval)+'_eps_'+str(myepstvval))
@@ -209,9 +252,10 @@ for mytvregval in lambda_tv:
                 init_guess_tmp[:,muscat.Nx//2-muscat.Nx//4:muscat.Nx//2+muscat.Nx//4, muscat.Ny//2-muscat.Ny//4:muscat.Ny//2+muscat.Ny//4] =init_guess
                 init_guess = init_guess_tmp
         
-            sess.run(tf.assign(muscat.TF_obj_phase, init_guess)); # assign abs of measurement as initial guess of 
+            sess.run(tf.assign(muscat.TF_obj, np.real(init_guess))); # assign abs of measurement as initial guess of 
+            sess.run(tf.assign(muscat.TF_obj_absorption, np.imag(init_guess))); # assign abs of measurement as initial guess of 
         
-        my_fwd = sess.run(tf_fwd)#, feed_dict={muscat.TF_obj:obj})
+        my_fwd = sess.run(tf_fwd)
         mysize = my_fwd.shape
         
         
@@ -253,7 +297,7 @@ for mytvregval in lambda_tv:
             mylambdatv = mytvregval#/((iterx+1)/100)
             if(iterx==0 or not np.mod(iterx, Ndisplay)):
                 my_res_phase, my_loss, my_fidelity, my_negloss, my_tvloss, myglobalphase, myglobalabs, myfwd =  \
-                    sess.run([muscat.TF_obj_phase, tf_loss, tf_fidelity, tf_negsqrloss, tf_tvloss, tf_globalphase, tf_globalabs, tf_fwd], \
+                    sess.run([muscat.TF_obj, tf_loss, tf_fidelity, tf_negsqrloss, tf_tvloss, tf_globalphase, tf_globalabs, tf_fwd], \
                              feed_dict={tf_meas:np_meas, tf_learningrate:my_learningrate, tf_lambda_tv:mylambdatv, tf_epsTV:myepstvval})
         
                 print('Loss@'+str(iterx)+': ' + str(my_loss) + ' - Fid: '+str(my_fidelity)+', Neg: '+str(my_negloss)+', TV: '+str(my_tvloss)+' G-Phase:'+str(myglobalphase)+' G-ABS: '+str(myglobalabs) + ', TVlam: '+str(mylambdatv)+', EPStv: '+str(myepstvval))
@@ -288,7 +332,7 @@ for mytvregval in lambda_tv:
         iter_last = iterx
         
         is_display=True
-        myfwd, mymeas, my_res_phase = sess.run([tf_fwd, tf_meas, muscat.TF_obj_phase], feed_dict={tf_meas:np_meas})
+        myfwd, mymeas, my_res_phase = sess.run([tf_fwd, tf_meas, muscat.TF_obj, muscat.TF_obj_absorption], feed_dict={tf_meas:np_meas})
                 
         '''SPECTRA'''
         if(is_display): 

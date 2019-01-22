@@ -64,7 +64,7 @@ print('do we need to flip the data?! -> Observe FFT!!')
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization, is_optimization_psf = is_optimization_psf)
 muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(matlab_pars['Ny'].value))
 muscat.shiftIcY=-1
-muscat.shiftIcX=-1
+muscat.shiftIcX=-0
 muscat.dn = .05
 muscat.NAc = .52
 muscat.dz = muscat.lambda0/4
@@ -73,10 +73,12 @@ muscat.dz = muscat.lambda0/4
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
 
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
-obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = 10, dn = .5)
-obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = 10, dn = 1)
-obj = obj+1j*obj_absorption*.2
-obj = np.load('my_res_cmplx.npy')
+mydiameter = 7
+obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .4)
+obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = 1)
+obj = obj-1j*obj_absorption*.1
+obj = np.roll(obj,12,0)
+#obj = np.load('my_res_cmplx.npy')
 # introduce zernike factors here
 muscat.zernikefactors = np.array((0,0,0,0,0,0,.5,-.5,0))
     
@@ -92,27 +94,27 @@ sess.run(tf.global_variables_initializer())
 myfwd  = sess.run(tf_fwd)
 
 # display the results
-if(0):
-    if(is_display): plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(obj)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
-    if(is_display): plt.subplot(232), plt.title('ABS YZ'),plt.imshow(np.abs(obj)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-    if(is_display): plt.subplot(233), plt.title('ABS XY'),plt.imshow(np.abs(obj)[myfwd.shape[0]//2,:,:]), plt.colorbar(), plt.show()
+if(is_display): 
+    plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(obj)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+    plt.subplot(232), plt.title('ABS YZ'),plt.imshow(np.abs(obj)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+    plt.subplot(233), plt.title('ABS XY'),plt.imshow(np.abs(obj)[myfwd.shape[0]//2,:,:]), plt.colorbar(), plt.show()
     
-    if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2)[:,myfwd.shape[1]//2,:]), plt.colorbar(), plt.show()
-    if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2)[myfwd.shape[0]//2,:,:]), plt.colorbar(), plt.show()    
-    if(is_display): plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2)[:,:,myfwd.shape[2]//2]), plt.colorbar(), plt.show()    
-    if(is_display): plt.imshow(np.sum(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2),0)), plt.colorbar(), plt.show()    
-
-if(is_display): plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
-if(is_display): plt.subplot(232), plt.title('ABS XZ'),plt.imshow(np.abs(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-if(is_display): plt.subplot(233), plt.title('ABS XY'),plt.imshow(np.abs(myfwd)[myfwd.shape[0]//2,:,:]), plt.colorbar()# plt.show()
-
-if(is_display): plt.subplot(234), plt.title('Angle XZ'),plt.imshow(np.angle(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
-if(is_display): plt.subplot(235), plt.title('Angle XZ'),plt.imshow(np.angle(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-if(is_display): plt.subplot(236), plt.title('Angle XY'),plt.imshow(np.angle(myfwd)[myfwd.shape[0]//2+1,:,:]), plt.colorbar(), plt.show()
-
-if(is_display): plt.subplot(231), plt.title('Obj Angle XZ'),plt.imshow(np.angle(obj)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
-if(is_display): plt.subplot(232), plt.title('Obj Angle XZ'),plt.imshow(np.angle(obj)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-if(is_display): plt.subplot(233), plt.title('Obj Angle XY'),plt.imshow(np.angle(obj)[myfwd.shape[0]//2,:,:]), plt.colorbar(), plt.show()
+    plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2)[:,myfwd.shape[1]//2,:]), plt.colorbar(), plt.show()
+    plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2)[myfwd.shape[0]//2,:,:]), plt.colorbar(), plt.show()    
+    plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2)[:,:,myfwd.shape[2]//2]), plt.colorbar(), plt.show()    
+    plt.imshow(np.sum(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2),0)), plt.colorbar(), plt.show()    
+    
+    plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+    plt.subplot(232), plt.title('ABS XZ'),plt.imshow(np.abs(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+    plt.subplot(233), plt.title('ABS XY'),plt.imshow(np.abs(myfwd)[myfwd.shape[0]//2,:,:]), plt.colorbar()# plt.show()
+    myfwd=myfwd*np.exp(1j*1)
+    plt.subplot(234), plt.title('Angle XZ'),plt.imshow(np.angle(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+    plt.subplot(235), plt.title('Angle XZ'),plt.imshow(np.angle(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+    plt.subplot(236), plt.title('Angle XY'),plt.imshow(np.angle(myfwd)[myfwd.shape[0]//2+1,:,:]), plt.colorbar(), plt.show()
+    
+    plt.subplot(231), plt.title('Obj Angle XZ'),plt.imshow(np.angle(obj)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+    plt.subplot(232), plt.title('Obj Angle XZ'),plt.imshow(np.angle(obj)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+    plt.subplot(233), plt.title('Obj Angle XY'),plt.imshow(np.angle(obj)[myfwd.shape[0]//2,:,:]), plt.colorbar(), plt.show()
 
 #%% save the results
 np.save(savepath+'allAmp_simu.npy', myfwd)

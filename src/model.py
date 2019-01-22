@@ -120,7 +120,7 @@ class MuScatModel(object):
                 self.obj = obj_tmp
             
             if np.sum(1*(np.iscomplex(self.obj))) > 0:#isinstance(self.obj, complex):isinstance(self.obj, complex):
-                self.TF_obj = tf.constant(self.obj, dtype=tf.float32, name='Object_const')
+                self.TF_obj = tf.constant(np.real(self.obj), dtype=tf.float32, name='Object_const')
                 self.TF_obj_absorption = tf.constant(np.imag(self.obj), dtype=tf.float32, name='Object_const')
             else:
                 self.TF_obj = tf.constant(np.real(self.obj), dtype=tf.float32, name='Object_const')
@@ -149,7 +149,7 @@ class MuScatModel(object):
             print('----------> Be aware: We are taking aberrations into account!')
             # Assuming: System has coma along X-direction
             self.myaberration = np.sum(self.zernikefactors * self.myzernikes, axis=2)
-            self.Po = 1.*self.Po
+            self.Po = 1.*self.Po#*np.exp(1j*self.myaberration)
         
         # Prepare the normalized spatial-frequency grid.
         self.S = self.NAc/self.NAo;   # Coherence factor
@@ -273,9 +273,9 @@ class MuScatModel(object):
                 #self.TF_A_prop = tf.Print(self.TF_A_prop, [self.tf_iterator], 'Prpagation step: ')
                 with tf.name_scope('Refract'):
                     if np.sum(1*(np.iscomplex(self.obj))) > 0:#isinstance(self.obj, complex):
-                        self.TF_f = tf.exp(1j*self.TF_RefrEffect*tf.complex(self.TF_obj[pz,:,:], self.TF_obj_absorption[pz,:,:]))
+                        self.TF_f = tf.exp(1j*self.TF_RefrEffect*tf.complex(self.TF_obj[-pz,:,:], self.TF_obj_absorption[-pz,:,:]))
                     else:
-                        self.TF_f = tf.exp(1j*self.TF_RefrEffect*tf.cast(self.TF_obj[pz,:,:], tf.complex64))
+                        self.TF_f = tf.exp(1j*self.TF_RefrEffect*tf.cast(self.TF_obj[-pz,:,:], tf.complex64))
                     self.TF_A_prop = self.TF_A_prop * self.TF_f  # refraction step
 
                 with tf.name_scope('Propagate'):
@@ -284,7 +284,7 @@ class MuScatModel(object):
 
         # in a final step limit this to the detection NA:
         self.TF_Po_aberr = tf.exp(1j*tf.cast(tf.reduce_sum(self.TF_zernikefactors*self.TF_Zernikes, axis=2), tf.complex64)) * self.TF_Po
-        self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop)*self.TF_Po)# * self.TF_Po_aberr)
+        self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop)*self.TF_Po * self.TF_Po_aberr)
 
         # Experimenting with pseudo tomographic data?
         if self.is_tomo:
@@ -312,7 +312,7 @@ class MuScatModel(object):
                         # and then apply the XYZ shift using the Fourier shift theorem (corresponds to physically shifting the object volume, scattered field stays the same):
                         self.TF_AdjustKXY = tf.squeeze(tf.conj(self.TF_A_input[pillu,:,:,])) # Maybe a bit of a dirty hack, but we first need to shift the zero coordinate to the center
                         self.TF_AdjustKZ = tf.cast(tf.transpose(np.exp(
-                            2 * np.pi * 1j * self.dz * np.reshape(np.arange(0, self.mysize[0], 1),
+                            2 * np.pi * 1j * self.dz * np.reshape(np.arange(0, self.mysize[0], 1), # We want to start from first Z-slice then go to last which faces the objective lens
                                   [1, 1, self.mysize[0]]) * self.kzcoord[:, :, :,pillu]), [2, 1, 0]), tf.complex64)
                         self.TF_allAmp = tf.ifft2d(tf.fft2d(OneAmp) * self.TF_myAllSlicePropagator) * self.TF_AdjustKZ * self.TF_AdjustKXY  # * (TF_AdjustKZ);  # 2x bfxfun.  Propagates a single amplitude pattern back to the whole stack
                         self.TF_allAmp = self.TF_allAmp * tf.exp(1j*tf.cast(tf.angle(self.TF_allAmp[self.mid3D[0],self.mid3D[1],self.mid3D[2]]), tf.complex64)) # Global Phases need to be adjusted at this step!  Use the zero frequency
@@ -335,7 +335,6 @@ class MuScatModel(object):
         # Normalize the image such that the values do not depend on the fineness of
         # the source grid.
         self.TF_allSumAmp = self.TF_allSumAmp/self.Nc #/tf.cast(tf.reduce_max(tf.abs(self.TF_allSumAmp)), tf.complex64)
-        
         # Following is the normalization according to Martin's book. It ensures
         # that a transparent specimen is imaged with unit intensity.
         # normfactor=abs(Po).^2.*abs(Ic); We do not use it, because it leads to
