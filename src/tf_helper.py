@@ -263,7 +263,7 @@ def xx(mysize = (256,256), mode = 'center'):
         negative : goes from negative size_x to 0
         positvie : goes from 0 size_x to positive
     '''
-    return(ramp(mysize,0,mode))
+    return(ramp(mysize,1,mode))
 
 def yy(mysize = (256,256), mode = 'center'):
     '''
@@ -276,7 +276,7 @@ def yy(mysize = (256,256), mode = 'center'):
         negative : goes from negative size_y to 0
         positvie : goes from 0 size_y to positive
     '''
-    return(ramp(mysize,1,mode))
+    return(ramp(mysize,0,mode))
  
 def zz(mysize = (256,256), mode = 'center'):
     '''

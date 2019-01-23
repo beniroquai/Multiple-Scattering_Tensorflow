@@ -27,7 +27,7 @@ import src.tf_regularizers as reg
 # Optionally, tweak styles.
 mpl.rc('figure',  figsize=(10, 7))
 mpl.rc('image', cmap='gray')
-#plt.switch_backend('agg')
+plt.switch_backend('agg')
 
 
 #%%
@@ -35,25 +35,48 @@ mpl.rc('image', cmap='gray')
 mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 basepath = './'#'/projectnb/cislidt/diederich/muScat/Multiple-Scattering_Tensorflow/'
 resultpath = 'Data/DROPLETS/RESULTS/'
+savepath = basepath + resultpath + mytimestamp
+
+# Create directory
+print('Start the code and try to mkdir at:')
+print(savepath)
+try: 
+    os.mkdir(savepath)
+except(FileExistsError): 
+    print('Folder exists already')
 
 # Define parameters 
 is_padding = False 
 is_display = True
 is_optimization = True 
-is_optimization_psf = True
+is_optimization_psf = False
+is_flip = False
 is_measurement = True
 
 # data files for parameters and measuremets 
-matlab_val_file = './Data/DROPLETS/S19_multiple/S19_subroi4.mat'      #'./Data/DROPLETS/allAmp_simu.npy' #
-matlab_par_file = './Data/DROPLETS/S19_multiple/Parameter.mat'   
-matlab_val_name = 'allAmp_red'
-matlab_par_name = 'myParameter' 
+if is_measurement:
+    if(False):
+        matlab_val_file = './Data/DROPLETS/allAmp_red.mat'      #'./Data/DROPLETS/allAmp_simu.npy' #
+        matlab_par_file = './Data/DROPLETS/myParameterNew.mat'   
+        matlab_val_name = 'allAmp_red'
+        matlab_par_name = 'myParameterNew'  
+    if(True):
+        matlab_val_file = './Data/DROPLETS/S19_multiple/S19_subroi5.mat'      #'./Data/DROPLETS/allAmp_simu.npy' #
+        matlab_par_file = './Data/DROPLETS/S19_multiple/Parameter.mat'   
+        matlab_val_name = 'allAmp_red'
+        matlab_par_name = 'myParameter' 
         
+else:
+    matlab_val_file = './Data/DROPLETS/RESULTS/allAmp_simu.npy' #'./Data/DROPLETS/allAmp_simu.mat'      
+    matlab_par_file = './Data/DROPLETS/myParameterNew.mat' 
+    matlab_val_name = 'allAmp_red'
+    matlab_par_name = 'myParameterNew'
+
 # microscope parameters
-zernikefactors = np.array((0,0,0,0,0,0,0.25,-025.,0)) # representing the 9 first zernike coefficients in noll-writings 
+zernikefactors = np.array((0,0,0,0,0,0,0.5,-0.5,0)) # representing the 9 first zernike coefficients in noll-writings 
 shiftIcY=-1
-shiftIcX=0
-dn = (1.437-1.3326)
+shiftIcX=-0
+dn = 1.437-1.3326
 NAc = .52
 
 '''START CODE'''
@@ -62,12 +85,12 @@ tf.reset_default_graph() # just in case there was an open session
 '''Define Optimization Parameters'''
 # these are hyperparameters
 my_learningrate = 1e-2  # learning rate
-lambda_tv =  1e-1# ((100, 10, 1, 1e-1)) # lambda for Total variation
-eps_tv = 1e-1 #((1e-2, 1e-1, 1, 10))
+lambda_tv =  1e-1 # ((100, 10, 1, 1e-1)) # lambda for Total variation
+eps_tv = 1e-1 #  ((1e-2, 1e-1, 1, 10))
 
 # these are fixed parameters
 lambda_neg = 10
-Niter =1000
+Niter = 1000
 Ndisplay = 15
 
 '''START CODE'''
@@ -83,6 +106,13 @@ if(matlab_val_file.find('mat')==-1):
     matlab_val = np.load(matlab_val_file)
 else:
     matlab_val = data.import_realdata_h5(filename = matlab_val_file, matname=matlab_val_name, is_complex=True)
+
+if(is_flip):
+    np_meas_raw = np.flip(matlab_val,0)
+    print('Attention: We are flipping the data!')
+else:
+    np_meas_raw = matlab_val
+    print('do we need to flip the data?! -> Observe FFT!!')
 
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization, is_optimization_psf = is_optimization_psf)
@@ -112,8 +142,10 @@ print(muscat.Ic.shape)
 tf_fwd = muscat.computemodel()
 
 print('Evtl unwrap it!')
+
 # this is the initial guess of the reconstruction
-np_meas=matlab_val#*np.exp(1j*np.pi)
+np_meas=np_meas_raw#*np.exp(1j*np.pi)
+
 
 if(False): # good for the experiment
     init_guess = np.angle(np_meas)
@@ -134,10 +166,10 @@ else:
     init_guess = np_meas
     ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
     mydiameter = 7
-    obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = dn)
-    obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .1)
-    obj = obj+1j*obj_absorption
-    obj = np.roll(obj,-9,0)
+    obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .4)
+    obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = 1)
+    obj = obj+1j*obj_absorption*.1
+    obj = np.roll(obj,12,0)
     init_guess = obj
     #init_guess = np.load('my_res_cmplx.npy')
     #init_guess = np.random.randn(np_meas.shape[0],init_guess.shape[1],init_guess.shape[2])*muscat.dn
@@ -155,26 +187,30 @@ def clip_grad_layer(x):
 np_meas = matlab_val
 np_mean = np.mean(np_meas)
 
+'''Regression + Regularization'''
+tf_meas = tf.placeholder(dtype=tf.complex64, shape=init_guess.shape)
+             
 '''Define Cost-function'''
-tf_tvloss = muscat.tf_lambda_tv*reg.Reg_TV(muscat.TF_obj, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
-tf_tvloss += muscat.tf_lambda_tv*reg.Reg_TV(muscat.TF_obj_absorption, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
+tf_lambda_tv = tf.placeholder(tf.float32, [])
+tf_eps = tf.placeholder(tf.float32, [])
+tf_tvloss = tf_lambda_tv*reg.Reg_TV(muscat.TF_obj, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
+tf_tvloss += tf_lambda_tv*reg.Reg_TV(muscat.TF_obj_absorption, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
+#tf_tvloss = tf_lambda_tv*reg.total_variation_iso_conv(muscat.TF_obj,  eps=epsTV, step_sizes = [muscat.dx,muscat.dy,muscat.dz])  #Alernatively tf_total_variation_regularization # total_variation
+#tf_tvloss += tf_lambda_tv*reg.total_variation_iso_conv(muscat.TF_obj_absorption,  eps=epsTV, step_sizes = [muscat.dx,muscat.dy,muscat.dz])  #Alernatively tf_total_variation_regularization # total_variation
 
 tf_negsqrloss = lambda_neg*reg.Reg_NegSqr(muscat.TF_obj)
-tf_negsqrloss += lambda_neg*reg.Reg_NegSqr(muscat.TF_obj_absorption)
 tf_globalphase = tf.Variable(0., tf.float32, name='var_phase')
 tf_globalabs = tf.Variable(1., tf.float32, name='var_abs')# 
 #tf_fidelity = tf.reduce_sum((tf_helper.tf_abssqr(tf_fwd  - (tf_meas/tf.cast(tf.abs(tf_globalabs), tf.complex64)*tf.exp(1j*tf.cast(tf_globalphase, tf.complex64)))))) # allow a global phase parameter to avoid unwrapping effects
-tf_fwd_corrected = tf_fwd/tf.cast(tf.abs(tf_globalabs), tf.complex64)*tf.exp(1j*tf.cast(tf_globalphase, tf.complex64))
-tf_fidelity = tf.reduce_mean((tf_helper.tf_abssqr(muscat.tf_meas - tf_fwd_corrected ))) # allow a global phase parameter to avoid unwrapping effects
+tf_fidelity = tf.reduce_mean((tf_helper.tf_abssqr(tf_fwd  - (tf_meas/tf.cast(tf.abs(tf_globalabs), tf.complex64)*tf.exp(1j*tf.cast(tf_globalphase, tf.complex64)))))) # allow a global phase parameter to avoid unwrapping effects
 #tf_fidelity = clip_grad_layer(tf_fidelity)
 tf_grads = tf.gradients(tf_fidelity, [muscat.TF_obj])[0]
 
 tf_loss = tf_fidelity/np_mean +  tf_negsqrloss + tf_tvloss #tf_negloss + tf_posloss + tf_tvloss
 
 '''Define Optimizer'''
-tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
-#train_a = tf.train.GradientDescentOptimizer(0.1).minimize(loss_a, var_list=[A])
-#train_b = tf.train.GradientDescentOptimizer(0.1).minimize(loss_b, var_list=[B])
+tf_learningrate = tf.placeholder(tf.float32, []) 
+tf_optimizer = tf.train.AdamOptimizer(tf_learningrate)
 if(False):
     gradients, variables = zip(*tf_optimizer.compute_gradients(tf_loss))
     gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
@@ -197,14 +233,16 @@ if(1):
        
         '''Define some stuff related to infrastructure'''
         mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        savepath = basepath + resultpath + mytimestamp
-
+        savepath = os.path.join('./Data/DROPLETS/RESULTS/', mytimestamp+'_TV_'+str(mytvregval)+'_eps_'+str(myepstvval))
+        
         # Create directory
         try: 
             os.mkdir(savepath)
         except(FileExistsError): 
             print('Folder exists already')
         
+        ''' Save Parameters '''
+        muscat.writeParameterFile(my_learningrate, mytvregval, myepstvval, filepath = savepath+'/myparameters.yml')
         
         ''' Evaluate the model '''
         sess = tf.Session()
@@ -261,8 +299,8 @@ if(1):
             mylambdatv = mytvregval#/((iterx+1)/100)
             if(iterx==0 or not np.mod(iterx, Ndisplay)):
                 my_res, my_res_absortpion, my_loss, my_fidelity, my_negloss, my_tvloss, myglobalphase, myglobalabs, myfwd =  \
-                    sess.run([muscat.TF_obj, muscat.TF_obj_absorption, tf_loss, tf_fidelity, tf_negsqrloss, tf_tvloss, tf_globalphase, tf_globalabs, tf_fwd_corrected], \
-                             feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
+                    sess.run([muscat.TF_obj, muscat.TF_obj_absorption, tf_loss, tf_fidelity, tf_negsqrloss, tf_tvloss, tf_globalphase, tf_globalabs, tf_fwd], \
+                             feed_dict={tf_meas:np_meas, tf_learningrate:my_learningrate, tf_lambda_tv:mylambdatv, tf_eps:myepstvval})
         
                 print('Loss@'+str(iterx)+': ' + str(my_loss) + ' - Fid: '+str(my_fidelity)+', Neg: '+str(my_negloss)+', TV: '+str(my_tvloss)+' G-Phase:'+str(myglobalphase)+' G-ABS: '+str(myglobalabs))        
                 mylosslist.append(my_loss)
@@ -275,16 +313,78 @@ if(1):
                 globalabslist.append(myglobalabs)  
 
             else:
-                sess.run([tf_lossop], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
+                _, mygrads = sess.run([tf_lossop,tf_grads], feed_dict={tf_meas:np_meas, tf_learningrate:my_learningrate, tf_lambda_tv:mylambdatv, tf_eps:myepstvval})
                 #plt.imshow(np.abs(my_res[:,50,:]))
                 #print(mygrads)
                 #print(mygrads.shape)
                 #_, myfwd = sess.run([tf_lossop,tf_fwd], feed_dict={tf_meas:np_meas, tf_learningrate:my_learningrate, tf_lambda_tv:mylambdatv})
 
-        #%%        
-        ''' Save Figures and Parameters '''
-        muscat.saveFigures(sess, savepath, tf_fwd_corrected, np_meas, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, globalphaselist, globalabslist, 
-                    result_phaselist, result_absorptionlist)
-   
-        muscat.writeParameterFile(my_learningrate, mylambdatv, myepstvval, filepath = './myparameters.yml')
+        # Save everything to disk
+        iter_last = iterx
         
+        is_display=True
+        myfwd, mymeas, my_res, myres_absorption = sess.run([tf_fwd, tf_meas, muscat.TF_obj, muscat.TF_obj_absorption], feed_dict={tf_meas:np_meas})
+        
+        # This is the reconstruction
+        plt.fig()
+        plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(232), plt.title('ABS YZ'),plt.imshow(np.abs(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(233), plt.title('ABS XY'),plt.imshow(np.abs(myfwd)[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.subplot(234), plt.title('Angle XZ'),plt.imshow(np.angle(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(235), plt.title('Angle XZ'),plt.imshow(np.angle(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(236), plt.title('Angle XY'),plt.imshow(np.angle(myfwd)[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.savefig(savepath+'/res_myfwd.png'), plt.show()
+    
+        # This is the measurment
+        plt.fig()
+        plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(np_meas)[:,np_meas.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(232), plt.title('ABS YZ'),plt.imshow(np.abs(np_meas)[:,:,np_meas.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(233), plt.title('ABS XY'),plt.imshow(np.abs(np_meas)[np_meas.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.subplot(234), plt.title('Angle XZ'),plt.imshow(np.angle(np_meas)[:,np_meas.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(235), plt.title('Angle XZ'),plt.imshow(np.angle(np_meas)[:,:,np_meas.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(236), plt.title('Angle XY'),plt.imshow(np.angle(np_meas)[np_meas.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.savefig(savepath+'/res_mymeas.png'), plt.show()
+    
+        # This is the residual
+        plt.fig()
+        plt.subplot(231), plt.title('Residual ABS XZ'),plt.imshow((np.abs(myfwd)-np.abs(np_meas))[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(232), plt.title('Residual ABS YZ'),plt.imshow((np.abs(myfwd)-np.abs(np_meas))[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(233), plt.title('Residual ABS XY'),plt.imshow((np.abs(myfwd)-np.abs(np_meas))[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.subplot(234), plt.title('Residual Angle XZ'),plt.imshow((np.angle(myfwd)-np.angle(np_meas))[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(235), plt.title('Residual Angle XZ'),plt.imshow((np.angle(myfwd)-np.angle(np_meas))[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(236), plt.title('Residual Angle XY'),plt.imshow((np.angle(myfwd)-np.angle(np_meas))[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.savefig(savepath+'/res_myresidual.png'), plt.show()
+        
+        
+        # diplay the error over time
+        plt.fig()
+        plt.subplot(231), plt.title('Error/Cost-function'), plt.semilogy((np.array(mylosslist)))#, plt.show()
+        plt.subplot(232), plt.title('Fidelity-function'), plt.semilogy((np.array(myfidelitylist)))#, plt.show()
+        plt.subplot(233), plt.title('Neg-loss-function'), plt.plot(np.array(myneglosslist))#, plt.show()
+        plt.subplot(234), plt.title('TV-loss-function'), plt.semilogy(np.array(mytvlosslist))#, plt.show()
+        plt.subplot(235), plt.title('Global Phase'), plt.plot(np.array(globalphaselist))#, plt.show()
+        plt.subplot(236), plt.title('Global ABS'), plt.plot(np.array(globalabslist))#, plt.show()
+        plt.savefig(savepath+'/myplots.png'), plt.show()
+        
+        plt.fig()
+        plt.subplot(131), plt.title('Result Phase: XZ'),plt.imshow(my_res[:,my_res.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(132), plt.title('Result Phase: XZ'),plt.imshow(my_res[:,:,my_res.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(133), plt.title('Result Phase: XY'),plt.imshow(my_res[my_res.shape[0]//2,:,:]), plt.colorbar()
+        plt.savefig(savepath+'/RI_result.png'), plt.show()
+        
+        plt.fig()
+        plt.subplot(131), plt.title('Result Abs: XZ'),plt.imshow(my_res_absortpion[:,my_res.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(132), plt.title('Result abs: XZ'),plt.imshow(my_res_absortpion[:,:,my_res.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(133), plt.title('Result abs: XY'),plt.imshow(my_res_absortpion[my_res.shape[0]//2,:,:]), plt.colorbar()
+        plt.savefig(savepath+'/RI_abs_result.png'), plt.show()
+        
+        print(np.real(sess.run(muscat.TF_zernikefactors)))
+        plt.fig()
+        plt.subplot(121), plt.title('Po Phase'), plt.imshow(np.fft.fftshift(np.angle(sess.run(muscat.TF_Po_aberr)))), plt.colorbar()
+        plt.subplot(122), plt.title('Po abs'), plt.imshow(np.fft.fftshift(np.abs(sess.run(muscat.TF_Po_aberr)))), plt.colorbar()
+        plt.savefig(savepath+'/recovered_pupil.png'), plt.show()
+    
+        data.export_realdatastack_h5(savepath+'/myrefractiveindex.h5', 'temp', np.array(result_phaselist))
+        data.export_realdatastack_h5(savepath+'/myrefractiveindex_absorption.h5', 'temp', np.array(result_absorptionlist))
+        myobj = my_res+1j*my_res_absortpion
+        np.save('my_res_cmplx', myobj)

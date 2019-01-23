@@ -17,6 +17,7 @@ import yaml
 # own functions
 from src import tf_helper as tf_helper
 from src import zernike as zern
+from src import data as data
 
 class MuScatModel(object):
     def __init__(self, my_mat_paras, is_optimization = False, is_optimization_psf = False):
@@ -104,12 +105,15 @@ class MuScatModel(object):
                 obj_tmp[:,self.Nx//2-self.Nx//4:self.Nx//2+self.Nx//4, self.Ny//2-self.Ny//4:self.Ny//2+self.Ny//4] = self.obj
                 self.obj = obj_tmp
             # in case one wants to use this as a fwd-model for an inverse problem            
-            if np.sum(1*(np.iscomplex(self.obj))) > 0:#isinstance(self.obj, complex):isinstance(self.obj, complex):
-                self.TF_obj = tf.Variable(np.real(self.obj), dtype=tf.float32, name='Object_Variable')
-                self.TF_obj_absorption = tf.Variable(np.imag(self.obj), dtype=tf.float32, name='Object_Variable')                
-            else:
-                self.TF_obj = tf.Variable(self.obj, dtype=tf.float32, name='Object_Variable')
+
+            self.TF_obj = tf.Variable(np.real(self.obj), dtype=tf.float32, name='Object_Variable')
+            self.TF_obj_absorption = tf.Variable(np.imag(self.obj), dtype=tf.float32, name='Object_Variable')                
             
+            # assign training variables 
+            self.tf_lambda_tv = tf.placeholder(tf.float32, [])
+            self.tf_eps = tf.placeholder(tf.float32, [])
+            self.tf_meas = tf.placeholder(dtype=tf.complex64, shape=self.obj.shape)
+            self.tf_learningrate = tf.placeholder(tf.float32, []) 
 
         else:
             # Variables of the computational graph
@@ -119,11 +123,9 @@ class MuScatModel(object):
                 obj_tmp[:,self.Nx//2-self.Nx//4:self.Nx//2+self.Nx//4, self.Ny//2-self.Ny//4:self.Ny//2+self.Ny//4] = self.obj
                 self.obj = obj_tmp
             
-            if np.sum(1*(np.iscomplex(self.obj))) > 0:#isinstance(self.obj, complex):isinstance(self.obj, complex):
-                self.TF_obj = tf.constant(np.real(self.obj), dtype=tf.float32, name='Object_const')
-                self.TF_obj_absorption = tf.constant(np.imag(self.obj), dtype=tf.float32, name='Object_const')
-            else:
-                self.TF_obj = tf.constant(np.real(self.obj), dtype=tf.float32, name='Object_const')
+
+            self.TF_obj = tf.constant(np.real(self.obj), dtype=tf.float32, name='Object_const')
+            self.TF_obj_absorption = tf.constant(np.imag(self.obj), dtype=tf.float32, name='Object_const')
                 
 
         
@@ -166,7 +168,7 @@ class MuScatModel(object):
         # weigh the illumination source with some cos^2 intensity weight?!
         myIntensityFactor = 70
         self.Ic_map = np.cos((myIntensityFactor *tf_helper.xx((self.Nx, self.Ny), mode='freq')**2+myIntensityFactor *tf_helper.yy((self.Nx, self.Ny), mode='freq')**2))**2 
-        self.Ic = self.Ic * self.Ic_map # weight the intensity in the condenser aperture, unlikely to be uniform
+        self.Ic = self.Ic #* self.Ic_map # weight the intensity in the condenser aperture, unlikely to be uniform
         print('We are weighing the Intensity int the illu-pupil!')
 
 
@@ -269,15 +271,13 @@ class MuScatModel(object):
 
         # simulate multiple scattering through object
         with tf.name_scope('Fwd_Propagate'):
+            #print('---------ATTENTION: We are inverting the RI!')
             for pz in range(0, self.mysize[0]):
                 #self.TF_A_prop = tf.Print(self.TF_A_prop, [self.tf_iterator], 'Prpagation step: ')
                 with tf.name_scope('Refract'):
-                    if np.sum(1*(np.iscomplex(self.obj))) > 0:#isinstance(self.obj, complex):
-                        self.TF_f = tf.exp(1j*self.TF_RefrEffect*tf.complex(self.TF_obj[-pz,:,:], self.TF_obj_absorption[-pz,:,:]))
-                    else:
-                        self.TF_f = tf.exp(1j*self.TF_RefrEffect*tf.cast(self.TF_obj[-pz,:,:], tf.complex64))
+                    # beware the "i" is in TF_RefrEffect already!
+                    self.TF_f = tf.exp(self.TF_RefrEffect*tf.complex(self.TF_obj[-pz,:,:], self.TF_obj_absorption[-pz,:,:]))
                     self.TF_A_prop = self.TF_A_prop * self.TF_f  # refraction step
-
                 with tf.name_scope('Propagate'):
                     self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * self.TF_myprop) # diffraction step
 
@@ -382,7 +382,7 @@ class MuScatModel(object):
         self.writer = tf.summary.FileWriter(logs_path, graph=tf.get_default_graph())
         
     
-    def writeParameterFile(self, mylr, myrtv, myepstv, filepath = './myparameters.yml'):
+    def writeParameterFile(self, mylr, mytv, myeps, filepath = './myparameters.yml'):
         ''' Write out all parameters to a yaml file in case we need it later'''
         mydata = dict(
                 NAc = float(self.NAc),
@@ -397,16 +397,83 @@ class MuScatModel(object):
                 dn = float(self.dn),
                 lambda0 = float(self.lambda0),
                 lambdaM = float(self.lambdaM),
-                learningrate = float(mylr), 
-                lambda_tv = float(myrtv), 
-                eps_tv = float(myepstv)) 
+                learningrate = mylr, 
+                lambda_tv = mytv, 
+                eps_tv = myeps) 
                 #zernikfactors = float(self.zernikefactors))
 
         with open(filepath, 'w') as outfile:
                 yaml.dump(mydata, outfile, default_flow_style=False)
                 
+     
+    def saveFigures(self, sess, savepath, tf_fwd, np_meas, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, globalphaselist, globalabslist, 
+                    result_phaselist, result_absorptionlist):
+        # This is the reconstruction
+        myfwd, mymeas, my_res, my_res_absorption = sess.run([tf_fwd, self.tf_meas, self.TF_obj, self.TF_obj_absorption], feed_dict={self.tf_meas:np_meas})
+        
+        plt.figure()
+        plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(232), plt.title('ABS YZ'),plt.imshow(np.abs(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(233), plt.title('ABS XY'),plt.imshow(np.abs(myfwd)[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.subplot(234), plt.title('Angle XZ'),plt.imshow(np.angle(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(235), plt.title('Angle XZ'),plt.imshow(np.angle(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(236), plt.title('Angle XY'),plt.imshow(np.angle(myfwd)[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.savefig(savepath+'/res_myfwd.png'), plt.show()
+    
+        # This is the measurment
+        plt.figure()
+        plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(mymeas)[:,mymeas.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(232), plt.title('ABS YZ'),plt.imshow(np.abs(mymeas)[:,:,mymeas.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(233), plt.title('ABS XY'),plt.imshow(np.abs(mymeas)[mymeas.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.subplot(234), plt.title('Angle XZ'),plt.imshow(np.angle(mymeas)[:,mymeas.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(235), plt.title('Angle XZ'),plt.imshow(np.angle(mymeas)[:,:,mymeas.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(236), plt.title('Angle XY'),plt.imshow(np.angle(mymeas)[mymeas.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.savefig(savepath+'/res_mymeas.png'), plt.show()
+    
+        # This is the residual
+        plt.figure()
+        plt.subplot(231), plt.title('Residual ABS XZ'),plt.imshow((np.abs(myfwd)-np.abs(mymeas))[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(232), plt.title('Residual ABS YZ'),plt.imshow((np.abs(myfwd)-np.abs(mymeas))[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(233), plt.title('Residual ABS XY'),plt.imshow((np.abs(myfwd)-np.abs(mymeas))[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.subplot(234), plt.title('Residual Angle XZ'),plt.imshow((np.angle(myfwd)-np.angle(mymeas))[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(235), plt.title('Residual Angle XZ'),plt.imshow((np.angle(myfwd)-np.angle(mymeas))[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(236), plt.title('Residual Angle XY'),plt.imshow((np.angle(myfwd)-np.angle(mymeas))[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.savefig(savepath+'/res_myresidual.png'), plt.show()
+        
+        # diplay the error over time
+        plt.figure()
+        plt.subplot(231), plt.title('Error/Cost-function'), plt.semilogy((np.array(mylosslist)))#, plt.show()
+        plt.subplot(232), plt.title('Fidelity-function'), plt.semilogy((np.array(myfidelitylist)))#, plt.show()
+        plt.subplot(233), plt.title('Neg-loss-function'), plt.plot(np.array(myneglosslist))#, plt.show()
+        plt.subplot(234), plt.title('TV-loss-function'), plt.semilogy(np.array(mytvlosslist))#, plt.show()
+        plt.subplot(235), plt.title('Global Phase'), plt.plot(np.array(globalphaselist))#, plt.show()
+        plt.subplot(236), plt.title('Global ABS'), plt.plot(np.array(globalabslist))#, plt.show()
+        plt.savefig(savepath+'/myplots.png'), plt.show()
+        
+        plt.figure()
+        plt.subplot(131), plt.title('Result Phase: XZ'),plt.imshow(my_res[:,my_res.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(132), plt.title('Result Phase: XZ'),plt.imshow(my_res[:,:,my_res.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(133), plt.title('Result Phase: XY'),plt.imshow(my_res[my_res.shape[0]//2,:,:]), plt.colorbar()
+        plt.savefig(savepath+'/RI_result.png'), plt.show()
+        
+        plt.figure()
+        plt.subplot(131), plt.title('Result Abs: XZ'),plt.imshow(my_res_absorption[:,my_res.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(132), plt.title('Result abs: XZ'),plt.imshow(my_res_absorption[:,:,my_res.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(133), plt.title('Result abs: XY'),plt.imshow(my_res_absorption[my_res.shape[0]//2,:,:]), plt.colorbar()
+        plt.savefig(savepath+'/RI_abs_result.png'), plt.show()
+        
+        print(np.real(sess.run(self.TF_zernikefactors)))
+        plt.figure()
+        plt.subplot(121), plt.title('Po Phase'), plt.imshow(np.fft.fftshift(np.angle(sess.run(self.TF_Po_aberr)))), plt.colorbar()
+        plt.subplot(122), plt.title('Po abs'), plt.imshow(np.fft.fftshift(np.abs(sess.run(self.TF_Po_aberr)))), plt.colorbar()
+        plt.savefig(savepath+'/recovered_pupil.png'), plt.show()
+    
+        data.export_realdatastack_h5(savepath+'/myrefractiveindex.h5', 'temp', np.array(result_phaselist))
+        data.export_realdatastack_h5(savepath+'/myrefractiveindex_absorption.h5', 'temp', np.array(result_absorptionlist))
+        myobj = my_res+1j*my_res_absorption
+        np.save('my_res_cmplx', myobj)         
                 
-        def initObject():
-            print('To Be done')
-                       
+    def initObject():
+        print('To Be done')
+                   
                         

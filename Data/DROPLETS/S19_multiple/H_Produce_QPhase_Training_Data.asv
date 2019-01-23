@@ -89,15 +89,15 @@ for iroi = 1:nroi
     myroi = squeeze(myroistack(:,:,:,iroi-1));
     mystripes = mean(myroi,[],[1,2]);
     allAmp_red = double(myroi/mystripes);
-    %save(['S19_subroi' num2str(iroi+20)], 'allAmp_red', '-v7.3')
+    save(['S19_subroi' num2str(iroi+20)], 'allAmp_red', '-v7.3')
     
     subplot(4,nroi/2,iroi)
-    imagesc(transpose(squeeze(abs(allAmp_red(:,16,:)))))
-    axis image, colormap gray
+    imagesc(transpose(squeeze(abs(allAmp_red(:,25,:)))))
+    colorbar, axis image, colormap gray
     title(['ABS#' num2str(iroi)])
     subplot(2*2,nroi/2,iroi+nroi)
-    imagesc(transpose(squeeze(angle(allAmp_red(:,16,:)))))
-    axis image, colormap gray
+    imagesc(transpose(squeeze(angle(allAmp_red(:,25,:)))))
+    colorbar, axis image, colormap gray
     title(['Ang#' num2str(iroi)])
 end
 
