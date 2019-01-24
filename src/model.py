@@ -106,8 +106,16 @@ class MuScatModel(object):
                 self.obj = obj_tmp
             # in case one wants to use this as a fwd-model for an inverse problem            
 
-            self.TF_obj = tf.Variable(np.real(self.obj), dtype=tf.float32, name='Object_Variable')
-            self.TF_obj_absorption = tf.Variable(np.imag(self.obj), dtype=tf.float32, name='Object_Variable')                
+            #self.TF_obj = tf.Variable(np.real(self.obj), dtype=tf.float32, name='Object_Variable')
+            #self.TF_obj_absorption = tf.Variable(np.imag(self.obj), dtype=tf.float32, name='Object_Variable')                
+            with tf.variable_scope("Complex_Object"):
+                self.TF_obj = tf.get_variable('Object_Variable_Real', dtype=tf.float32, initializer=np.float32(np.real(self.obj)))
+                self.TF_obj_absorption = tf.get_variable('Object_Variable_Imag', dtype=tf.float32, initializer=np.float32(np.imag(self.obj)))
+                #set reuse flag to True
+                tf.get_variable_scope().reuse_variables()
+                #just an assertion!
+                assert tf.get_variable_scope().reuse==True
+                
             
             # assign training variables 
             self.tf_lambda_tv = tf.placeholder(tf.float32, [])
@@ -168,7 +176,7 @@ class MuScatModel(object):
         # weigh the illumination source with some cos^2 intensity weight?!
         myIntensityFactor = 70
         self.Ic_map = np.cos((myIntensityFactor *tf_helper.xx((self.Nx, self.Ny), mode='freq')**2+myIntensityFactor *tf_helper.yy((self.Nx, self.Ny), mode='freq')**2))**2 
-        self.Ic = self.Ic #* self.Ic_map # weight the intensity in the condenser aperture, unlikely to be uniform
+        self.Ic = self.Ic * self.Ic_map # weight the intensity in the condenser aperture, unlikely to be uniform
         print('We are weighing the Intensity int the illu-pupil!')
 
 
@@ -244,7 +252,8 @@ class MuScatModel(object):
         myprop = tf_helper.repmat4d(np.fft.fftshift(myprop), self.Nc)
         myprop = np.transpose(myprop, [3, 0, 1, 2])  # ??????? what the hack is happening with transpose?!
 
-        RefrEffect = np.squeeze(1j * self.dz * self.k0 * self.RefrCos);  # Precalculate the oblique effect on OPD to speed it up
+        print('--------> ATTENTION: I added a pi factor - is this correct?!')
+        RefrEffect = np.squeeze(1j * np.pi* self.dz * self.k0 * self.RefrCos);  # Precalculate the oblique effect on OPD to speed it up
         
         # for now orientate the dimensions as (alpha_illu, x, y, z) - because tensorflow takes the first dimension as batch size
         with tf.name_scope('Variable_assignment'):

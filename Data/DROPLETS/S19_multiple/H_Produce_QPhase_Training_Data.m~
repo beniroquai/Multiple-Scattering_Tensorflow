@@ -84,7 +84,7 @@ for ifile = floor(linspace(1,nfiles,myParameter.Nz))
 end
 
 %% Clean for stripes along Z and save to disk
-nroi = 50
+
 for iroi = 1:nroi
     if(0)
         myroi = squeeze(myroistack(:,:,:,iroi-1));
@@ -116,7 +116,7 @@ for iroi = 1:nroi
         proj_z_ang = double(1.*threshold(proj_z_ang).*angle(proj_z_ang));
         %proj_z_ang = proj_z_ang>.2;
         try
-            
+
             fprintf('Select center of the "sphere"')
             AH=dipshow(angle(proj_x)^2) % find edges of CC signal
             diptruesize(AH,1200)
@@ -129,41 +129,36 @@ for iroi = 1:nroi
             
             
             %imagesc(proj_z_ang), colormap gray, axis image
-            proj_z_ang = (angle(allAmp_red(:,:,posz)));
-            %proj_z_ang = double(1.*threshold(proj_z_ang ).*angle(proj_z_ang ));
-            [centers,radius] = imfindcircles(proj_z_ang,[5 50]);
+            proj_z_ang = double(angle(allAmp_red(:,:,posz)));
+            [centers,radius] = imfindcircles(proj_z_ang,[5 50])
             posx = round(centers(1));
             posy = round(centers(2));
             
             
             mymidpos = MidPos(allAmp_red);
-            mysphere = double(circshift(rr(size(allAmp_red))<radius, -round([mymidpos(1)-posx mymidpos(2)-posy mymidpos(3)-posz])));
-            
+            mysphere = double(circshift(rr(size(allAmp_red))<2*radius, -round([mymidpos(1)-posx mymidpos(2)-posy mymidpos(3)-posz])));
+ 
             %%
-            %close all
-            if(0)
-                %%
-                proj_z = sum(dip_image(allAmp_red), [], 3);
-                proj_x = sum(dip_image(allAmp_red), [], 1);
-                proj_y = sum(dip_image(allAmp_red), [], 2);
-
-                figure(1000)
-                subplot(231)
-                imagesc(squeeze(double(angle(proj_z)))), axis image, colormap gray, title 'Proj Z'
-                hold on
-                %h = viscircles(centers,radius);
-                hold off
-                subplot(234)
-                imagesc(double(sum(1*dip_image(mysphere),[],3))), axis image, colormap gray, title 'Proj Z'
-                subplot(232)
-                imagesc(squeeze(double(angle(proj_x)))), axis image, colormap gray, title 'Proj X'
-                subplot(235)
-                imagesc(squeeze(double(sum(1*dip_image(mysphere),[],1)))), axis image, colormap gray, title 'Proj X'
-                subplot(233)
-                imagesc(squeeze(double(angle(proj_y)))), axis image, colormap gray, title 'Proj Y'
-                subplot(236)
-                imagesc(squeeze(double(sum(1*dip_image(mysphere),[],2)))), axis image, colormap gray, title 'Proj Y'
-            end
+            close all
+            figure(1)
+            subplot(231)
+            imagesc(squeeze(double(angle(proj_z)))), axis image, colormap gray, title 'Proj Z'
+            hold on
+            h = viscircles(centers,radii);
+            hold off
+            subplot(234)
+            imagesc(double(sum(1*dip_image(mysphere),[],3))), axis image, colormap gray, title 'Proj Z'
+            subplot(232)
+            imagesc(squeeze(double(angle(proj_x)))), axis image, colormap gray, title 'Proj X'
+            subplot(235)
+            imagesc(squeeze(double(sum(1*dip_image(mysphere),[],1)))), axis image, colormap gray, title 'Proj X'
+            subplot(233)
+            imagesc(squeeze(double(angle(proj_y)))), axis image, colormap gray, title 'Proj Y'
+            subplot(236)
+            imagesc(squeeze(double(sum(1*dip_image(mysphere),[],2)))), axis image, colormap gray, title 'Proj Y'
+            
+            pause(100)
+            
             save(['S19_sphere' num2str(iroi)], 'mysphere', '-v7.3')
             
         catch

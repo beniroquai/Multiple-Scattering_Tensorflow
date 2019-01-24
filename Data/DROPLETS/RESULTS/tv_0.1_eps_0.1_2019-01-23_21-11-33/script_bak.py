@@ -30,6 +30,7 @@ mpl.rc('image', cmap='gray')
 plt.switch_backend('agg')
 
 
+
 #%%
 '''Define some stuff related to infrastructure'''
 mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
@@ -61,14 +62,14 @@ tf.reset_default_graph() # just in case there was an open session
 
 '''Define Optimization Parameters'''
 # these are hyperparameters
-my_learningrate = 1e-2  # learning rate
-lambda_tv =  ((1e-1, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
-eps_tv = ((1e-1, 1e-2, 1)) # - 1e-1
+my_learningrate = 1e-1  # learning rate
+lambda_tv =  ((1e-1))##, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+eps_tv = ((1e-1))#, 1e-2, 1)) # - 1e-1
 
 # these are fixed parameters
 lambda_neg = 10
-Niter = 3000
-Ndisplay = 15
+Niter = 500
+Ndisplay = 5
 
 '''START CODE'''
 tf.reset_default_graph() # just in case there was an open session
@@ -115,42 +116,21 @@ print('Evtl unwrap it!')
 # this is the initial guess of the reconstruction
 np_meas=matlab_val#*np.exp(1j*np.pi)
 
-if(False): # good for the experiment
-    init_guess = np.angle(np_meas)
-    init_guess = init_guess - np.min(init_guess)
-    init_guess = init_guess**2
-    init_guess = init_guess/np.max(init_guess)*muscat.dn
-elif(False): # good for the simulation
-    init_guess = -np.abs(np_meas)
-    init_guess = init_guess - np.min(init_guess)
-    init_guess = init_guess**2
-    init_guess = init_guess/np.max(init_guess)*muscat.dn
-    init_guess = init_guess
-elif(False):
-    init_guess = np.ones(np_meas.shape)*muscat.dn
-elif(False):
-    init_guess = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = 7, dn = muscat.dn)
-else:
-    init_guess = np_meas
-    ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
-    mydiameter = 9
-    obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = dn)
-    obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .05)
-    obj = obj+1j*obj_absorption
-    obj = np.roll(obj,-7,0)
-    init_guess = obj
-    #init_guess = np.load('my_res_cmplx.npy')
-    #init_guess = np.random.randn(np_meas.shape[0],init_guess.shape[1],init_guess.shape[2])*muscat.dn
+init_guess = np_meas
+''' Create a 3D Refractive Index Distributaton as a artificial sample'''
+mydiameter = 8
+dn=.3
+obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = dn)
+obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .01)
+obj = obj+1j*obj_absorption
+obj = np.roll(obj,-7,0)
+init_guess = obj
+#init_guess = np.load('my_res_cmplx.npy')
+#init_guess = np.random.randn(np_meas.shape[0],init_guess.shape[1],init_guess.shape[2])*muscat.dn
 
 
 # Estimate the Phase difference between Measurement and Simulation
 #%%
-@tf.custom_gradient
-def clip_grad_layer(x):
-    def grad(dy):
-        return tf.clip_by_value(dy, -5, 5)
-    return tf.identity(x), grad
-
 '''Numpy to Tensorflow'''
 np_meas = matlab_val
 np_mean = np.mean(np_meas)
@@ -166,24 +146,18 @@ tf_globalabs = tf.Variable(1., tf.float32, name='var_abs')#
 #tf_fidelity = tf.reduce_sum((tf_helper.tf_abssqr(tf_fwd  - (tf_meas/tf.cast(tf.abs(tf_globalabs), tf.complex64)*tf.exp(1j*tf.cast(tf_globalphase, tf.complex64)))))) # allow a global phase parameter to avoid unwrapping effects
 tf_fwd_corrected = tf_fwd/tf.cast(tf.abs(tf_globalabs), tf.complex64)*tf.exp(1j*tf.cast(tf_globalphase, tf.complex64))
 tf_fidelity = tf.reduce_mean((tf_helper.tf_abssqr(muscat.tf_meas - tf_fwd_corrected ))) # allow a global phase parameter to avoid unwrapping effects
-#tf_fidelity = clip_grad_layer(tf_fidelity)
 tf_grads = tf.gradients(tf_fidelity, [muscat.TF_obj])[0]
 
 tf_loss = tf_fidelity/np_mean +  tf_negsqrloss + tf_tvloss #tf_negloss + tf_posloss + tf_tvloss
 
 '''Define Optimizer'''
-tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
-#train_a = tf.train.GradientDescentOptimizer(0.1).minimize(loss_a, var_list=[A])
-#train_b = tf.train.GradientDescentOptimizer(0.1).minimize(loss_b, var_list=[B])
-if(False):
-    gradients, variables = zip(*tf_optimizer.compute_gradients(tf_loss))
-    gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
-    tf_lossop = tf_optimizer.apply_gradients(zip(gradients, variables))
-
+#tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
 #tf_optimizer = tf.train.MomentumOptimizer(tf_learningrate, momentum = .9, use_nesterov=True)
 #tf_optimizer = tf.train.ProximalGradientDescentOptimizer(tf_learningrate)
-else:
-    tf_lossop = tf_optimizer.minimize(tf_loss)
+tf_optimizer = tf.train.GradientDescentOptimizer(muscat.tf_learningrate)
+
+tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj, muscat.TF_obj_absorption, tf_globalabs, tf_globalphase])
+tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors])
 
 
 ''' Evaluate the model '''
@@ -211,7 +185,7 @@ print('My Init Phase is :'+str(myinitphase))
 np_meas=np_meas*np.exp(-1j*(myinitphase)) # subtract globaphase - anyway we want to optimize for that, but now the global phase can be assumed to be 0 initally
 if(is_display): plt.subplot(231), plt.title('Angle XZ - Measurement'),plt.imshow(np.angle(np_meas)[:,mysize[1]//2,:]), plt.colorbar()#, plt.show()
 if(is_display): plt.subplot(232), plt.title('Angle YZ - Measurement'),plt.imshow(np.angle(np_meas)[:,:,mysize[2]//2]), plt.colorbar()#, plt.show()
-if(is_display): plt.subplot(233), plt.title('Angle XY - Measurement'),plt.imshow(np.angle(np_meas)[mysize[0]//2,:,:]), plt.colorbar(), plt.show()
+if(is_display): plt.subplot(233), plt.title('Angle XY - Measurement'),plt.imshow(np.angle(np_meas)[mysize[0]//2,:,:]), plt.colorbar()#, plt.show()
 if(is_display): plt.subplot(234), plt.title('Angle YZ - Simulation'),plt.imshow(np.angle(my_fwd)[:,mysize[1]//2,:]), plt.colorbar()#, plt.show()
 if(is_display): plt.subplot(235), plt.title('Angle XZ - Simulation'),plt.imshow(np.angle(my_fwd)[:,:,mysize[2]//2]), plt.colorbar()#, plt.show()
 if(is_display): plt.subplot(236), plt.title('Angle XY - Simulation'),plt.imshow(np.angle(my_fwd)[mysize[0]//2,:,:]), plt.colorbar(), plt.show()
@@ -221,7 +195,7 @@ print('My Init ABS is :'+str(myinitabs))
 np_meas=np_meas/np.max(np.abs(np_meas))*myinitabs# subtract globaphase - anyway we want to optimize for that, but now the global phase can be assumed to be 0 initally
 if(is_display): plt.subplot(231), plt.title('Abs XZ - Measurement'),plt.imshow(np.abs(np_meas)[:,mysize[1]//2,:]), plt.colorbar()#, plt.show()
 if(is_display): plt.subplot(232), plt.title('Abs YZ - Measurement'),plt.imshow(np.abs(np_meas)[:,:,mysize[2]//2]), plt.colorbar()#, plt.show()
-if(is_display): plt.subplot(233), plt.title('Abs XY - Measurement'),plt.imshow(np.abs(np_meas)[mysize[0]//2,:,:]), plt.colorbar(), plt.show()
+if(is_display): plt.subplot(233), plt.title('Abs XY - Measurement'),plt.imshow(np.abs(np_meas)[mysize[0]//2,:,:]), plt.colorbar()#, plt.show()
 if(is_display): plt.subplot(234), plt.title('Abs YZ - Simulation'),plt.imshow(np.abs(my_fwd)[:,mysize[1]//2,:]), plt.colorbar()#, plt.show()
 if(is_display): plt.subplot(235), plt.title('Abs XZ - Simulation'),plt.imshow(np.abs(my_fwd)[:,:,mysize[2]//2]), plt.colorbar()#, plt.show()
 if(is_display): plt.subplot(236), plt.title('Abs XY - Simulation'),plt.imshow(np.abs(my_fwd)[mysize[0]//2,:,:]), plt.colorbar(), plt.show()
@@ -229,13 +203,13 @@ if(is_display): plt.subplot(236), plt.title('Abs XY - Simulation'),plt.imshow(np
 
 
 #%% optimize over the hyperparameters
-for mylambdatv in lambda_tv:
-    for myepstvval in eps_tv:
+#for mylambdatv in lambda_tv:
+#    for myepstvval in eps_tv:
          
-#if(1):
-#    if(1):
-#        mylambdatv = lambda_tv
-#        myepstvval = eps_tv
+if(1):
+    if(1):
+        mylambdatv = lambda_tv
+        myepstvval = eps_tv
        
         '''Define some stuff related to infrastructure'''
         mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
@@ -265,8 +239,9 @@ for mylambdatv in lambda_tv:
         print('Start optimizing')
         np_meas = matlab_val # use the previously simulated data
         for iterx in range(iter_last,Niter):
-            if iterx == 500:
-                my_learningrate = my_learningrate*.1
+            if iterx == 100:
+                print('No change in learningrate!')
+                #my_learningrate = my_learningrate*.1
             # try to optimize
             
             if(iterx==0 or not np.mod(iterx, Ndisplay)):
@@ -284,8 +259,13 @@ for mylambdatv in lambda_tv:
                 globalphaselist.append(myglobalphase)
                 globalabslist.append(myglobalabs)  
 
-            else:
-                sess.run([tf_lossop], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
+            
+            # Alternate between pure object optimization and aberration recovery
+            for aa in range(3):
+                sess.run([tf_lossop_obj], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
+            for aa in range(3):
+                sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
+
                 #plt.imshow(np.abs(my_res[:,50,:]))
                 #print(mygrads)
                 #print(mygrads.shape)
@@ -296,5 +276,12 @@ for mylambdatv in lambda_tv:
         muscat.saveFigures(sess, savepath, tf_fwd_corrected, np_meas, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, globalphaselist, globalabslist, 
                     result_phaselist, result_absorptionlist)
    
-        muscat.writeParameterFile(my_learningrate, mylambdatv, myepstvval, filepath = './myparameters.yml')
+        muscat.writeParameterFile(my_learningrate, mylambdatv, myepstvval, filepath = savepath+'./myparameters.yml')
         
+        # backup current script
+        from shutil import copyfile
+        import os
+        src = (os.path.basename(__file__))
+        copyfile(src, savepath+'./script_bak.py')
+        
+

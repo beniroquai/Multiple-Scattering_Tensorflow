@@ -75,9 +75,9 @@ muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
 mydiameter = 8
 obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = dn)#)dn)
-obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .1)
-obj = obj#-1j*obj_absorption
-obj = np.roll(obj,9,0)
+obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .01)
+obj = obj+1j*obj_absorption
+obj = np.roll(obj,-9,0)
 #obj = np.load('my_res_cmplx.npy')
 # introduce zernike factors here
 muscat.zernikefactors = np.array((0,0,0,0,0,0,-.25,0.25,0))

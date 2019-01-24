@@ -40,7 +40,7 @@ nfiles = size(ampfiles,1);
 myamp = readim([ampfolder ampfiles(round(nfiles/2)).name]);
 myangle =  readim([anglefolder anglefiles(round(nfiles/2)).name]);
 %
-figure 
+figure
 subplot(121)
 imagesc(double(myamp))
 colorbar
@@ -84,21 +84,72 @@ for ifile = floor(linspace(1,nfiles,myParameter.Nz))
 end
 
 %% Clean for stripes along Z and save to disk
-figure
+
 for iroi = 1:nroi
     myroi = squeeze(myroistack(:,:,:,iroi-1));
     mystripes = mean(myroi,[],[1,2]);
     allAmp_red = double(myroi/mystripes);
     save(['S19_subroi' num2str(iroi+20)], 'allAmp_red', '-v7.3')
-    
+    if(0)
     subplot(4,nroi/2,iroi)
-    imagesc(transpose(squeeze(abs(allAmp_red(:,25,:)))))
-    colorbar, axis image, colormap gray
+    imagesc(transpose(squeeze(abs(allAmp_red(:,16,:)))))
+    axis image, colormap gray
     title(['ABS#' num2str(iroi)])
     subplot(2*2,nroi/2,iroi+nroi)
-    imagesc(transpose(squeeze(angle(allAmp_red(:,25,:)))))
-    colorbar, axis image, colormap gray
+    imagesc(transpose(squeeze(angle(allAmp_red(:,16,:)))))
+    axis image, colormap gray
     title(['Ang#' num2str(iroi)])
+    end
+%% now annotate the data
+
+    load(['S19_subroi' num2str(iroi)], 'allAmp_red')
+    proj_z = sum(dip_image(allAmp_red), [], 3);
+    proj_x = sum(dip_image(allAmp_red), [], 1);
+    proj_y = sum(dip_image(allAmp_red), [], 2);
+    
+    % Get position and size of the sphere
+    fprintf('Select boundaries of the "sphere" (upper, right, lower, left)')
+    proj_z_ang = double(angle(proj_z^2));
+    proj_z_ang = proj_z_ang - min(proj_z_ang);
+    proj_z_ang = proj_z_ang./max(proj_z_ang(:));
+    proj_z_ang = proj_z_ang>.3;
+    try
+        imagesc(proj_z_ang), colormap gray, axis image
+        [centers,radius] = imfindcircles(proj_z_ang,[1 50])
+        h = viscircles(centers,radii);
+        meanx = round(centers(1));
+        meany = round(centers(2));
+        
+        fprintf('Select center of the "sphere"')
+        AH=dipshow(angle(proj_x)^2) % find edges of CC signal
+        diptruesize(AH,1200)
+        sphere_coordinates_xz = dipgetcoords(AH,1);
+        fprintf('Select center of the "sphere"')
+        AH=dipshow(angle(proj_y)^2) % find edges of CC signal
+        diptruesize(AH,1200)
+        sphere_coordinates_yz = dipgetcoords(AH,1);
+        posz = 0.5*(sphere_coordinates_xz(2)+sphere_coordinates_yz(2));
+        mymidpos = MidPos(allAmp_red);
+        mysphere = double(circshift(rr(size(allAmp_red))<radius, -round([mymidpos(1)-meany mymidpos(2)-meanx mymidpos(3)-posz])));
+        
+        save(['S19_sphere' num2str(iroi)], 'mysphere', '-v7.3')
+        
+        %%
+        figure(1)
+        subplot(231)
+        imagesc(squeeze(double(angle(proj_z)))), axis image, colormap gray, title 'Proj Z'
+        subplot(234)
+        imagesc(double(sum(1*dip_image(mysphere),[],3))), axis image, colormap gray, title 'Proj Z'
+        subplot(232)
+        imagesc(squeeze(double(angle(proj_x)))), axis image, colormap gray, title 'Proj X'
+        subplot(235)
+        imagesc(squeeze(double(sum(1*dip_image(mysphere),[],1)))), axis image, colormap gray, title 'Proj X'
+        subplot(233)
+        imagesc(squeeze(double(angle(proj_y)))), axis image, colormap gray, title 'Proj Y'
+        subplot(236)
+        imagesc(squeeze(double(sum(1*dip_image(mysphere),[],2)))), axis image, colormap gray, title 'Proj Y'
+        
+    catch
+        disp('No sphere was found!')
+    end
 end
-
-
