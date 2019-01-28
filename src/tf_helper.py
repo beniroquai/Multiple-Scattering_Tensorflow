@@ -16,7 +16,7 @@ from scipy import ndimage
 import h5py 
 from tensorflow.python.client import device_lib
 import scipy.misc
-
+import numbers
 
 
 
@@ -343,3 +343,262 @@ def phiphi(mysize=(256,256), offset = 0, angle_range = 1):
     phi[phi.shape[0]//2,phi.shape[1]//2]=0;
     np.seterr(divide='warn', invalid = 'warn');
     return(phi)    
+    
+    
+def DampEdge(im, width = None, rwidth=0.1, axes =None, func = None, method="damp", sigma=4.0):
+    '''
+        Dampedge function 
+        
+        im  image to damp edges 
+        
+        rwidth : relative width (default : 0.1 meaning 10%)
+            width in relation to the image size along this dimenions. Can be a single number or a tuple
+            
+        width (None: rwidht is used, else width takes precedence)
+            -> characteristic absolute width for damping
+            -> can be integer, than every (given) axis is damped by the same size
+            -> can be list or tupel -> than individual damping for given axis
+            
+        axes-> which axes to be damped (default is (0,1))
+
+        func   - which function shall be used for damping -> some are stated in functions.py, first element should be x, second one the length (Damping length!)
+                e.g. cossqr, coshalf, linear
+                default: coshalf
+        
+        method -> which method should be used?
+                -> "zero" : dims down to zero
+                -> "damp" : blurs to an averaged mean (default)
+                -> "moisan" : HF/LF split method according to Moisan, J Math Imaging Vis (2011) 39: 161–179, DOI 10.1007/s10851-010-0227-1
+    
+        return image with damped edges
+        
+        TODO in FUTURE: padding of the image before damping
+    '''
+    res = np.ones(im.shape);    
+    if width==None:
+        width=tuple(np.round(np.array(im.shape)*np.array(rwidth)).astype("int"))
+        
+    if axes==None:
+        axes=np.arange(0,im.ndim).tolist()
+    if type(width) == int:
+        width = [width];
+    if type(width) == tuple:
+        width = list(width);
+    if len(width) < len(axes):
+        ext = np.ones(len(axes)-len(width))*width[-1];
+        width.extend(list(ext.astype(int)));
+        
+    res=im
+    mysum=im*0.0
+    sz=im.shape;
+    den=-2*len(set(axes)); # use only the counting dimensions
+    for i in range(len(im.shape)):
+        if i in axes:
+            line = np.arange(0,im.shape[i],1);
+            ramp = make_damp_ramp(width[i],func);            
+            if method=="zero":
+                line = cat((ramp[::-1],np.ones(im.shape[i]-2*width[i]),ramp),0);
+                goal=0.0 # dim down to zero
+            elif method=="moisan":
+#                for d=1:ndims(img)
+                top=subslice(im,i,0)
+                bottom=subslice(im,i,-1)
+                mysum=subsliceAsg(mysum,i,0,bottom-top + subslice(mysum,i,0));
+                mysum=subsliceAsg(mysum,i,sz[i]-1,top-bottom + subslice(mysum,i,sz[i]-1));
+                den=den+2*np.cos(2*np.pi*ramp(dimVec(i,sz[i],len(sz)),i,freq='freq'))
+            elif method=="damp":
+                line = cat((ramp[::-1],np.ones(im.shape[i]-2*width[i]+1),ramp[:-1]),0);  # to make it perfectly cyclic
+                top=subslice(im,i,0)
+                bottom=subslice(im,i,-1)
+                goal = (top+bottom)/2.0
+                kernel=gaussian(goal.shape,sigma)
+                goal = convolve(goal,kernel,norm2nd=True)
+            else:
+                raise ValueError("DampEdge: Unknown method. Choose: damp, moisan or zero.")
+            #res = res.swapaxes(0,i); # The broadcasting works only for Python versions >3.5
+#            res = res.swapaxes(len(im.shape)-1,i); # The broadcasting works only for Python versions >3.5
+    if method=="moisan":
+        den=nip.MidValAsg(den,1);  # to avoid the division by zero error
+        den=nip.ft(mysum)/den;
+        den=nip.MidValAsg(den,0);  # kill the zero frequency
+        den=nip.ift(den)
+        res=im-den
+    else:
+        line = expanddim(line,im.ndim).swapaxes(0,i); # The broadcasting works only for Python versions >3.5
+        try:
+            res = res*line + (1.0-line)*goal
+        except ValueError:
+            print('Broadcasting failed! Maybe the Python version is too old ... - Now we have to use repmat and reshape :(')
+            from numpy.matlib import repmat;
+            res *= np.reshape(repmat(line, 1, np.prod(res.shape[1:])),res.shape, order = 'F');
+        
+    #return(res)
+    return(res.view(image));
+
+
+def make_damp_ramp(length, function):
+    '''
+        creates a damp ramp:
+            length - length of the damp ramp in pixes
+            function - function of the damp ramp
+                        Generally implemented in nip.functions
+                        Make sure that first element is x and second element is characteristica lengths of the function
+    '''
+    x = np.arange(0, length,1);
+    return(function(x, length-1));
+    
+    
+
+def cat(self, imlist, ax):
+    if get_type(imlist) == 'list':
+        im =cat(imlist+[self],ax=ax);
+    elif get_type(imlist)[0] == 'array':
+        im =cat([imlist,self],ax= ax);
+        
+    else:
+        raise TypeError('Imlist is wrong data type')
+    im = im.view(image);
+    im.__array_finalize__(self);
+    return(im);
+
+def subslice(img,mydim,start):
+    '''
+        extracts an N-1 dimensional subslice at dimension dim and position start        
+        It keeps empty slices as singleton dimensions
+    '''
+    if start!=-1:
+        end=start+1
+    else:
+        end=None
+    coords=(mydim)*[slice(None)]+[slice(start,end)]+(img.ndim-mydim-1)*[slice(None)]
+    return img[tuple(coords)]
+
+def dimVec(d,mysize,ndims):
+    '''
+        creates a vector of ndims dimensions with all entries equalt to one except the one at d which is mysize
+        ----------
+        d: dimension to specify entry for
+        mysize : entry for res[d]        
+        ndims: length of the result vector
+    '''
+    res=ndims*[1]
+    res[d]=mysize
+    return tuple(res)
+
+def subsliceAsg(img,mydim,start,val):
+    '''
+        assigns val to an N-1 dimensional subslice at dimension dim and position start
+        -----
+        img : input image to assign to
+        mydim : dimension into which the subslice is chosen
+        start : offset along this dimension
+        val : value(s) to assign into the array
+        It keeps empty slices as singleton dimensions
+    '''
+    if start!=-1:
+        end=start+1
+    else:
+        end=None
+    coords=(mydim)*[slice(None)]+[slice(start,end)]+(img.ndim-mydim-1)*[slice(None)]
+    img[tuple(coords)]=val
+    return img
+
+def gaussian(myshape,sigma):
+    '''
+        n-dimensional gaussian function
+    '''
+    if isinstance(sigma,numbers.Number):
+        sigma=len(myshape)*[sigma]
+    return np.exp(-rr2(myshape,scale=tuple(1/(np.sqrt(2)*np.array(sigma)))))
+
+
+def rr2(mysize=(256,256), offset = (0,0),scale = None, freq=None):
+    '''
+    creates a square of a ramp in r direction 
+    standart size is 256 X 256
+    mode is always "center"
+    offset -> x/y offset in pixels (number, list or tuple)
+    scale is tuple, list, none or number of axis scale
+    '''
+    import numbers;
+    if offset is None:
+        scale = [0,0];
+    elif isinstance(offset, numbers.Number):
+        offset = [offset, 0];
+    elif type(offset)  == list or type(offset) == tuple:
+        offset = list(offset[0:2]);
+    else:
+        raise TypeError('Wrong data type for offset -> must be Number, list, tuple or none')
+        
+    if scale is None:
+        scale = [1,1];
+    elif isinstance(scale, numbers.Integral):
+        scale = [scale, scale];
+    elif type(scale)  == list or type(scale) == tuple:
+        scale = list(scale[0:2]);
+    else:
+        raise TypeError('Wrong data type for scale -> must be integer, list, tuple or none')
+    res=((ramp(mysize,0,'center',freq)-offset[0])*scale[0])**2
+    for d in range(1,len(mysize)):
+        res+=((ramp(mysize,d,'center',freq)-offset[d])*scale[d])**2
+    return res
+
+def factorial(n):
+    if n == 0:
+        return 1
+    else:
+        return n * factorial(n-1)
+    
+def insertPerfectAbsorber(mysample,SlabX,SlabW=1,direction=None,k0=None,N=4):
+    '''
+    % mysample=insertPerfectAbsorber(mysample,SlabX,SlabW) : inserts a slab of refractive index material into a dataset
+    % mysample : dataset to insert into
+    % SlabX : middle coordinate
+    % SlabW : half the width of slab
+    % direction : direction of absorber: 1= left to right, -1=right to left, 2:top to bottom, -2: bottom to top
+    '''
+
+    if k0==None:
+        k0=0.25/np.max(np.real(mysample));
+
+    k02 = k0**2;
+    
+    if mysample.ndim < 3:
+        mysample = np.expand_dims(mysample, 2)
+        
+        
+    myXX=xx((mysample.shape[0], mysample.shape[1], mysample.shape[2]))+mysample.shape[0]/2
+    
+    if np.abs(direction) <= 1:
+        myXX=xx((mysample.shape[0], mysample.shape[1], mysample.shape[2]))+mysample.shape[0]/2
+    elif np.abs(direction) <= 2:
+        myXX=yy((mysample.shape[0], mysample.shape[1], mysample.shape[2]))+mysample.shape[1]/2
+    elif np.abs(direction) <= 3:
+        myXX=zz((mysample.shape[0], mysample.shape[1], mysample.shape[2]))+mysample.shape[2]/2
+
+
+    alpha=0.035*100/SlabW #; % 100 slices
+    if direction > 0:
+        #% mysample(abs(myXX-SlabX)<=SlabW)=1.0+1i*alpha*exp(xx(mysize,'corner')/mysize(1));  % increasing absorbtion
+        myX=myXX-SlabX
+    else:
+        # %mysample(abs(myXX-SlabX)<=SlabW)=1.0+1i*alpha*exp((mysize(1)-1-xx(mysize,'corner'))/mysize(1));  % increasing absorbtion
+        myX=SlabX+SlabW-myXX-1
+        
+        
+    myMask= (myX>=0) * (myX<SlabW)
+
+    alphaX=alpha*myX[myMask]
+    
+    PN=0;
+    for n in range(0, N+1):
+        PN = PN + np.power(alphaX,n)/factorial(n)
+
+    k2mk02 = np.power(alphaX,N-1)*abssqr(alpha)*(N-alphaX + 2*1j*k0*myX[myMask])/(PN*factorial(N))
+    
+ 
+    mysample[myMask] = np.sqrt((k2mk02+k02)/k02)
+            
+    #np.array(mysample)[0]
+    
+    return mysample,k0

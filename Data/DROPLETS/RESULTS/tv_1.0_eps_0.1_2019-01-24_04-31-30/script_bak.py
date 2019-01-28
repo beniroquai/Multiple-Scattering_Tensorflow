@@ -27,7 +27,7 @@ import src.tf_regularizers as reg
 # Optionally, tweak styles.
 mpl.rc('figure',  figsize=(8, 5.5))
 mpl.rc('image', cmap='gray')
-plt.switch_backend('agg')
+#plt.switch_backend('agg')
 
 
 
@@ -40,19 +40,9 @@ resultpath = 'Data/DROPLETS/RESULTS/'
 # Define parameters 
 is_padding = False 
 is_display = True
-is_optimization = 1 
+is_optimization = True 
 is_optimization_psf = True
 is_measurement = True
-
-'''Define Optimization Parameters'''
-# these are hyperparameters
-my_learningrate = 1e-3  # learning rate
-lambda_tv =  ((1e-0))##, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
-eps_tv = ((1e-1))#, 1e-2, 1)) # - 1e-1
-# these are fixed parameters
-lambda_neg = 10
-Niter = 150
-Ndisplay = 5
 
 # data files for parameters and measuremets 
 matlab_val_file = './Data/DROPLETS/S19_multiple/Spheres/S19_subroi5.mat'      #'./Data/DROPLETS/allAmp_simu.npy' #
@@ -61,15 +51,25 @@ matlab_val_name = 'allAmp_red'
 matlab_par_name = 'myParameter' 
         
 # microscope parameters
-#zernikefactors = np.array((0,0,0,0,0,0,0.1,-0.25,0)) # representing the 9 first zernike coefficients in noll-writings 
-#zernikefactors = np.array((-0.13543801 ,-1.8246844 , -0.7559651 ,  0.2754147 ,  2.322039 ,  -2.872361, -0.28803617, -0.25946134,  4.9388413 ))
-#zernikefactors = np.array((0.10448612, -0.08286186,  0.18136881 ,-0.11662757, -0.09957132,  0.14661853, -0.14000118, -0.29074576,  0.11014813))
-zernikefactors = np.array((-0.09642964,  0.12118447,  0.25609729,  0.21328726, -0.16828917,  0.26799357,  0.05058525, -0.27134722,  0.21343225))
-shiftIcY=-0
+zernikefactors = np.array((0,0,0,0,0,0,0.1,-0.25,0)) # representing the 9 first zernike coefficients in noll-writings 
+shiftIcY=-1
 shiftIcX=-0
-print('---------> ATTENTION: No decentering!')
 dn = (1.437-1.3326)
 NAc = .52
+
+'''START CODE'''
+tf.reset_default_graph() # just in case there was an open session
+
+'''Define Optimization Parameters'''
+# these are hyperparameters
+my_learningrate = 1e-2  # learning rate
+lambda_tv =  ((1e-0))##, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+eps_tv = ((1e-1))#, 1e-2, 1)) # - 1e-1
+
+# these are fixed parameters
+lambda_neg = 10
+Niter = 500
+Ndisplay = 5
 
 '''START CODE'''
 tf.reset_default_graph() # just in case there was an open session
@@ -126,8 +126,11 @@ obj = np.roll(obj,-7,0)
 init_guess = obj
 init_guess = np_meas
 init_guess = dn*np.angle(init_guess)-np.min(np.angle(init_guess))
-init_guess = init_guess/np.max(init_guess)#*dn+1j*.01*np.ones(init_guess.shape)
+init_guess = init_guess/np.max(init_guess)*dn+1j*.01*np.ones(obj.shape)
 plt.imshow(np.real(init_guess[:,15,:])), plt.colorbar, plt.show()
+#init_guess = np.load('my_res_cmplx.npy')
+#init_guess = np.random.randn(np_meas.shape[0],init_guess.shape[1],init_guess.shape[2])*muscat.dn
+
 
 # Estimate the Phase difference between Measurement and Simulation
 #%%
@@ -142,7 +145,7 @@ tf_tvloss += muscat.tf_lambda_tv*reg.Reg_TV(muscat.TF_obj_absorption, BetaVals =
 tf_negsqrloss = lambda_neg*reg.Reg_NegSqr(muscat.TF_obj)
 tf_negsqrloss += lambda_neg*reg.Reg_NegSqr(muscat.TF_obj_absorption)
 tf_globalphase = tf.Variable(0., tf.float32, name='var_phase')
-tf_globalabs = tf.Variable(.6, tf.float32, name='var_abs')# 
+tf_globalabs = tf.Variable(1., tf.float32, name='var_abs')# 
 #tf_fidelity = tf.reduce_sum((tf_helper.tf_abssqr(tf_fwd  - (tf_meas/tf.cast(tf.abs(tf_globalabs), tf.complex64)*tf.exp(1j*tf.cast(tf_globalphase, tf.complex64)))))) # allow a global phase parameter to avoid unwrapping effects
 tf_fwd_corrected = tf_fwd/tf.cast(tf.abs(tf_globalabs), tf.complex64)*tf.exp(1j*tf.cast(tf_globalphase, tf.complex64))
 tf_fidelity = tf.reduce_mean((tf_helper.tf_abssqr(muscat.tf_meas - tf_fwd_corrected ))) # allow a global phase parameter to avoid unwrapping effects
@@ -156,15 +159,20 @@ tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
 #tf_optimizer = tf.train.ProximalGradientDescentOptimizer(tf_learningrate)
 #tf_optimizer = tf.train.GradientDescentOptimizer(muscat.tf_learningrate)
 
-tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj, tf_globalabs, tf_globalphase]) # muscat.TF_obj_absorption, 
-if is_optimization_psf: # in case we want to do blind deconvolution
-    tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors])
+tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj, muscat.TF_obj_absorption, tf_globalabs, tf_globalphase])
+tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors])
 
 
 ''' Evaluate the model '''
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
 if is_optimization:
+    if is_padding:
+        # Pad object with zeros along X/Y
+        init_guess_tmp= np.zeros(muscat.mysize)# + 1j*np.zeros(muscat.mysize)
+        init_guess_tmp[:,muscat.Nx//2-muscat.Nx//4:muscat.Nx//2+muscat.Nx//4, muscat.Ny//2-muscat.Ny//4:muscat.Ny//2+muscat.Ny//4] =init_guess
+        init_guess = init_guess_tmp
+
     sess.run(tf.assign(muscat.TF_obj, np.real(init_guess))); # assign abs of measurement as initial guess of 
     sess.run(tf.assign(muscat.TF_obj_absorption, np.imag(init_guess))); # assign abs of measurement as initial guess of 
 
@@ -235,9 +243,8 @@ if(1):
         np_meas = matlab_val # use the previously simulated data
         for iterx in range(iter_last,Niter):
             if iterx == 100:
-                
-                print('No change in learningrate!')
-                #my_learningrate = my_learningrate*.1
+                #print('No change in learningrate!')
+                my_learningrate = my_learningrate*.1
             # try to optimize
             
             if(iterx==0 or not np.mod(iterx, Ndisplay)):
@@ -253,40 +260,31 @@ if(1):
                 result_phaselist.append(my_res)
                 result_absorptionlist.append(my_res_absortpion)
                 globalphaselist.append(myglobalphase)
-                globalabslist.append(myglobalabs) 
-                
-                ''' Save Figures and Parameters '''
-                muscat.saveFigures(sess, savepath, tf_fwd_corrected, np_meas, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, globalphaselist, globalabslist, 
-                            result_phaselist=None, result_absorptionlist=None, init_guess=None, figsuffix='Iter'+str(iterx))
-               
+                globalabslist.append(myglobalabs)  
 
             
             # Alternate between pure object optimization and aberration recovery
-            for aa in range(1):
+            for aa in range(3):
                 sess.run([tf_lossop_obj], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
-            if is_optimization_psf:
-                for aa in range(1):
-                    sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
+            for aa in range(3):
+                sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
 
                 #plt.imshow(np.abs(my_res[:,50,:]))
                 #print(mygrads)
                 #print(mygrads.shape)
                 #_, myfwd = sess.run([tf_lossop,tf_fwd], feed_dict={tf_meas:np_meas, tf_learningrate:my_learningrate, tf_lambda_tv:mylambdatv})
 
-        iter_last = iterx
         #%%        
         ''' Save Figures and Parameters '''
         muscat.saveFigures(sess, savepath, tf_fwd_corrected, np_meas, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, globalphaselist, globalabslist, 
                     result_phaselist, result_absorptionlist)
    
-        muscat.writeParameterFile(my_learningrate, mylambdatv, myepstvval, filepath = savepath+'/myparameters.yml')
-        
-        print(np.real(sess.run(muscat.TF_zernikefactors)))
+        muscat.writeParameterFile(my_learningrate, mylambdatv, myepstvval, filepath = savepath+'./myparameters.yml')
         
         # backup current script
         from shutil import copyfile
         import os
         src = (os.path.basename(__file__))
-        copyfile(src, savepath+'/script_bak.py')
+        copyfile(src, savepath+'./script_bak.py')
         
 

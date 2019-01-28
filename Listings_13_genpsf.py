@@ -7,7 +7,8 @@ Created on Sat Jun 10 19:53:32 2017
 
 This file creates a fwd-model for the TESCAN Q-PHASE under 
 multiple-scattering. It is majorly derived from  "LEarning approach for optical tomography"
-U. S. Kamilov, BIG, EPFL, 2014.89    """
+U. S. Kamilov, BIG, EPFL, 2014.
+    """
 # %load_ext autoreload
 import tensorflow as tf
 import numpy as np
@@ -22,7 +23,7 @@ mpl.rc('figure',  figsize=(10, 6))
 mpl.rc('image', cmap='gray')
 
 # load own functions
-import src.model_absorb as mus
+import src.model as mus
 import src.tf_generate_object as tf_go
 import src.data as data
 
@@ -65,7 +66,7 @@ muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(m
 muscat.shiftIcY=-1
 muscat.shiftIcX=-0
 dn = (1.437-1.3326)
-muscat.NAc = .52#.52
+muscat.NAc = .1#.52
 #muscat.dz = muscat.lambdaM/4
 
 ''' Adjust some parameters to fit it in the memory '''
@@ -78,15 +79,48 @@ obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, o
 obj = obj+1j*obj_absorption
 obj = np.roll(obj,-9,0)
 
+
 #obj = np.load('my_res_cmplx.npy')
 # introduce zernike factors here
 muscat.zernikefactors = np.array((0,0,0,0,0,0,-.25,0.25,0))
 #muscat.zernikefactors = np.array((-0.05195263 ,-0.3599817 , -0.08740465,  0.3556992  , 2.9515843 , -1.9670948 ,-0.38435063 , 0.45611984 , 3.68658  )) 
-''' Compute the systems model'''
-muscat.computesys(obj, is_zernike=True, is_padding=is_padding)
-#muscat.A_input = muscat.A_input*np.exp(1j*np.random.rand(muscat.A_input.shape[3])*2*np.pi)
-tf_fwd = muscat.computemodel()
 
+''' Compute the systems model'''
+atf, apsf = muscat.computetrans()
+
+
+plt.imshow(np.real(apsf[:,16,:])**.1), plt.colorbar(), plt.show()
+plt.imshow(np.real(atf[:,16,:])**.1), plt.colorbar(), plt.show()
+
+padsize = 16
+obj_pad = np.pad(obj, [[35,35], [16, 16], [16, 16]], mode='constant')
+apsf_pad = np.pad(apsf, [[35,35], [16, 16], [16, 16]], mode='constant')
+
+mysimu = np.fft.ifftn(np.fft.fftn(obj_pad)*np.fft.fftn(apsf_pad))
+mysimu = mysimu[35:-35, 16:-16, 16:-16]
+
+plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(obj_pad))[:,32,:])**.1)
+plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(apsf_pad))[:,32,:])**.1)
+
+obj_pad
+
+
+plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(obj_pad))[:,16,:])**.1)
+plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(obj_pad))[:,16,:])**.1)
+
+plt.imshow(np.abs(mysimu[:,16,:])), plt.colorbar(), plt.show()
+plt.imshow(np.abs(obj_pad[:,16,:])), plt.colorbar(), plt.show()
+
+asdf
+plt.imshow(np.real(mysimu[:,16,:])), plt.colorbar(), plt.show()
+plt.imshow(np.angle(mysimu[:,16,:])), plt.colorbar(), plt.show()
+plt.imshow(np.abs(atf[:,16,:])**.1), plt.colorbar(), plt.show()
+plt.imshow((np.abs(np.fft.fftshift(np.fft.fftn(obj)))**.1)[:,16,:]), plt.colorbar(), plt.show()
+
+plt.imshow((np.abs(np.fft.fftshift(np.fft.fftn(obj))*np.fft.fftshift(np.fft.fftn(apsf)))**.1)[:,16,:]), plt.colorbar(), plt.show()
+
+plt.imshow(np.real(obj[:,16,:])), plt.colorbar(), plt.show()
+asdf
 #%% Display the results
 ''' Evaluate the model '''
 sess = tf.Session()
@@ -96,9 +130,9 @@ myfwd  = sess.run(tf_fwd)
 #%% display the results
 centerslice = 25
 plt.figure()
-plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(muscat.obj)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
-plt.subplot(232), plt.title('ABS YZ'),plt.imshow(np.abs(muscat.obj)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-plt.subplot(233), plt.title('ABS XY'),plt.imshow(np.abs(muscat.obj)[myfwd.shape[0]//2,:,:]), plt.colorbar(), plt.show()
+plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(obj)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(232), plt.title('ABS YZ'),plt.imshow(np.abs(obj)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+plt.subplot(233), plt.title('ABS XY'),plt.imshow(np.abs(obj)[myfwd.shape[0]//2,:,:]), plt.colorbar(), plt.show()
 
 plt.figure()    
 plt.subplot(141), plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
@@ -116,12 +150,12 @@ plt.subplot(235), plt.title('Angle YZ'),plt.imshow(np.angle(myfwd)[:,:,myfwd.sha
 plt.subplot(236), plt.title('Angle XY'),plt.imshow(np.angle(myfwd)[centerslice ,:,:]), plt.colorbar(), plt.show()
 
 plt.figure()    
-plt.subplot(231), plt.title('muscat.obj Real XZ'),plt.imshow(np.real(muscat.obj)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
-plt.subplot(232), plt.title('muscat.obj Real XZ'),plt.imshow(np.real(muscat.obj)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-plt.subplot(233), plt.title('muscat.obj Real XY'),plt.imshow(np.real(muscat.obj)[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
-plt.subplot(234), plt.title('muscat.obj Imag XZ'),plt.imshow(np.imag(muscat.obj)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
-plt.subplot(235), plt.title('muscat.obj Imag XZ'),plt.imshow(np.imag(muscat.obj)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-plt.subplot(236), plt.title('muscat.obj Imag XY'),plt.imshow(np.imag(muscat.obj)[myfwd.shape[0]//2,:,:]), plt.colorbar(), plt.show()
+plt.subplot(231), plt.title('Obj Real XZ'),plt.imshow(np.real(obj)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(232), plt.title('Obj Real XZ'),plt.imshow(np.real(obj)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+plt.subplot(233), plt.title('Obj Real XY'),plt.imshow(np.real(obj)[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+plt.subplot(234), plt.title('Obj Imag XZ'),plt.imshow(np.imag(obj)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(235), plt.title('Obj Imag XZ'),plt.imshow(np.imag(obj)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+plt.subplot(236), plt.title('Obj Imag XY'),plt.imshow(np.imag(obj)[myfwd.shape[0]//2,:,:]), plt.colorbar(), plt.show()
 
 plt.figure()
 plt.subplot(231), plt.imshow(np.fft.fftshift(np.angle(sess.run(muscat.TF_Po_aberr))))

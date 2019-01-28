@@ -94,9 +94,21 @@ class MuScatModel(object):
             self.obj = obj
             self.dx=self.dx
             self.dy=self.dy
+            mysample = np.zeros(self.mysize)+1j*np.zeros(self.mysize)
+            mysample[:,16:-16, 16:-16] = self.obj
+            k0 = 2*np.pi/self.lambda0
+            if(True):
+                Boundary = 8
+                mysample = np.transpose(mysample, [1,2,0])
+                mysample, _ = tf_helper.insertPerfectAbsorber(mysample, 0, Boundary, -1, k0);
+                mysample, _ = tf_helper.insertPerfectAbsorber(mysample, mysample.shape[0] - Boundary, Boundary, 1, k0);
+                mysample, _ = tf_helper.insertPerfectAbsorber(mysample, 0, Boundary, -2, k0);
+                mysample, _ = tf_helper.insertPerfectAbsorber(mysample, mysample.shape[1] - Boundary, Boundary, 2, k0);
+                mysample = np.transpose(mysample, [2,0,1])
+            self.obj = mysample
+
         else:
             self.mysize=np.array((self.Nz, self.Nx, self.Ny))
-            self.mysize_old = self.mysize
  
         # Decide whether we wan'T to optimize or simply execute the model
         if (self.is_optimization==1):
@@ -116,8 +128,10 @@ class MuScatModel(object):
             self.tf_eps = tf.placeholder(tf.float32, [])
             self.tf_meas = tf.placeholder(dtype=tf.complex64, shape=self.mysize_old)
             self.tf_learningrate = tf.placeholder(tf.float32, []) 
+
  
         elif(self.is_optimization==0):
+            
             # Variables of the computational graph
             self.TF_obj = tf.constant(np.real(self.obj), dtype=tf.float32, name='Object_const')
             self.TF_obj_absorption = tf.constant(np.imag(self.obj), dtype=tf.float32, name='Object_const')
@@ -284,14 +298,33 @@ class MuScatModel(object):
         # simulate multiple scattering through object
         with tf.name_scope('Fwd_Propagate'):
             #print('---------ATTENTION: We are inverting the RI!')
+            # Selected slice
+            row_start = 16
+            row_end = 64-16
+            # Make indices from meshgrid
+            indexes = tf.meshgrid(tf.range(row_start, row_end),
+                                  tf.range(row_start, row_end), indexing='ij')
+            indexes = tf.stack(indexes, axis=-1)
+
             for pz in range(0, self.mysize[0]):
                 #self.TF_A_prop = tf.Print(self.TF_A_prop, [self.tf_iterator], 'Prpagation step: ')
                 with tf.name_scope('Refract'):
                     # beware the "i" is in TF_RefrEffect already!
                     if(self.is_padding):
-                        tf_paddings = tf.constant([[self.mysize_old[1]//2, self.mysize_old[1]//2], [self.mysize_old[2]//2, self.mysize_old[2]//2]])
-                        TF_real = tf.pad(self.TF_obj[-pz,:,:], tf_paddings, mode='CONSTANT', name='TF_obj_real_pad')
-                        TF_imag = tf.pad(self.TF_obj_absorption[-pz,:,:], tf_paddings, mode='CONSTANT', name='TF_obj_imag_pad')
+                        #tf_paddings = tf.constant([[self.mysize_old[1]//2, self.mysize_old[1]//2], [self.mysize_old[2]//2, self.mysize_old[2]//2]])
+                        TF_real = self.TF_obj[-pz,:,:]
+                        TF_imag = self.TF_obj_absorption[-pz,:,:]
+
+                        # Take slice
+                        TF_real_updates = TF_real[row_start:row_end, row_start:row_end]
+                        TF_imag_updates = TF_imag[row_start:row_end, row_start:row_end]
+                        
+                        # Build tensor with "filtered" gradient
+                        TF_real_part = tf.scatter_nd(indexes, TF_real_updates, tf.shape(TF_real))
+                        TF_imag_part = tf.scatter_nd(indexes, TF_imag_updates, tf.shape(TF_imag))
+                        
+                        TF_real = TF_real_part + tf.stop_gradient(-TF_real_part + TF_real)
+                        TF_imag = TF_imag_part + tf.stop_gradient(-TF_imag_part + TF_imag)                        
                     else:
                         TF_real = self.TF_obj[-pz,:,:]
                         TF_imag = self.TF_obj_absorption[-pz,:,:]

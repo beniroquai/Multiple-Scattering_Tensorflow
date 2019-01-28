@@ -235,9 +235,8 @@ if(1):
         np_meas = matlab_val # use the previously simulated data
         for iterx in range(iter_last,Niter):
             if iterx == 100:
-                
-                print('No change in learningrate!')
-                #my_learningrate = my_learningrate*.1
+                #print('No change in learningrate!')
+                my_learningrate = my_learningrate*.1
             # try to optimize
             
             if(iterx==0 or not np.mod(iterx, Ndisplay)):
@@ -262,10 +261,10 @@ if(1):
 
             
             # Alternate between pure object optimization and aberration recovery
-            for aa in range(1):
+            for aa in range(3):
                 sess.run([tf_lossop_obj], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
             if is_optimization_psf:
-                for aa in range(1):
+                for aa in range(3):
                     sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
 
                 #plt.imshow(np.abs(my_res[:,50,:]))
@@ -273,15 +272,13 @@ if(1):
                 #print(mygrads.shape)
                 #_, myfwd = sess.run([tf_lossop,tf_fwd], feed_dict={tf_meas:np_meas, tf_learningrate:my_learningrate, tf_lambda_tv:mylambdatv})
 
-        iter_last = iterx
+
         #%%        
         ''' Save Figures and Parameters '''
         muscat.saveFigures(sess, savepath, tf_fwd_corrected, np_meas, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, globalphaselist, globalabslist, 
                     result_phaselist, result_absorptionlist)
    
         muscat.writeParameterFile(my_learningrate, mylambdatv, myepstvval, filepath = savepath+'/myparameters.yml')
-        
-        print(np.real(sess.run(muscat.TF_zernikefactors)))
         
         # backup current script
         from shutil import copyfile

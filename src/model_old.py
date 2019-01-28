@@ -83,23 +83,29 @@ class MuScatModel(object):
         self.is_padding = is_padding
         self.is_tomo = is_tomo
          
-        self.obj = obj
         if(is_padding):
-            print('--------->WARNING: Padding is not yet working correctly!!!!!!!!')
+            print('WARNING: Padding is not yet working correctly!!!!!!!!')
             # add padding in X/Y to avoid wrap-arounds
-            self.mysize_old = np.array((self.Nz, self.Nx, self.Ny))            
             self.Nx=self.Nx*2
             self.Ny=self.Ny*2
-            self.mysize = np.array((self.Nz, self.Nx, self.Ny))
+            self.mysize=np.array((self.Nz, self.Nx, self.Ny))
             self.obj = obj
             self.dx=self.dx
             self.dy=self.dy
+ 
         else:
             self.mysize=np.array((self.Nz, self.Nx, self.Ny))
-            self.mysize_old = self.mysize
+            self.obj = obj
  
         # Decide whether we wan'T to optimize or simply execute the model
         if (self.is_optimization==1):
+            if is_padding:
+                # Pad object with zeros along X/Y
+                obj_tmp = np.zeros(self.mysize)# + 1j*np.zeros(muscat.mysize)
+                obj_tmp[:,self.Nx//2-self.Nx//4:self.Nx//2+self.Nx//4, self.Ny//2-self.Ny//4:self.Ny//2+self.Ny//4] = self.obj
+                self.obj = obj_tmp
+            # in case one wants to use this as a fwd-model for an inverse problem            
+ 
             #self.TF_obj = tf.Variable(np.real(self.obj), dtype=tf.float32, name='Object_Variable')
             #self.TF_obj_absorption = tf.Variable(np.imag(self.obj), dtype=tf.float32, name='Object_Variable')                
             with tf.variable_scope("Complex_Object"):
@@ -114,17 +120,31 @@ class MuScatModel(object):
             # assign training variables 
             self.tf_lambda_tv = tf.placeholder(tf.float32, [])
             self.tf_eps = tf.placeholder(tf.float32, [])
-            self.tf_meas = tf.placeholder(dtype=tf.complex64, shape=self.mysize_old)
+            self.tf_meas = tf.placeholder(dtype=tf.complex64, shape=self.obj.shape)
             self.tf_learningrate = tf.placeholder(tf.float32, []) 
  
         elif(self.is_optimization==0):
             # Variables of the computational graph
+            if is_padding:
+                # Pad object with zeros along X/Y
+                obj_tmp = np.zeros(self.mysize)# + 1j*np.zeros(muscat.mysize)
+                obj_tmp[:,self.Nx//2-self.Nx//4:self.Nx//2+self.Nx//4, self.Ny//2-self.Ny//4:self.Ny//2+self.Ny//4] = self.obj
+                self.obj = obj_tmp
+             
+ 
             self.TF_obj = tf.constant(np.real(self.obj), dtype=tf.float32, name='Object_const')
             self.TF_obj_absorption = tf.constant(np.imag(self.obj), dtype=tf.float32, name='Object_const')
          
         elif(self.is_optimization==-1):
             # THis is for the case that we want to train the resnet
-            self.tf_meas = tf.placeholder(dtype=tf.complex64, shape=self.mysize_old)
+            if is_padding:
+                # Pad object with zeros along X/Y
+                obj_tmp = np.zeros(self.mysize)# + 1j*np.zeros(muscat.mysize)
+                obj_tmp[:,self.Nx//2-self.Nx//4:self.Nx//2+self.Nx//4, self.Ny//2-self.Ny//4:self.Ny//2+self.Ny//4] = self.obj
+                self.obj = obj_tmp
+                self.tf_meas = tf.placeholder(dtype=tf.complex64, shape=self.mysize/2)
+            else:
+                self.tf_meas = tf.placeholder(dtype=tf.complex64, shape=self.mysize)
             # in case one wants to use this as a fwd-model for an inverse problem            
  
             #self.TF_obj = tf.Variable(np.real(self.obj), dtype=tf.float32, name='Object_Variable')
@@ -184,14 +204,12 @@ class MuScatModel(object):
         # Shift the pupil in X-direction (optical missalignment)
         if hasattr(self, 'shiftIcX'):
             if self.shiftIcX != None:
-                if(is_padding): self.shiftIcX=self.shiftIcX*2
                 print('Shifting the illumination in X by: ' + str(self.shiftIcX) + ' Pixel')
                 self.Ic = np.roll(self.Ic, self.shiftIcX, axis=1)
  
         # Shift the pupil in Y-direction (optical missalignment)
         if hasattr(self, 'shiftIcY'):
             if self.shiftIcY != None:
-                if(is_padding): self.shiftIcY=self.shiftIcY*2
                 print('Shifting the illumination in Y by: ' + str(self.shiftIcY) + ' Pixel')
                 self.Ic = np.roll(self.Ic, self.shiftIcY, axis=0)
  
@@ -288,14 +306,7 @@ class MuScatModel(object):
                 #self.TF_A_prop = tf.Print(self.TF_A_prop, [self.tf_iterator], 'Prpagation step: ')
                 with tf.name_scope('Refract'):
                     # beware the "i" is in TF_RefrEffect already!
-                    if(self.is_padding):
-                        tf_paddings = tf.constant([[self.mysize_old[1]//2, self.mysize_old[1]//2], [self.mysize_old[2]//2, self.mysize_old[2]//2]])
-                        TF_real = tf.pad(self.TF_obj[-pz,:,:], tf_paddings, mode='CONSTANT', name='TF_obj_real_pad')
-                        TF_imag = tf.pad(self.TF_obj_absorption[-pz,:,:], tf_paddings, mode='CONSTANT', name='TF_obj_imag_pad')
-                    else:
-                        TF_real = self.TF_obj[-pz,:,:]
-                        TF_imag = self.TF_obj_absorption[-pz,:,:]
-                    self.TF_f = tf.exp(self.TF_RefrEffect*tf.complex(TF_real, TF_imag))
+                    self.TF_f = tf.exp(self.TF_RefrEffect*tf.complex(self.TF_obj[-pz,:,:], self.TF_obj_absorption[-pz,:,:]))
                     self.TF_A_prop = self.TF_A_prop * self.TF_f  # refraction step
                 with tf.name_scope('Propagate'):
                     self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * self.TF_myprop) # diffraction step
@@ -377,8 +388,8 @@ class MuScatModel(object):
         # does this makes any sense?
         ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
         print('Computing the APSF/ATF of the system')
-        pointscat = np.zeros(self.mysize) + 1j*np.zeros(self.mysize)
-        pointscat[pointscat.shape[0]//2, pointscat.shape[1]//2, pointscat.shape[2]//2] = 1+1j
+        pointscat = np.zeros(self.mysize)
+        pointscat[pointscat.shape[0]//2, pointscat.shape[1]//2, pointscat.shape[2]//2] = .1
         # introduce zernike factors here
          
         ''' Compute the systems model'''
