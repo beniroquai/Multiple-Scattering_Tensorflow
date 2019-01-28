@@ -47,8 +47,8 @@ is_measurement = True
 '''Define Optimization Parameters'''
 # these are hyperparameters
 my_learningrate = 1e-2  # learning rate
-lambda_tv =  1e-0#((1e0, 1e-1, 1e-2)) # lambda for Total variation - 1e-1
-eps_tv = 1e-2#((1e-2, 1e-1, 1e-0)) # - 1e-1 # smaller == more blocky
+lambda_tv =  ((1e-0))##, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+eps_tv = ((1e-1))#, 1e-2, 1)) # - 1e-1
 # these are fixed parameters
 lambda_neg = 10
 Niter = 500
@@ -61,16 +61,16 @@ matlab_val_name = 'allAmp_red'
 matlab_par_name = 'myParameter' 
         
 # microscope parameters
-#zernikefactors = np.array((0,0,0,0,0,0,0.,-0.,0)) # representing the 9 first zernike coefficients in noll-writings 
+#zernikefactors = np.array((0,0,0,0,0,0,0.1,-0.25,0)) # representing the 9 first zernike coefficients in noll-writings 
 #zernikefactors = np.array((-0.13543801 ,-1.8246844 , -0.7559651 ,  0.2754147 ,  2.322039 ,  -2.872361, -0.28803617, -0.25946134,  4.9388413 ))
 #zernikefactors = np.array((0.10448612, -0.08286186,  0.18136881 ,-0.11662757, -0.09957132,  0.14661853, -0.14000118, -0.29074576,  0.11014813))
 zernikefactors = np.array((-0.09642964,  0.12118447,  0.25609729,  0.21328726, -0.16828917,  0.26799357,  0.05058525, -0.27134722,  0.21343225))
 shiftIcY=-1
-shiftIcX=-0
+shiftIcX=-1
 print('---------> ATTENTION: No decentering!')
 dn = (1.437-1.3326)
 print('---------> ATTENTION: NAc is changed')
-NAc = .52
+NAc = .4
 
 '''START CODE'''
 tf.reset_default_graph() # just in case there was an open session
@@ -236,7 +236,7 @@ if(1):
         print('Start optimizing')
         np_meas = matlab_val # use the previously simulated data
         for iterx in range(iter_last,Niter):
-            if iterx == 100:
+            if iterx == 50:
                 #print('No change in learningrate!')
                 my_learningrate = my_learningrate*.1
             # try to optimize

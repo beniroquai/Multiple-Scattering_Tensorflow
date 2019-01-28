@@ -127,7 +127,7 @@ obj = np.roll(obj,-7,0)
 init_guess = obj
 init_guess = np_meas
 init_guess = (np.angle(init_guess)-np.min(np.angle(init_guess)))
-init_guess = dn*init_guess/np.max(init_guess)#*dn+1j*.01*np.ones(init_guess.shape)
+init_guess = 1*init_guess/np.max(init_guess)#*dn+1j*.01*np.ones(init_guess.shape)
 plt.imshow(np.real(init_guess[:,15,:])), plt.colorbar, plt.show()
 
 # Estimate the Phase difference between Measurement and Simulation

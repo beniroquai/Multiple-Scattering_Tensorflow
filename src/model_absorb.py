@@ -16,6 +16,7 @@ import yaml
  
 # own functions
 from src import tf_helper as tf_helper
+from src import tf_regularizers as tf_reg
 from src import zernike as zern
 from src import data as data
  
@@ -112,11 +113,13 @@ class MuScatModel(object):
  
         # Decide whether we wan'T to optimize or simply execute the model
         if (self.is_optimization==1):
-            #self.TF_obj = tf.Variable(np.real(self.obj), dtype=tf.float32, name='Object_Variable')
-            #self.TF_obj_absorption = tf.Variable(np.imag(self.obj), dtype=tf.float32, name='Object_Variable')                
+            #self.TF_obj_real_opt = tf.Variable(np.real(self.obj), dtype=tf.float32, name='Object_Variable')
+            #self.TF_obj_imag_opt = tf.Variable(np.imag(self.obj), dtype=tf.float32, name='Object_Variable')                
             with tf.variable_scope("Complex_Object"):
-                self.TF_obj = tf.get_variable('Object_Variable_Real', dtype=tf.float32, initializer=np.float32(np.real(self.obj)))
-                self.TF_obj_absorption = tf.get_variable('Object_Variable_Imag', dtype=tf.float32, initializer=np.float32(np.imag(self.obj)))
+                self.TF_obj_real = tf.get_variable('Object_Variable_Real', dtype=tf.float32, initializer=np.float32(np.real(self.obj)))
+                self.TF_obj_imag = tf.get_variable('Object_Variable_Imag', dtype=tf.float32, initializer=np.float32(np.imag(self.obj)))
+                
+
                 #set reuse flag to True
                 tf.get_variable_scope().reuse_variables()
                 #just an assertion!
@@ -133,19 +136,27 @@ class MuScatModel(object):
         elif(self.is_optimization==0):
             
             # Variables of the computational graph
-            self.TF_obj = tf.constant(np.real(self.obj), dtype=tf.float32, name='Object_const')
-            self.TF_obj_absorption = tf.constant(np.imag(self.obj), dtype=tf.float32, name='Object_const')
-         
+            self.TF_obj_real = tf.constant(np.real(self.obj), dtype=tf.float32, name='Object_const')
+            self.TF_obj_imag = tf.constant(np.imag(self.obj), dtype=tf.float32, name='Object_const')
+
+             # Need to pass through the identity
+            self.TF_obj_real_opt = tf.identity(self.TF_obj_real)
+            self.TF_obj_imag_opt = tf.identity(self.TF_obj_imag)
+
         elif(self.is_optimization==-1):
             # THis is for the case that we want to train the resnet
             self.tf_meas = tf.placeholder(dtype=tf.complex64, shape=self.mysize_old)
             # in case one wants to use this as a fwd-model for an inverse problem            
  
-            #self.TF_obj = tf.Variable(np.real(self.obj), dtype=tf.float32, name='Object_Variable')
-            #self.TF_obj_absorption = tf.Variable(np.imag(self.obj), dtype=tf.float32, name='Object_Variable')                
-            self.TF_obj = tf.placeholder(dtype=tf.float32, shape=self.obj.shape, name='Object_Variable_Real')
-            self.TF_obj_absorption = tf.placeholder(dtype=tf.float32, shape=self.obj.shape, name='Object_Variable_Imag')
+            #self.TF_obj_real_opt = tf.Variable(np.real(self.obj), dtype=tf.float32, name='Object_Variable')
+            #self.TF_obj_imag_opt = tf.Variable(np.imag(self.obj), dtype=tf.float32, name='Object_Variable')                
+            self.TF_obj_real = tf.placeholder(dtype=tf.float32, shape=self.obj.shape, name='Object_Variable_Real')
+            self.TF_obj_imag = tf.placeholder(dtype=tf.float32, shape=self.obj.shape, name='Object_Variable_Imag')
  
+            # Need to pass through the identity
+            self.TF_obj_real_opt = tf.identity(self.TF_obj_real)
+            self.TF_obj_imag_opt = tf.identity(self.TF_obj_imag)
+
             # assign training variables 
             self.tf_lambda_tv = tf.placeholder(tf.float32, [])
             self.tf_eps = tf.placeholder(tf.float32, [])
@@ -312,8 +323,8 @@ class MuScatModel(object):
                     # beware the "i" is in TF_RefrEffect already!
                     if(self.is_padding):
                         #tf_paddings = tf.constant([[self.mysize_old[1]//2, self.mysize_old[1]//2], [self.mysize_old[2]//2, self.mysize_old[2]//2]])
-                        TF_real = self.TF_obj[-pz,:,:]
-                        TF_imag = self.TF_obj_absorption[-pz,:,:]
+                        TF_real = self.TF_obj_real_opt[-pz,:,:]
+                        TF_imag = self.TF_obj_imag_opt[-pz,:,:]
 
                         # Take slice
                         TF_real_updates = TF_real[row_start:row_end, row_start:row_end]
@@ -326,8 +337,8 @@ class MuScatModel(object):
                         TF_real = TF_real_part + tf.stop_gradient(-TF_real_part + TF_real)
                         TF_imag = TF_imag_part + tf.stop_gradient(-TF_imag_part + TF_imag)                        
                     else:
-                        TF_real = self.TF_obj[-pz,:,:]
-                        TF_imag = self.TF_obj_absorption[-pz,:,:]
+                        TF_real = self.TF_obj_real_opt[-pz,:,:]
+                        TF_imag = self.TF_obj_imag_opt[-pz,:,:]
                     self.TF_f = tf.exp(self.TF_RefrEffect*tf.complex(TF_real, TF_imag))
                     self.TF_A_prop = self.TF_A_prop * self.TF_f  # refraction step
                 with tf.name_scope('Propagate'):
@@ -464,10 +475,10 @@ class MuScatModel(object):
                     result_phaselist=None, result_absorptionlist=None, init_guess=None, figsuffix=''):
         # This is the reconstruction
         if(init_guess is not None):
-            myfwd, mymeas, my_res, my_res_absorption = sess.run([tf_fwd, self.tf_meas, self.TF_obj, self.TF_obj_absorption], 
-                    feed_dict={self.tf_meas:np_meas, self.TF_obj:np.real(init_guess), self.TF_obj_absorption:np.imag(init_guess)})
+            myfwd, mymeas, my_res, my_res_absorption = sess.run([tf_fwd, self.tf_meas, self.TF_obj_real_opt, self.TF_obj_imag_opt], 
+                    feed_dict={self.tf_meas:np_meas, self.TF_obj_real_opt:np.real(init_guess), self.TF_obj_imag_opt:np.imag(init_guess)})
         else:
-            myfwd, mymeas, my_res, my_res_absorption = sess.run([tf_fwd, self.tf_meas, self.TF_obj, self.TF_obj_absorption], feed_dict={self.tf_meas:np_meas})
+            myfwd, mymeas, my_res, my_res_absorption = sess.run([tf_fwd, self.tf_meas, self.TF_obj_real_opt, self.TF_obj_imag_opt], feed_dict={self.tf_meas:np_meas})
              
         plt.figure()
         plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()

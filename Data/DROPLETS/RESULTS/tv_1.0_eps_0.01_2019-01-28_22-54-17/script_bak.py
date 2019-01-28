@@ -47,8 +47,8 @@ is_measurement = True
 '''Define Optimization Parameters'''
 # these are hyperparameters
 my_learningrate = 1e-2  # learning rate
-lambda_tv =  1e-0#((1e0, 1e-1, 1e-2)) # lambda for Total variation - 1e-1
-eps_tv = 1e-2#((1e-2, 1e-1, 1e-0)) # - 1e-1 # smaller == more blocky
+lambda_tv =  ((1e0, 1e-1, 1e-2)) # lambda for Total variation - 1e-1
+eps_tv = ((1e-2, 1e-1, 1e-0)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10
 Niter = 500
@@ -61,10 +61,10 @@ matlab_val_name = 'allAmp_red'
 matlab_par_name = 'myParameter' 
         
 # microscope parameters
-#zernikefactors = np.array((0,0,0,0,0,0,0.,-0.,0)) # representing the 9 first zernike coefficients in noll-writings 
+zernikefactors = np.array((0,0,0,0,0,0,0.,-0.,0)) # representing the 9 first zernike coefficients in noll-writings 
 #zernikefactors = np.array((-0.13543801 ,-1.8246844 , -0.7559651 ,  0.2754147 ,  2.322039 ,  -2.872361, -0.28803617, -0.25946134,  4.9388413 ))
 #zernikefactors = np.array((0.10448612, -0.08286186,  0.18136881 ,-0.11662757, -0.09957132,  0.14661853, -0.14000118, -0.29074576,  0.11014813))
-zernikefactors = np.array((-0.09642964,  0.12118447,  0.25609729,  0.21328726, -0.16828917,  0.26799357,  0.05058525, -0.27134722,  0.21343225))
+# very good values: zernikefactors = np.array((-0.09642964,  0.12118447,  0.25609729,  0.21328726, -0.16828917,  0.26799357,  0.05058525, -0.27134722,  0.21343225))
 shiftIcY=-1
 shiftIcX=-0
 print('---------> ATTENTION: No decentering!')
@@ -127,7 +127,7 @@ obj = np.roll(obj,-7,0)
 init_guess = obj
 init_guess = np_meas
 init_guess = (np.angle(init_guess)-np.min(np.angle(init_guess)))
-init_guess = dn*init_guess/np.max(init_guess)#*dn+1j*.01*np.ones(init_guess.shape)
+init_guess = 3*dn*init_guess/np.max(init_guess)#*dn+1j*.01*np.ones(init_guess.shape)
 plt.imshow(np.real(init_guess[:,15,:])), plt.colorbar, plt.show()
 
 # Estimate the Phase difference between Measurement and Simulation
@@ -200,11 +200,11 @@ if(is_display): plt.subplot(236), plt.title('Abs XY - Simulation'),plt.imshow(np
 
 
 #%% optimize over the hyperparameters
-#for mylambdatv in lambda_tv:
-#    for myepstvval in eps_tv:
+for mylambdatv in lambda_tv:
+    for myepstvval in eps_tv:
          
-if(1):
-    if(1):
+#if(1):
+#    if(1):
         mylambdatv = lambda_tv
         myepstvval = eps_tv
        

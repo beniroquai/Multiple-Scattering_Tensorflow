@@ -320,12 +320,13 @@ class MuScatModel(object):
         # self.mid3D = ([np.int(np.ceil(self.A_input.shape[0] / 2) + 1), np.int(np.ceil(self.A_input.shape[1] / 2) + 1), np.int(np.ceil(self.mysize[0] / 2) + 1)])
         self.mid3D = ([np.int(self.mysize[0]//2), np.int(self.A_input.shape[0] // 2), np.int(self.A_input.shape[1]//2)])
         with tf.name_scope('Back_Propagate'):
+            print('----------> ATTENTION: PHASE SCRAMBLING!')
             for pillu in range(0, self.Nc):
                 with tf.name_scope('Back_Propagate_Step'):
                     with tf.name_scope('Adjust'):
                         #    fprintf('BackpropaAngle no: #d\n',pillu);
                         OneAmp = tf.expand_dims(self.TF_A_prop[pillu, :, :], 0)
- 
+
                         # Fancy backpropagation assuming what would be measured if the sample was moved under oblique illumination:
                         # The trick is: First use conceptually the normal way
                         # and then apply the XYZ shift using the Fourier shift theorem (corresponds to physically shifting the object volume, scattered field stays the same):
@@ -334,9 +335,9 @@ class MuScatModel(object):
                             2 * np.pi * 1j * self.dz * np.reshape(np.arange(0, self.mysize[0], 1), # We want to start from first Z-slice then go to last which faces the objective lens
                                   [1, 1, self.mysize[0]]) * self.kzcoord[:, :, :,pillu]), [2, 1, 0]), tf.complex64)
                         self.TF_allAmp = tf.ifft2d(tf.fft2d(OneAmp) * self.TF_myAllSlicePropagator) * self.TF_AdjustKZ * self.TF_AdjustKXY  # * (TF_AdjustKZ);  # 2x bfxfun.  Propagates a single amplitude pattern back to the whole stack
-                        tf_global_phase = tf.cast(tf.angle(self.TF_allAmp[self.mid3D[0],self.mid3D[1],self.mid3D[2]]), tf.complex64)
+                        #tf_global_phase = tf.cast(tf.angle(self.TF_allAmp[self.mid3D[0],self.mid3D[1],self.mid3D[2]]), tf.complex64)
                         #tf_global_phase = tf.cast(np.random.randn(1)*np.pi,tf.complex64)
-                        self.TF_allAmp = self.TF_allAmp * tf.exp(1j*tf_global_phase) # Global Phases need to be adjusted at this step!  Use the zero frequency
+                        #self.TF_allAmp = self.TF_allAmp * tf.exp(1j*tf_global_phase) # Global Phases need to be adjusted at this step!  Use the zero frequency
                          
                     if (0):
                         with tf.name_scope('Propagate'):
@@ -484,7 +485,6 @@ class MuScatModel(object):
         plt.subplot(236), plt.title('Result abs: XY'),plt.imshow(my_res_absorption[my_res.shape[0]//2,:,:]), plt.colorbar()
         plt.savefig(savepath+'/RI_abs_result'+figsuffix+'.png'), plt.show()
          
-        print(np.real(sess.run(self.TF_zernikefactors)))
         plt.figure()
         plt.subplot(121), plt.title('Po Phase'), plt.imshow(np.fft.fftshift(np.angle(sess.run(self.TF_Po_aberr)))), plt.colorbar()
         plt.subplot(122), plt.title('Po abs'), plt.imshow(np.fft.fftshift(np.abs(sess.run(self.TF_Po_aberr)))), plt.colorbar()
