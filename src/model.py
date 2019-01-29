@@ -339,12 +339,13 @@ class MuScatModel(object):
                         #tf_global_phase = tf.cast(np.random.randn(1)*np.pi,tf.complex64)
                         #self.TF_allAmp = self.TF_allAmp * tf.exp(1j*tf_global_phase) # Global Phases need to be adjusted at this step!  Use the zero frequency
                          
-                    if (0):
+                    if (1):
                         with tf.name_scope('Propagate'):
                             self.TF_allAmp_3dft = tf.fft3d(tf.expand_dims(self.TF_allAmp, axis=0))
-                            self.TF_allAmp = self.TF_allAmp * tf.exp(-1j * tf.cast(
-                                tf.angle(self.TF_allAmp_3dft[self.mid3D[2], self.mid3D[1], self.mid3D[0]]),
-                                tf.complex64));  # Global Phases need to be adjusted at this step!  Use the zero frequency
+                            tf_global_phase = tf.angle(self.TF_allAmp_3dft[0,0,0,0])#tf.angle(self.TF_allAmp_3dft[0, self.mid3D[2], self.mid3D[1], self.mid3D[0]])
+                            tf_global_phase = tf.cast(tf_global_phase, tf.complex64)
+
+                            self.TF_allAmp = self.TF_allAmp * tf.exp(-1j * tf_global_phase);  # Global Phases need to be adjusted at this step!  Use the zero frequency
                     #print('Global phase: '+str(tf.exp(1j*tf.cast(tf.angle(self.TF_allAmp[self.mid3D[0],self.mid3D[1],self.mid3D[2]]), tf.complex64).eval()))
  
                     with tf.name_scope('Sum_Amps'): # Normalize amplitude by condenser intensity

@@ -218,3 +218,37 @@ def Reg_TV(toRegularize, BetaVals = [1,1,1], epsR = 1, epsC=1e-10, is_circ = Tru
     myReg = tf.reduce_mean(mySqrt)
 
     return myReg
+
+    
+    def PreMonotonicPos(tfin):
+        '''
+        Borrowed from Rainers: https://gitlab.com/bionanoimaging/inversemodelling/blob/master/InverseModelling/preforwardmodels.py
+        applies a monotonic transform mapping the full real axis to the positive half space
+    
+        This can be used to implicitely force the reconstruction results to be all-positive. The monotinic function is defined piecewise:
+            for all x>1: y=x
+            else :  1/(2-tfin)
+        The function is continues and once differentiable.
+        This function can also be used as an activation function for neural networks.
+    
+        Parameters
+        ----------
+        tfin : tensorflow array
+            The array to be transformed
+    
+        Returns
+        -------
+        tensorflow array
+            The transformed array
+    
+        See also
+        -------
+        PreabsSqr 
+    
+        Example
+        -------
+        '''
+        # line below: If sing(tfin) > 1 use tfin else: use 1/(2-tfin)
+        monoPos=((tf.sign(tfin[0]-1) + 1)/2)*(tfin[0])+((1-tf.sign(tfin[0]-1))/2)*(1.0/(2-tfin[0]))
+        
+        return monoPos;

@@ -48,7 +48,7 @@ is_measurement = True
 # these are hyperparameters
 my_learningrate = 1e-2  # learning rate
 lambda_tv =  1e-0#((1e0, 1e-1, 1e-2)) # lambda for Total variation - 1e-1
-eps_tv = 1e-1#((1e-2, 1e-1, 1e-0)) # - 1e-1 # smaller == more blocky
+eps_tv = 1e-2#((1e-2, 1e-1, 1e-0)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10
 Niter = 500
@@ -64,7 +64,7 @@ matlab_par_name = 'myParameter'
 #zernikefactors = np.array((0,0,0,0,0,0,0.,-0.,0)) # representing the 9 first zernike coefficients in noll-writings 
 #zernikefactors = np.array((-0.13543801 ,-1.8246844 , -0.7559651 ,  0.2754147 ,  2.322039 ,  -2.872361, -0.28803617, -0.25946134,  4.9388413 ))
 #zernikefactors = np.array((0.10448612, -0.08286186,  0.18136881 ,-0.11662757, -0.09957132,  0.14661853, -0.14000118, -0.29074576,  0.11014813))
-zernikefactors = 0*np.array((-0.09642964,  0.12118447,  0.25609729,  0.21328726, -0.16828917,  0.26799357,  0.05058525, -0.27134722,  0.21343225))
+zernikefactors = np.array((-0.09642964,  0.12118447,  0.25609729,  0.21328726, -0.16828917,  0.26799357,  0.05058525, -0.27134722,  0.21343225))
 shiftIcY=-1
 shiftIcX=-0
 print('---------> ATTENTION: No decentering!')
@@ -127,7 +127,7 @@ obj = np.roll(obj,-7,0)
 init_guess = obj
 init_guess = np_meas
 init_guess = (np.angle(init_guess)-np.min(np.angle(init_guess)))
-init_guess = 3*dn*init_guess/np.max(init_guess)#*dn+1j*.01*np.ones(init_guess.shape)
+init_guess = dn*init_guess/np.max(init_guess)#*dn+1j*.01*np.ones(init_guess.shape)
 plt.imshow(np.real(init_guess[:,15,:])), plt.colorbar, plt.show()
 
 # Estimate the Phase difference between Measurement and Simulation
@@ -236,7 +236,7 @@ if(1):
         print('Start optimizing')
         np_meas = matlab_val # use the previously simulated data
         for iterx in range(iter_last,Niter):
-            if iterx == 300:
+            if iterx == 100:
                 #print('No change in learningrate!')
                 my_learningrate = my_learningrate*.1
             # try to optimize
