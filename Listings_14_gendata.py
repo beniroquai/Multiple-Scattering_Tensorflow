@@ -22,7 +22,7 @@ mpl.rc('figure',  figsize=(10, 6))
 mpl.rc('image', cmap='gray')
 
 # load own functions
-import src.model_absorb as mus
+import src.model as mus
 import src.tf_generate_object as tf_go
 import src.data as data
 
@@ -41,7 +41,7 @@ except(FileExistsError):
     print('Folder exists already')
 
 # Define parameters 
-is_padding = True # better don't do it, some normalization is probably incorrect
+is_padding = False # better don't do it, some normalization is probably incorrect
 is_display = True
 is_optimization = False 
 is_optimization_psf = False
@@ -63,9 +63,9 @@ print('do we need to flip the data?! -> Observe FFT!!')
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization, is_optimization_psf = is_optimization_psf)
 muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(matlab_pars['Ny'].value))
 muscat.shiftIcY=-1
-muscat.shiftIcX=-0
+muscat.shiftIcX=1
 dn = (1.437-1.3326)
-muscat.NAc = .52#.52
+muscat.NAc = .2#.52
 #muscat.dz = muscat.lambdaM/4
 
 ''' Adjust some parameters to fit it in the memory '''
@@ -80,7 +80,7 @@ obj = np.roll(obj,-9,0)
 
 #obj = np.load('my_res_cmplx.npy')
 # introduce zernike factors here
-muscat.zernikefactors = np.array((0,0,0,0,0,0,-.25,0.25,0))
+muscat.zernikefactors = np.array((0,0,0,0,0,0,-1,-1,0))
 #muscat.zernikefactors = np.array((-0.05195263 ,-0.3599817 , -0.08740465,  0.3556992  , 2.9515843 , -1.9670948 ,-0.38435063 , 0.45611984 , 3.68658  )) 
 ''' Compute the systems model'''
 muscat.computesys(obj, is_zernike=True, is_padding=is_padding)
@@ -94,7 +94,7 @@ sess.run(tf.global_variables_initializer())
 myfwd  = sess.run(tf_fwd)
 
 #%% display the results
-centerslice = 25
+centerslice = 35
 plt.figure()
 plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(muscat.obj)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
 plt.subplot(232), plt.title('ABS YZ'),plt.imshow(np.abs(muscat.obj)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()

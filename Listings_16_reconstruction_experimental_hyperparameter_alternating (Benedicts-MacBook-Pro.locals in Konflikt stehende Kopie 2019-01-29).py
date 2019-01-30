@@ -41,22 +41,22 @@ resultpath = 'Data/DROPLETS/RESULTS/'
 is_padding = False 
 is_display = True
 is_optimization = 1 
-is_optimization_psf = False
+is_optimization_psf = True
 is_measurement = True
 
 '''Define Optimization Parameters'''
 # these are hyperparameters
 my_learningrate = 1e-2  # learning rate
 lambda_tv =  1e-1#((1e0, 1e-1, 1e-2)) # lambda for Total variation - 1e-1
-eps_tv = 1e-7#((1e-2, 1e-1, 1e-0)) # - 1e-1 # smaller == more blocky
+eps_tv = 1e-3#((1e-2, 1e-1, 1e-0)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10
-Niter = 500
+Niter = 200
 Ndisplay = 15
-Noptpsf = 1
+Noptpsf = 3
 
 # data files for parameters and measuremets 
-matlab_val_file = './Data/DROPLETS/S19_multiple/Spheres/S19_subroi9.mat'  #5    #'./Data/DROPLETS/allAmp_simu.npy' #
+matlab_val_file = './Data/DROPLETS/S19_multiple/Spheres/S19_subroi5.mat'      #'./Data/DROPLETS/allAmp_simu.npy' #
 matlab_par_file = './Data/DROPLETS/S19_multiple/Parameter.mat'   
 matlab_val_name = 'allAmp_red'
 matlab_par_name = 'myParameter' 
@@ -66,12 +66,10 @@ matlab_par_name = 'myParameter'
 #zernikefactors = np.array((-0.13543801 ,-1.8246844 , -0.7559651 ,  0.2754147 ,  2.322039 ,  -2.872361, -0.28803617, -0.25946134,  4.9388413 ))
 #zernikefactors = np.array((0.10448612, -0.08286186,  0.18136881 ,-0.11662757, -0.09957132,  0.14661853, -0.14000118, -0.29074576,  0.11014813))
 zernikefactors = 0*np.array((-0.09642964,  0.12118447,  0.25609729,  0.21328726, -0.16828917,  0.26799357,  0.05058525, -0.27134722,  0.21343225))
-# manually chosen:
-zernikefactors = np.array((0,0,0,0,0,0,-1,-1,0)) # representing the 9 first zernike coefficients in noll-writings 
-zernikemask = np.array((0, 0, 0, 0, 0, 0, 1, 1, 0))# mask which factors should be updated
+zernikemask = np.array((0, 0, 0, 0, 1, 1, 1, 1, 1))# mask which factors should be updated
 shiftIcY=-1
-shiftIcX=1
-dn = (1.437-1.3326)/np.pi
+shiftIcX=-1
+dn = (1.437-1.3326)
 NAc = .52
 
 '''START CODE'''
@@ -239,7 +237,7 @@ if(1):
         print('Start optimizing')
         np_meas = matlab_val # use the previously simulated data
         for iterx in range(iter_last,Niter):
-            if iterx == 250:
+            if iterx == 300:
                 print('No change in learningrate!')
                 #my_learningrate = my_learningrate*.1
             # try to optimize
@@ -277,7 +275,7 @@ if(1):
                 #print(mygrads.shape)
                 #_, myfwd = sess.run([tf_lossop,tf_fwd], feed_dict={tf_meas:np_meas, tf_learningrate:my_learningrate, tf_lambda_tv:mylambdatv})
 
-            iter_last = iterx
+        iter_last = iterx
         #%%        
         ''' Save Figures and Parameters '''
         muscat.saveFigures(sess, savepath, tf_fwd_corrected, np_meas, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, globalphaselist, globalabslist, 

@@ -48,7 +48,7 @@ is_measurement = True
 # these are hyperparameters
 my_learningrate = 1e-2  # learning rate
 lambda_tv =  1e-1#((1e0, 1e-1, 1e-2)) # lambda for Total variation - 1e-1
-eps_tv = 1e-7#((1e-2, 1e-1, 1e-0)) # - 1e-1 # smaller == more blocky
+eps_tv = 1e-5#((1e-2, 1e-1, 1e-0)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10
 Niter = 500
@@ -56,7 +56,7 @@ Ndisplay = 15
 Noptpsf = 1
 
 # data files for parameters and measuremets 
-matlab_val_file = './Data/DROPLETS/S19_multiple/Spheres/S19_subroi9.mat'  #5    #'./Data/DROPLETS/allAmp_simu.npy' #
+matlab_val_file = './Data/DROPLETS/S19_multiple/Spheres/S19_subroi4.mat'  #5    #'./Data/DROPLETS/allAmp_simu.npy' #
 matlab_par_file = './Data/DROPLETS/S19_multiple/Parameter.mat'   
 matlab_val_name = 'allAmp_red'
 matlab_par_name = 'myParameter' 

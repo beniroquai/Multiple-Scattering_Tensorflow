@@ -63,6 +63,7 @@ class MuScatModel(object):
         # add a vector of zernike factors
         self.nzernikes = 9
         self.zernikefactors = np.zeros((1,self.nzernikes))
+        self.zernikemask = np.zeros((1,self.nzernikes))
         # kamilov uses 420 z-planes with an overall size of 30µm; dx=72nm
  
         # refractive index immersion and embedding
@@ -266,12 +267,22 @@ class MuScatModel(object):
             self.TF_Po = tf.cast(tf.constant(self.Po), tf.complex64)
             self.TF_Zernikes = tf.constant(self.myzernikes, dtype=tf.float32)
             self.TF_myAllSlicePropagator = tf.constant(self.myAllSlicePropagator, dtype=tf.complex64)
-             
+           
+            # Only update those Factors which are really necesarry (e.g. Defocus is not very likely!)
+            
             if(self.is_optimization_psf):
                 self.TF_zernikefactors = tf.Variable(self.zernikefactors, dtype = tf.float32, name='var_zernikes')
+                indexes = tf.constant([[4], [5], [6], [7], [8], [9]])
+                #indexes = tf.where(tf.constant(self.zernikemask)>0)
+                updates = tf.gather_nd(self.TF_zernikefactors,indexes)
+                # Take slice
+                # Build tensor with "filtered" gradient
+                part_X = tf.scatter_nd(indexes, updates, tf.shape(self.TF_zernikefactors))
+                self.TF_zernikefactors_filtered = part_X + tf.stop_gradient(-part_X + self.TF_zernikefactors)
             else:
                 self.TF_zernikefactors = tf.constant(self.zernikefactors, dtype = tf.float32, name='const_zernikes')
- 
+                self.TF_zernikefactors_filtered = tf.identity(self.TF_zernikefactors)
+            
         # TODO: Introduce the averraged RI along Z - MWeigert
  
         self.TF_A_prop = tf.squeeze(self.TF_A_input);
@@ -302,7 +313,7 @@ class MuScatModel(object):
  
  
         # in a final step limit this to the detection NA:
-        self.TF_Po_aberr = tf.exp(1j*tf.cast(tf.reduce_sum(self.TF_zernikefactors*self.TF_Zernikes, axis=2), tf.complex64)) * self.TF_Po
+        self.TF_Po_aberr = tf.exp(1j*tf.cast(tf.reduce_sum(self.TF_zernikefactors_filtered*self.TF_Zernikes, axis=2), tf.complex64)) * self.TF_Po
         self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop)*self.TF_Po * self.TF_Po_aberr)
  
         # Experimenting with pseudo tomographic data?
