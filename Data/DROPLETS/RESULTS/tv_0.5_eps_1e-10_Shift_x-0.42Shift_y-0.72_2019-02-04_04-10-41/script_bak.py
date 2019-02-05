@@ -41,22 +41,22 @@ resultpath = 'Data/DROPLETS/RESULTS/'
 is_padding = False 
 is_display = True
 is_optimization = 1 
-is_optimization_psf = False
+is_optimization_psf = True
 is_measurement = True
 
 '''Define Optimization Parameters'''
 # these are hyperparameters
-my_learningrate = 1  # learning rate
-lambda_tv =  1e-1#((1e0, 1e-1, 1e-2)) # lambda for Total variation - 1e-1
-eps_tv = 1e-5#((1e-2, 1e-1, 1e-0)) # - 1e-1 # smaller == more blocky
+my_learningrate = 1e-2  # learning rate
+lambda_tv =  5e-1#((1e0, 1e-1, 1e-2)) # lambda for Total variation - 1e-1
+eps_tv = 1e-10#((1e-2, 1e-1, 1e-0)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10
-Niter = 500
+Niter = 200
 Ndisplay = 15
 Noptpsf = 1
 
 # data files for parameters and measuremets 
-matlab_val_file = './Data/DROPLETS/S19_multiple/Spheres/S19_subroi4.mat'  #5    #'./Data/DROPLETS/allAmp_simu.npy' #
+matlab_val_file = './Data/DROPLETS/S19_multiple/Spheres/S19_subroi5.mat'  #5    #'./Data/DROPLETS/allAmp_simu.npy' #
 matlab_par_file = './Data/DROPLETS/S19_multiple/Parameter.mat'   
 matlab_val_name = 'allAmp_red'
 matlab_par_name = 'myParameter' 
@@ -69,9 +69,9 @@ zernikefactors = 0*np.array((-0.09642964,  0.12118447,  0.25609729,  0.21328726,
 # manually chosen:
 zernikefactors = np.array((0,0,0,0,0,0,-1,-1,0)) # representing the 9 first zernike coefficients in noll-writings 
 zernikemask = np.array((0, 0, 0, 0, 0, 0, 1, 1, 0))# mask which factors should be updated
-shiftIcY=-1
-shiftIcX=1
-dn = (1.437-1.3326)/np.pi
+shiftIcY=.72
+shiftIcX= .42
+dn = (1.437-1.3326)#/np.pi
 NAc = .52
 
 '''START CODE'''
@@ -143,9 +143,8 @@ np_mean = np.mean(np_meas)
 tf_tvloss = muscat.tf_lambda_tv*reg.Reg_TV(muscat.TF_obj, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
 tf_tvloss += muscat.tf_lambda_tv*reg.Reg_TV(muscat.TF_obj_absorption, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
 
-tf_negsqrloss = tf.constant(0)
-#tf_negsqrloss = lambda_neg*reg.Reg_NegSqr(muscat.TF_obj)
-#tf_negsqrloss += lambda_neg*reg.Reg_NegSqr(muscat.TF_obj_absorption)
+tf_negsqrloss = lambda_neg*reg.Reg_NegSqr(muscat.TF_obj)
+tf_negsqrloss += lambda_neg*reg.Reg_NegSqr(muscat.TF_obj_absorption)
 tf_globalphase = tf.Variable(0., tf.float32, name='var_phase')
 tf_globalabs = tf.Variable(.6, tf.float32, name='var_abs')# 
 #tf_fidelity = tf.reduce_sum((tf_helper.tf_abssqr(tf_fwd  - (tf_meas/tf.cast(tf.abs(tf_globalabs), tf.complex64)*tf.exp(1j*tf.cast(tf_globalphase, tf.complex64)))))) # allow a global phase parameter to avoid unwrapping effects
@@ -160,7 +159,7 @@ tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
 #tf_optimizer = tf.train.MomentumOptimizer(tf_learningrate, momentum = .9, use_nesterov=True)
 #tf_optimizer = tf.train.ProximalGradientDescentOptimizer(tf_learningrate)
 #tf_optimizer = tf.train.GradientDescentOptimizer(muscat.tf_learningrate)
-
+tf_lossop_obj_absorption = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj, muscat.TF_obj_absorption, tf_globalabs, tf_globalphase]) # muscat.TF_obj_absorption, 
 tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj, tf_globalabs, tf_globalphase]) # muscat.TF_obj_absorption, 
 if is_optimization_psf: # in case we want to do blind deconvolution
     tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors])
@@ -213,7 +212,7 @@ if(1):
        
         '''Define some stuff related to infrastructure'''
         mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        savepath = basepath + resultpath + 'tv_' + str(mylambdatv) + '_eps_' +str(myepstvval) + '_' + mytimestamp
+        savepath = basepath + resultpath + 'tv_' + str(mylambdatv) + '_eps_' +str(myepstvval) + '_' +'Shift_x-'+str(shiftIcX)+'Shift_y-'+str(shiftIcY) + '_' + mytimestamp
 
         # Create directory
         try: 
@@ -266,11 +265,15 @@ if(1):
 
             
             # Alternate between pure object optimization and aberration recovery
+            if is_optimization_psf and iterx>100:
+                for aa in range(Noptpsf):
+                    sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate*1e-1, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
+
+
             for aa in range(Noptpsf):
                 sess.run([tf_lossop_obj], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
-            if is_optimization_psf:
-                for aa in range(Noptpsf):
-                    sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
+               # else:
+                #    sess.run([tf_lossop_obj_absorption], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
 
                 #plt.imshow(np.abs(my_res[:,50,:]))
                 #print(mygrads)
@@ -283,7 +286,7 @@ if(1):
         muscat.saveFigures(sess, savepath, tf_fwd_corrected, np_meas, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, globalphaselist, globalabslist, 
                     result_phaselist, result_absorptionlist)
    
-        muscat.writeParameterFile(my_learningrate, mylambdatv, myepstvval, filepath = savepath+'/myparameters.yml')
+        muscat.writeParameterFile(my_learningrate, mylambdatv, myepstvval, filepath = savepath+'/myparameters.yml')#, figsuffix = 'Shift_x-'+str(shiftIcX)+'Shift_y-'+str(shiftIcY))
         
         print('Zernikes: ' +str(np.real(sess.run(muscat.TF_zernikefactors))))
         

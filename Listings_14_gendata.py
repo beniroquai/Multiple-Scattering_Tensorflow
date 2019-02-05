@@ -60,19 +60,19 @@ matlab_pars = data.import_parameters_mat(filename = matlab_par_file, matname='my
 print('do we need to flip the data?! -> Observe FFT!!')
 
 ''' Create the Model'''
-muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization, is_optimization_psf = is_optimization_psf)
+muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
 muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(matlab_pars['Ny'].value))
-muscat.shiftIcY=-1
-muscat.shiftIcX=1
+muscat.shiftIcY= -.75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+muscat.shiftIcX= .75 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 dn = (1.437-1.3326)
-muscat.NAc = .2#.52
+muscat.NAc = .52
 #muscat.dz = muscat.lambdaM/4
 
 ''' Adjust some parameters to fit it in the memory '''
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
 
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
-mydiameter = 8
+mydiameter = 7
 obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = dn)#)dn)
 obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .01)
 obj = obj+1j*obj_absorption
@@ -80,10 +80,11 @@ obj = np.roll(obj,-9,0)
 
 #obj = np.load('my_res_cmplx.npy')
 # introduce zernike factors here
-muscat.zernikefactors = np.array((0,0,0,0,0,0,-1,-1,0))
+muscat.zernikefactors = np.array((0,0,0,0,0,0,.1,-1,0,0,-2)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
+muscat.zernikemask = muscat.zernikefactors*0
 #muscat.zernikefactors = np.array((-0.05195263 ,-0.3599817 , -0.08740465,  0.3556992  , 2.9515843 , -1.9670948 ,-0.38435063 , 0.45611984 , 3.68658  )) 
 ''' Compute the systems model'''
-muscat.computesys(obj, is_zernike=True, is_padding=is_padding)
+muscat.computesys(obj, is_padding=is_padding)
 #muscat.A_input = muscat.A_input*np.exp(1j*np.random.rand(muscat.A_input.shape[3])*2*np.pi)
 tf_fwd = muscat.computemodel()
 

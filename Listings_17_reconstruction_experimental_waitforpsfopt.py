@@ -47,8 +47,8 @@ is_measurement = True
 '''Define Optimization Parameters'''
 # these are hyperparameters
 my_learningrate = 1e-2  # learning rate
-lambda_tv =  1e1#((1e0, 1e-1, 1e-2)) # lambda for Total variation - 1e-1
-eps_tv = 1e-0#((1e-2, 1e-1, 1e-0)) # - 1e-1 # smaller == more blocky
+lambda_tv =  5e-1#((1e0, 1e-1, 1e-2)) # lambda for Total variation - 1e-1
+eps_tv = 1e-10#((1e-2, 1e-1, 1e-0)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10
 Niter = 500
@@ -56,7 +56,7 @@ Ndisplay = 15
 Noptpsf = 1
 
 # data files for parameters and measuremets 
-matlab_val_file = './Data/DROPLETS/S19_multiple/Spheres/S19_subroi4.mat'  #5    #'./Data/DROPLETS/allAmp_simu.npy' #
+matlab_val_file = './Data/DROPLETS/S19_multiple/Spheres/S19_subroi5.mat'  #5    #'./Data/DROPLETS/allAmp_simu.npy' #
 matlab_par_file = './Data/DROPLETS/S19_multiple/Parameter.mat'   
 matlab_val_name = 'allAmp_red'
 matlab_par_name = 'myParameter' 
@@ -66,10 +66,12 @@ matlab_par_name = 'myParameter'
 #zernikefactors = np.array((-0.13543801 ,-1.8246844 , -0.7559651 ,  0.2754147 ,  2.322039 ,  -2.872361, -0.28803617, -0.25946134,  4.9388413 ))
 #zernikefactors = np.array((0.10448612, -0.08286186,  0.18136881 ,-0.11662757, -0.09957132,  0.14661853, -0.14000118, -0.29074576,  0.11014813))
 zernikefactors = 0*np.array((-0.09642964,  0.12118447,  0.25609729,  0.21328726, -0.16828917,  0.26799357,  0.05058525, -0.27134722,  0.21343225))
+# manually chosen:
+zernikefactors = np.array((0,0,0,0,0,0,-1,-1,0)) # representing the 9 first zernike coefficients in noll-writings 
 zernikemask = np.array((0, 0, 0, 0, 0, 0, 1, 1, 0))# mask which factors should be updated
 shiftIcY=-1
-shiftIcX=1
-dn = (1.437-1.3326)
+shiftIcX= 1
+dn = (1.437-1.3326)#/np.pi
 NAc = .52
 
 '''START CODE'''
@@ -158,7 +160,7 @@ tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
 #tf_optimizer = tf.train.MomentumOptimizer(tf_learningrate, momentum = .9, use_nesterov=True)
 #tf_optimizer = tf.train.ProximalGradientDescentOptimizer(tf_learningrate)
 #tf_optimizer = tf.train.GradientDescentOptimizer(muscat.tf_learningrate)
-
+tf_lossop_obj_absorption = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj, muscat.TF_obj_absorption, tf_globalabs, tf_globalphase]) # muscat.TF_obj_absorption, 
 tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj, tf_globalabs, tf_globalphase]) # muscat.TF_obj_absorption, 
 if is_optimization_psf: # in case we want to do blind deconvolution
     tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors])
@@ -238,8 +240,8 @@ if(1):
         np_meas = matlab_val # use the previously simulated data
         for iterx in range(iter_last,Niter):
             if iterx == 250:
-                #print('No change in learningrate!')
-                my_learningrate = my_learningrate*.1
+                print('No change in learningrate!')
+                #my_learningrate = my_learningrate*.1
             # try to optimize
             
             if(iterx==0 or not np.mod(iterx, Ndisplay)):
@@ -264,11 +266,16 @@ if(1):
 
             
             # Alternate between pure object optimization and aberration recovery
-            for aa in range(Noptpsf):
-                sess.run([tf_lossop_obj], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
-            if is_optimization_psf:
+            if is_optimization_psf and iterx>200:
                 for aa in range(Noptpsf):
-                    sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
+                    sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate*1e-1, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
+
+
+            for aa in range(Noptpsf):
+                if iterx < 200:
+                    sess.run([tf_lossop_obj], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
+                else:
+                    sess.run([tf_lossop_obj_absorption], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
 
                 #plt.imshow(np.abs(my_res[:,50,:]))
                 #print(mygrads)
