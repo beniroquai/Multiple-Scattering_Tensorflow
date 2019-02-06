@@ -198,9 +198,7 @@ class MuScatModel(object):
                     self.shift_xx = tf_helper.xx((self.mysize[1], self.mysize[2]),'freq')
                     self.Ic = np.abs(np.fft.ifft2(np.fft.fft2(self.Ic)*np.exp(1j*2*np.pi*self.shift_xx*self.shiftIcX))) 
 
-                        
 
- 
         # Shift the pupil in Y-direction (optical missalignment)
         if hasattr(self, 'shiftIcY'):
             if self.shiftIcY != None:
@@ -251,7 +249,7 @@ class MuScatModel(object):
  
          
     #@define_scope
-    def computemodel(self, is_resnet=False):
+    def computemodel(self, is_resnet=False, is_forcepos=False):
         ''' Perform Multiple Scattering here
         1.) Multiple Scattering is perfomed by slice-wise propagation the E-Field throught the sample
         2.) Each Field has to be backprojected to the BFP
@@ -260,6 +258,7 @@ class MuScatModel(object):
         This is done for all illumination angles (coming from illumination NA
         simultaneasly)'''
         self.is_resnet = is_resnet
+        self.is_forcepos = is_forcepos
  
         print("Buildup Q-PHASE Model ")
         ###### make sure, that the first dimension is "batch"-size; in this case it is the illumination number
@@ -301,7 +300,6 @@ class MuScatModel(object):
             self.TF_zernikefactors_filtered = part_X + tf.stop_gradient(-part_X + self.TF_zernikefactors)
             
         # TODO: Introduce the averraged RI along Z - MWeigert
- 
         self.TF_A_prop = tf.squeeze(self.TF_A_input);
         self.U_z_list = []
  
@@ -321,7 +319,13 @@ class MuScatModel(object):
         else:
             TF_real_3D = self.TF_obj
             TF_imag_3D = self.TF_obj_absorption            
-                
+
+        # wrapper for force-positivity on the RI-instead of penalizing it
+        if(self.is_forcepos):
+            print('----> ATTENTION: We add the PreMonotonicPos' )
+            TF_real_3D = tf_reg.PreMonotonicPos(TF_real_3D)
+            TF_imag_3D = tf_reg.PreMonotonicPos(TF_imag_3D)
+
         # simulate multiple scattering through object
         with tf.name_scope('Fwd_Propagate'):
             #print('---------ATTENTION: We are inverting the RI!')
@@ -478,10 +482,10 @@ class MuScatModel(object):
                     result_phaselist=None, result_absorptionlist=None, init_guess=None, figsuffix=''):
         # This is the reconstruction
         if(init_guess is not None):
-            myfwd, mymeas, my_res, my_res_absorption, myzernikes = sess.run([tf_fwd, self.tf_meas, self.TF_obj, self.TF_obj_absorption, self.zernikefactors], 
+            myfwd, mymeas, my_res, my_res_absorption, myzernikes = sess.run([tf_fwd, self.tf_meas, self.TF_obj, self.TF_obj_absorption, self.TF_zernikefactors], 
                     feed_dict={self.tf_meas:np_meas, self.TF_obj:np.real(init_guess), self.TF_obj_absorption:np.imag(init_guess)})
         else:
-            myfwd, mymeas, my_res, my_res_absorption, myzernikes = sess.run([tf_fwd, self.tf_meas, self.TF_obj, self.TF_obj_absorption, self.zernikefactors], feed_dict={self.tf_meas:np_meas})
+            myfwd, mymeas, my_res, my_res_absorption, myzernikes = sess.run([tf_fwd, self.tf_meas, self.TF_obj, self.TF_obj_absorption, self.TF_zernikefactors], feed_dict={self.tf_meas:np_meas})
              
         plt.figure()
         plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
@@ -536,7 +540,7 @@ class MuScatModel(object):
         plt.figure()
         plt.subplot(131), plt.title('Po Phase'), plt.imshow(np.fft.fftshift(np.angle(sess.run(self.TF_Po_aberr)))), plt.colorbar()
         plt.subplot(132), plt.title('Po abs'), plt.imshow(np.fft.fftshift(np.abs(sess.run(self.TF_Po_aberr)))), plt.colorbar()
-        plt.subplot(132), plt.bar(np.linspace(1, np.squeeze(myzernikes.shape), np.squeeze(myzernikes.shape)), myzernikes, align='center', alpha=0.5)
+        plt.subplot(133), plt.bar(np.linspace(1, np.squeeze(myzernikes.shape), np.squeeze(myzernikes.shape)), myzernikes, align='center', alpha=0.5)
         plt.ylabel('Zernike Values')
         plt.title('Zernike Coefficients (Noll)')
         plt.show()

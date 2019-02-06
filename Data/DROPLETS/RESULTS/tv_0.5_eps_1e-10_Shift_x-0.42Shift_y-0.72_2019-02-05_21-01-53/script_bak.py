@@ -55,7 +55,7 @@ Ndisplay = 15
 Noptpsf = 3
 
 # data files for parameters and measuremets 
-matlab_val_file = './Data/DROPLETS/S19_multiple/Spheres/S19_subroi48.mat'  #5 # 20 has this severe shadow    #'./Data/DROPLETS/allAmp_simu.npy' #
+matlab_val_file = './Data/DROPLETS/S19_multiple/Spheres/S19_subroi20.mat'  #5    #'./Data/DROPLETS/allAmp_simu.npy' #
 matlab_par_file = './Data/DROPLETS/S19_multiple/Parameter.mat'   
 matlab_val_name = 'allAmp_red'
 matlab_par_name = 'myParameter' 
@@ -237,9 +237,9 @@ if(1):
         print('Start optimizing')
         np_meas = matlab_val # use the previously simulated data
         for iterx in range(iter_last,Niter):
-            if iterx == 100:
-                #print('No change in learningrate!')
-                my_learningrate = my_learningrate*.1
+            if iterx == 50:
+                print('No change in learningrate!')
+                #my_learningrate = my_learningrate*.1
             # try to optimize
             
             if(iterx==0 or not np.mod(iterx, Ndisplay)):
@@ -264,13 +264,13 @@ if(1):
 
             
             # Alternate between pure object optimization and aberration recovery
-            if iterx>50:
+            if iterx>15:
                 for aa in range(Noptpsf):
                    sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
 
 
             for aa in range(Noptpsf):
-                if iterx<100:
+                if iterx<15:
                     sess.run([tf_lossop_obj], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
                 else:
                     sess.run([tf_lossop_obj_absorption], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})

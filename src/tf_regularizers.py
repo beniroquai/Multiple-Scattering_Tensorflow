@@ -220,7 +220,7 @@ def Reg_TV(toRegularize, BetaVals = [1,1,1], epsR = 1, epsC=1e-10, is_circ = Tru
     return myReg
 
     
-def PreMonotonicPos(tfin):
+def PreMonotonicPosNAN(tfin):
     '''
     Borrowed from Rainers: https://gitlab.com/bionanoimaging/inversemodelling/blob/master/InverseModelling/preforwardmodels.py
     applies a monotonic transform mapping the full real axis to the positive half space
@@ -252,3 +252,36 @@ def PreMonotonicPos(tfin):
     monoPos=((tf.sign(tfin-1) + 1)/2)*(tfin)+((1-tf.sign(tfin-1))/2)*(1.0/(2-tfin))
     
     return monoPos;
+
+
+# This monotonic positive function is based on a Hyperbola modified that one of the branches appraoches zero and the other one reaches a slope of one
+def PreMonotonicPos(tfin,Eps=1e-2,b2=10.0):
+    '''
+    Borrowed from Rainers: https://gitlab.com/bionanoimaging/inversemodelling/blob/master/InverseModelling/preforwardmodels.py
+    applies a monotonic transform mapping the full real axis to the positive half space
+
+    This can be used to implicitely force the reconstruction results to be all-positive. The monotinic function is derived from a hyperboloid:
+
+    The function is continues and differentiable.
+    This function can also be used as an activation function for neural networks.
+
+    Parameters
+    ----------
+    tfin : tensorflow array
+        The array to be transformed
+
+    Returns
+    -------
+    tensorflow array
+        The transformed array
+
+    See also
+    -------
+    PreabsSqr 
+
+    Example
+    -------
+    '''
+     # b2 a constant value > 0.0 0 which regulates the shape of the hyperbola. The bigger the smoother it becomes.
+    return tf.sqrt(b2+tf.square(tfin)/4.0)+tfin/2.0
+

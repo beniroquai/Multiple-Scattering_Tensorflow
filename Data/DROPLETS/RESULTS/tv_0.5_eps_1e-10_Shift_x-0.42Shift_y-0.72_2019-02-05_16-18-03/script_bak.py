@@ -49,13 +49,13 @@ my_learningrate = 1e-2  # learning rate
 lambda_tv =  5e-1#((1e0, 1e-1, 1e-2)) # lambda for Total variation - 1e-1
 eps_tv = 1e-10#((1e-2, 1e-1, 1e-0)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
-lambda_neg = 10000
+lambda_neg = 100
 Niter = 500
 Ndisplay = 15
 Noptpsf = 3
 
 # data files for parameters and measuremets 
-matlab_val_file = './Data/DROPLETS/S19_multiple/Spheres/S19_subroi48.mat'  #5 # 20 has this severe shadow    #'./Data/DROPLETS/allAmp_simu.npy' #
+matlab_val_file = './Data/DROPLETS/S19_multiple/Spheres/S19_subroi13.mat'  #5    #'./Data/DROPLETS/allAmp_simu.npy' #
 matlab_par_file = './Data/DROPLETS/S19_multiple/Parameter.mat'   
 matlab_val_name = 'allAmp_red'
 matlab_par_name = 'myParameter' 
@@ -65,7 +65,7 @@ matlab_par_name = 'myParameter'
 #zernikefactors = np.array((-0.13543801 ,-1.8246844 , -0.7559651 ,  0.2754147 ,  2.322039 ,  -2.872361, -0.28803617, -0.25946134,  4.9388413 ))
 #zernikefactors = np.array((0.10448612, -0.08286186,  0.18136881 ,-0.11662757, -0.09957132,  0.14661853, -0.14000118, -0.29074576,  0.11014813))
 
-zernikefactors = np.array((0, 0, 0, 0.001 ,0.001,0.001, -1, -1, .0001, 0.0001,  0.59230834))
+zernikefactors = np.array((0.001, 0.001, 0.001, 0.001 ,0.001,0.001, -0.09888476, -2.1452949, .0001, 0.0001,  0.59230834))
 #zernikefactors = np.array((0,0,0,0,0,0,-1,-1,0,0,1)) # representing the 9 first zernike coefficients in noll-writings 
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
 shiftIcY=.72
@@ -112,7 +112,7 @@ muscat.computesys(obj, is_padding=is_padding, dropout_prob=1)
 print(muscat.Ic.shape)
 
 # Generate Computational Graph (fwd model)
-tf_fwd = muscat.computemodel(is_forcepos=False)
+tf_fwd = muscat.computemodel()
 
 
 print('Evtl unwrap it!')
@@ -237,7 +237,7 @@ if(1):
         print('Start optimizing')
         np_meas = matlab_val # use the previously simulated data
         for iterx in range(iter_last,Niter):
-            if iterx == 100:
+            if iterx == 50:
                 #print('No change in learningrate!')
                 my_learningrate = my_learningrate*.1
             # try to optimize
@@ -264,13 +264,13 @@ if(1):
 
             
             # Alternate between pure object optimization and aberration recovery
-            if iterx>50:
+            if iterx>1:
                 for aa in range(Noptpsf):
                    sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
 
 
             for aa in range(Noptpsf):
-                if iterx<100:
+                if iterx<150:
                     sess.run([tf_lossop_obj], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
                 else:
                     sess.run([tf_lossop_obj_absorption], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
