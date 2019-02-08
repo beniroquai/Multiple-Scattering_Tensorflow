@@ -179,8 +179,16 @@ class MuScatModel(object):
         # weigh the illumination source with some cos^2 intensity weight?!
         myIntensityFactor = 70
         self.Ic_map = np.cos((myIntensityFactor *tf_helper.xx((self.Nx, self.Ny), mode='freq')**2+myIntensityFactor *tf_helper.yy((self.Nx, self.Ny), mode='freq')**2))**2
-        self.Ic = self.Ic #* self.Ic_map # weight the intensity in the condenser aperture, unlikely to be uniform
-        print('--------> ATTENTION! - We are not weighing the Intensity int the illu-pupil!')
+
+        myspacing=4        
+        self.checkerboard = np.zeros((myspacing,myspacing))# ((1,0),(0,0))  # testing for sparse illumination?!
+        self.checkerboard[0,0] = 1
+        self.checkerboard = np.matlib.repmat(self.checkerboard,self.Ic_map.shape[0]//myspacing+1,self.Ic_map.shape[1]//myspacing+1)
+        self.checkerboard = self.checkerboard[0:self.Ic_map.shape[0], 0:self.Ic_map.shape[1]]
+        print('-------> ATTENTION: WE have a CHECKeRBOArD  MASK IN THE PUPIL PLANE!!!!')
+
+        self.Ic = self.Ic * np.sqrt(self.Ic_map)  # weight the intensity in the condenser aperture, unlikely to be uniform
+        # print('--------> ATTENTION! - We are not weighing the Intensity int the illu-pupil!')
  
  
         # Shift the pupil in X-direction (optical missalignment)
@@ -214,6 +222,7 @@ class MuScatModel(object):
                     self.shift_yy = tf_helper.yy((self.mysize[1], self.mysize[2]),'freq')
                     self.Ic = np.abs(np.fft.ifft2(np.fft.fft2(self.Ic)*np.exp(1j*self.shift_yy*self.shiftIcY))) 
 
+        self.Ic = self.Ic * self.checkerboard
  
         ## Forward propagator  (Ewald sphere based) DO NOT USE NORMALIZED COORDINATES HERE
         self.kxysqr= (tf_helper.abssqr(tf_helper.xx((self.mysize[1], self.mysize[2]), 'freq') / self.dx) + tf_helper.abssqr(

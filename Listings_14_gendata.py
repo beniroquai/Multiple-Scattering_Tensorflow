@@ -13,6 +13,7 @@ import tensorflow as tf
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import time
 
 # change the following to %matplotlib notebook for interactive plotting
 # %matplotlib inline
@@ -65,7 +66,9 @@ muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(m
 muscat.shiftIcY= -.75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 muscat.shiftIcX= .75 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 dn = (1.437-1.3326)
-muscat.NAc = .52
+muscat.NAc = .2
+muscat.Nx = 128
+muscat.Ny = 128
 #muscat.dz = muscat.lambdaM/4
 
 ''' Adjust some parameters to fit it in the memory '''
@@ -80,7 +83,7 @@ obj = np.roll(obj,-9,0)
 
 #obj = np.load('my_res_cmplx.npy')
 # introduce zernike factors here
-muscat.zernikefactors = np.array((0,0,0,0,0,0,.1,-1,0,0,-2)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
+muscat.zernikefactors = 0*np.array((0,0,0,0,0,0,.1,-1,0,0,-2)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
 muscat.zernikemask = muscat.zernikefactors*0
 #muscat.zernikefactors = np.array((-0.05195263 ,-0.3599817 , -0.08740465,  0.3556992  , 2.9515843 , -1.9670948 ,-0.38435063 , 0.45611984 , 3.68658  )) 
 ''' Compute the systems model'''
@@ -90,9 +93,16 @@ tf_fwd = muscat.computemodel()
 
 #%% Display the results
 ''' Evaluate the model '''
-sess = tf.Session()
+sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
 sess.run(tf.global_variables_initializer())
-myfwd  = sess.run(tf_fwd)
+
+#%% run model and measure memory/time
+start = time.time()
+myfwd = sess.run(tf_fwd)#, options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE, output_partition_graphs=True), run_metadata=run_metadata)
+end = time.time()
+print(end - start)
+
+  
 
 #%% display the results
 centerslice = 35
@@ -126,6 +136,10 @@ plt.subplot(236), plt.title('muscat.obj Imag XY'),plt.imshow(np.imag(muscat.obj)
 
 plt.figure()
 plt.subplot(231), plt.imshow(np.fft.fftshift(np.angle(sess.run(muscat.TF_Po_aberr))))
+plt.subplot(232), plt.imshow((((muscat.Ic))))
 #%% save the results
 np.save(savepath+'allAmp_simu.npy', myfwd)
 data.export_realdata_h5(filename = './Data/DROPLETS/allAmp_simu.mat', matname = 'allAmp_red', data=myfwd)
+
+
+#%% Get memory utilization
