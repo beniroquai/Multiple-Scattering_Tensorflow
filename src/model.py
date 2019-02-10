@@ -39,8 +39,8 @@ class MuScatModel(object):
         self.NAci = np.squeeze(np.array(self.myParamter.get('NAci'))); # Numerical aperture condenser
          
         # eventually decenter the illumination source - only integer!
-        self.shiftIcX = int(np.squeeze(np.array(self.myParamter.get('shiftIcX'))))
-        self.shiftIcY = int(np.squeeze(np.array(self.myParamter.get('shiftIcY'))))
+        self.shiftIcX = 0#int(np.squeeze(np.array(self.myParamter.get('shiftIcX'))))
+        self.shiftIcY = 0#int(np.squeeze(np.array(self.myParamter.get('shiftIcY'))))
          
         self.nEmbb = np.squeeze(np.array(self.myParamter.get('nEmbb'))) 
         self.dn=.1; # self.nImm - self.nEmbb
@@ -180,7 +180,7 @@ class MuScatModel(object):
         myIntensityFactor = 70
         self.Ic_map = np.cos((myIntensityFactor *tf_helper.xx((self.Nx, self.Ny), mode='freq')**2+myIntensityFactor *tf_helper.yy((self.Nx, self.Ny), mode='freq')**2))**2
 
-        myspacing=4        
+        myspacing=1      
         self.checkerboard = np.zeros((myspacing,myspacing))# ((1,0),(0,0))  # testing for sparse illumination?!
         self.checkerboard[0,0] = 1
         self.checkerboard = np.matlib.repmat(self.checkerboard,self.Ic_map.shape[0]//myspacing+1,self.Ic_map.shape[1]//myspacing+1)

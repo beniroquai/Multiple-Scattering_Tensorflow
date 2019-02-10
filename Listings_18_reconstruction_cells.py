@@ -31,6 +31,10 @@ mpl.rc('image', cmap='gray')
 np.set_printoptions(threshold=np.nan)
 
 
+#make both devices visible to tensorflow 
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   # see issue #152
+os.environ["CUDA_VISIBLE_DEVICES"]="0,1"
+
 #%%
 '''Define some stuff related to infrastructure'''
 mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
@@ -46,17 +50,16 @@ is_measurement = True
 '''Define Optimization Parameters'''
 # these are hyperparameters
 my_learningrate = 1e-3  # learning rate
-lambda_tv =  5#5e-1#((1e0, 1e-1, 1e-2)) # lambda for Total variation - 1e-1
-eps_tv = 1e-10#((1e-2, 1e-1, 1e-0)) # - 1e-1 # smaller == more blocky
+lambda_tv =  100#5e-1#((1e0, 1e-1, 1e-2)) # lambda for Total variation - 1e-1
+eps_tv = 1e-8#((1e-2, 1e-1, 1e-0)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10000
 Niter = 1500
 Ndisplay = 15
-Noptpsf = 3
-
+Noptpsf = 1
 # data files for parameters and measuremets 
-matlab_val_file = 'C:/Users/diederichbenedict/Dropbox/Dokumente/Promotion/PROJECTS/BOSTON/MUSCAT/MATLAB/QPhase/DATA/cells_20x_100a.tif_allAmp.mat' #'./Data/DROPLETS/S19_multiple/Spheres/S19_subroi48.mat'  #5 # 20 has this severe shadow    #'./Data/DROPLETS/allAmp_simu.npy' #
-matlab_par_file = 'C:/Users/diederichbenedict/Dropbox/Dokumente/Promotion/PROJECTS/BOSTON/MUSCAT/MATLAB/QPhase/DATA/cells_20x_100a.tif_myParameter.mat'   
+matlab_val_file = './Data/cells/Hologramm.tif_allAmp.mat' #cells_20x_100a.tif_allAmp.mat' #'./Data/DROPLETS/S19_multiple/Spheres/S19_subroi48.mat'  #5 # 20 has this severe shadow    #'./Data/DROPLETS/allAmp_simu.npy' #
+matlab_par_file = './Data/cells/Hologramm.tif_myParameter.mat' #Hologramm.tif_allAmp.mat' #cells_20x_100a.tif_myParameter.mat'   
 matlab_val_name = 'allAmpSimu'
 matlab_par_name = 'myParameter' 
         
@@ -65,13 +68,13 @@ matlab_par_name = 'myParameter'
 #zernikefactors = np.array((-0.13543801 ,-1.8246844 , -0.7559651 ,  0.2754147 ,  2.322039 ,  -2.872361, -0.28803617, -0.25946134,  4.9388413 ))
 #zernikefactors = np.array((0.10448612, -0.08286186,  0.18136881 ,-0.11662757, -0.09957132,  0.14661853, -0.14000118, -0.29074576,  0.11014813))
 
-zernikefactors = np.array((0, 0, 0, 0.001 , .22, -.31, .02, -1.0001,  .02, -0.02, -0.149230834))
+zernikefactors = 0*np.array((0, 0, 0, 0.001 , .22, -.31, .02, -1.0001,  .02, -0.02, -0.149230834))
 #zernikefactors = np.array((0,0,0,0,0,0,-1,-1,0,0,1)) # representing the 9 first zernike coefficients in noll-writings 
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
 shiftIcY=.72
 shiftIcX= .42
-dn = .02#(1.437-1.3326)#/np.pi
-NAc = .52
+dn = .05#(1.437-1.3326)#/np.pi
+NAc = .32
 #Nx = 50
 #Ny = 50
 #Nz = 30
@@ -97,7 +100,6 @@ matlab_val.shape
 mysize_old = matlab_val.shape
 #matlab_val = matlab_val[mysize_old[0]//2-Nz//2:mysize_old[0]//2+Nz//2,mysize_old[1]//2-Ny//2:mysize_old[1]//2+Ny//2,mysize_old[2]//2-Nx//2:mysize_old[2]//2+Nx//2]
 print('.....> ATTENTION: Taking ocnjugated of object"')
-matlab_val = np.conj(matlab_val)
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
 muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(matlab_pars['Ny'].value))
@@ -105,10 +107,22 @@ muscat.shiftIcY=shiftIcY
 muscat.shiftIcX=shiftIcX
 muscat.dn = dn
 muscat.NAc = NAc
+muscat.lambda0 = .65/10
+muscat.lambdaM = muscat.lambda0/muscat.dn
+#muscat.dy = 10.
+#muscat.dx = 10.
 #muscat.Nx = Nx
 #muscat.Ny = Ny
 #muscat.Nz = Nz
+muscat.dz = 10
 
+#%%
+
+print(muscat.dx)
+print(muscat.dy)
+print(muscat.dz)
+print(muscat.lambda0)
+#%%
 ''' Adjust some parameters to fit it in the memory '''
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
 
@@ -125,7 +139,8 @@ muscat.zernikemask = zernikemask
 muscat.computesys(obj, is_padding=is_padding, dropout_prob=1)
 print(muscat.Ic.shape)
 plt.imshow(muscat.Ic), plt.show()
-
+plt.imshow(np.abs(np.fft.fftshift(muscat.Po))),plt.colorbar(), plt.show()
+#%%
 # Generate Computational Graph (fwd model)
 tf_fwd = muscat.computemodel(is_forcepos=False)
 
@@ -136,31 +151,26 @@ np_meas=matlab_val#*np.exp(1j*np.pi)
 
 
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
-mydiameter = 8
-obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = dn)
-obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .01)
-obj = obj+1j*obj_absorption
-obj = np.roll(obj,-7,0)
-init_guess = obj
-init_guess = np_meas
-init_guess = (np.angle(init_guess)-np.min(np.angle(init_guess)))
+init_guess = np.angle(np_meas)
+init_guess = ((init_guess)-np.min(init_guess))**2
 init_guess = dn*init_guess/np.max(init_guess)#*dn+1j*.01*np.ones(init_guess.shape)
 plt.imshow(np.real(init_guess[:,15,:])), plt.colorbar, plt.show()
 
 # Estimate the Phase difference between Measurement and Simulation
 #%%
 '''Numpy to Tensorflow'''
-np_meas = matlab_val
+np_meas = np.conj(matlab_val)
 np_mean = np.mean(np_meas)
 
 '''Define Cost-function'''
 tf_tvloss = muscat.tf_lambda_tv*reg.Reg_TV(muscat.TF_obj, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
 tf_tvloss += muscat.tf_lambda_tv*reg.Reg_TV(muscat.TF_obj_absorption, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
-
+tf_tvloss += .1*reg.Reg_L1(muscat.TF_obj)
 tf_negsqrloss = lambda_neg*reg.Reg_NegSqr(muscat.TF_obj)
 tf_negsqrloss += lambda_neg*reg.Reg_NegSqr(muscat.TF_obj_absorption)
+print('-------> ATTENTION: CONSTANT Prefactors!')
 tf_globalphase = tf.Variable(0., tf.float32, name='var_phase')
-tf_globalabs = tf.Variable(.6, tf.float32, name='var_abs')# 
+tf_globalabs = tf.Variable(.7, tf.float32, name='var_abs')# 
 #tf_fidelity = tf.reduce_sum((tf_helper.tf_abssqr(tf_fwd  - (tf_meas/tf.cast(tf.abs(tf_globalabs), tf.complex64)*tf.exp(1j*tf.cast(tf_globalphase, tf.complex64)))))) # allow a global phase parameter to avoid unwrapping effects
 tf_fwd_corrected = tf_fwd/tf.cast(tf.abs(tf_globalabs), tf.complex64)*tf.exp(1j*tf.cast(tf_globalphase, tf.complex64))
 #tf_fidelity = tf.reduce_mean((tf_helper.tf_abssqr(muscat.tf_meas - tf_fwd_corrected ))) # allow a global phase parameter to avoid unwrapping effects
@@ -181,7 +191,7 @@ tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefa
 
 
 ''' Evaluate the model '''
-sess = tf.Session()
+sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
 sess.run(tf.global_variables_initializer())
 if is_optimization:
     sess.run(tf.assign(muscat.TF_obj, np.real(init_guess))); # assign abs of measurement as initial guess of 
@@ -279,13 +289,13 @@ if(1):
 
             
             # Alternate between pure object optimization and aberration recovery
-            if iterx>50:
+            if iterx>150 & Noptpsf>1:
                 for aa in range(Noptpsf):
                    sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
 
 
             for aa in range(Noptpsf):
-                if iterx<150:
+                if iterx<1500:
                     sess.run([tf_lossop_obj], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
                 else:
                     sess.run([tf_lossop_obj_absorption], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})

@@ -83,7 +83,7 @@ def import_parameters_mat(filename = None, matname = None):
     ##load system data; new MATLAB v7.3 Format! 
     mat_matlab_data = h5py.File(filename, 'r')
     myParamter = mat_matlab_data[matname]
-    
+   # mat_matlab_data.close()
     return myParamter 
 
 def save_as_tif(image, experiment_name, myfile_dir='./'):   
