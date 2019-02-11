@@ -50,7 +50,7 @@ is_measurement = True
 '''Define Optimization Parameters'''
 # these are hyperparameters
 my_learningrate = 1e-3  # learning rate
-lambda_tv =  100#5e-1#((1e0, 1e-1, 1e-2)) # lambda for Total variation - 1e-1
+lambda_tv =  1#5e-1#((1e0, 1e-1, 1e-2)) # lambda for Total variation - 1e-1
 eps_tv = 1e-8#((1e-2, 1e-1, 1e-0)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10000

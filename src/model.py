@@ -71,7 +71,7 @@ class MuScatModel(object):
         self.lambdaM = self.lambda0/self.nEmbb; # wavelength in the medium
  
     #@define_scope
-    def computesys(self, obj, is_padding=False, is_tomo = False, dropout_prob=1):
+    def computesys(self, obj, is_padding=False, is_tomo = False, dropout_prob=1, mysubsamplingIC=0):
         """ This computes the FWD-graph of the Q-PHASE microscope;
         1.) Compute the physical dimensions
         2.) Compute the sampling for the waves
@@ -84,6 +84,7 @@ class MuScatModel(object):
         # define whether we want to pad the experiment 
         self.is_padding = is_padding
         self.is_tomo = is_tomo
+        self.mysubsamplingIC = mysubsamplingIC
          
         self.obj = obj
         if(is_padding):
@@ -180,12 +181,15 @@ class MuScatModel(object):
         myIntensityFactor = 70
         self.Ic_map = np.cos((myIntensityFactor *tf_helper.xx((self.Nx, self.Ny), mode='freq')**2+myIntensityFactor *tf_helper.yy((self.Nx, self.Ny), mode='freq')**2))**2
 
-        myspacing=1      
-        self.checkerboard = np.zeros((myspacing,myspacing))# ((1,0),(0,0))  # testing for sparse illumination?!
-        self.checkerboard[0,0] = 1
-        self.checkerboard = np.matlib.repmat(self.checkerboard,self.Ic_map.shape[0]//myspacing+1,self.Ic_map.shape[1]//myspacing+1)
-        self.checkerboard = self.checkerboard[0:self.Ic_map.shape[0], 0:self.Ic_map.shape[1]]
-        print('-------> ATTENTION: WE have a CHECKeRBOArD  MASK IN THE PUPIL PLANE!!!!')
+        # This is experimental
+        if(self.mysubsamplingIC>0):
+            self.checkerboard = np.zeros((self.mysubsamplingIC,self.mysubsamplingIC))# ((1,0),(0,0))  # testing for sparse illumination?!
+            self.checkerboard[0,0] = 1
+            print('-------> ATTENTION: WE have a CHECKeRBOArD  MASK IN THE PUPIL PLANE!!!!')
+            self.checkerboard = np.matlib.repmat(self.checkerboard,self.Ic_map.shape[0]//self.mysubsamplingIC+1,self.Ic_map.shape[1]//self.mysubsamplingIC+1)
+            self.checkerboard = self.checkerboard[0:self.Ic_map.shape[0], 0:self.Ic_map.shape[1]]
+        else:
+            self.checkerboard = np.ones(self.Ic.shape)
 
         self.Ic = self.Ic * np.sqrt(self.Ic_map)  # weight the intensity in the condenser aperture, unlikely to be uniform
         # print('--------> ATTENTION! - We are not weighing the Intensity int the illu-pupil!')

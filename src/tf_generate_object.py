@@ -46,9 +46,9 @@ def generateObject(mysize = [100, 100, 100], obj_dim = [0.1, 0.1, 0.1], obj_type
         sphere1 = np.roll(np.roll(np.roll(sphere,5,0),-5,1),5,2);
         sphere2 = np.roll(np.roll(np.roll(sphere,-5,0),5,1),-5,2);
         obj = sphere1 + sphere2 
-    elif(obj_type == 'eigtsphere'):
-        # two spherical objects inside a volume
-        sphere = dn*(tf_helper.rr(mysize[0], mysize[1], mysize[2], x_center=5, y_center = 0, z_center=10)* obj_dim < diameter)
+    elif(obj_type == 'eightsphere'):
+        # eight spherical objects inside a volume
+        sphere = dn*(tf_helper.rr((mysize[0], mysize[1], mysize[2]))* obj_dim < diameter)
         sphere1 = np.roll(np.roll(np.roll(sphere,5,0),5,1),5,2);
         sphere2 = np.roll(np.roll(np.roll(sphere,5,0),5,1),-5,2);
         sphere3 = np.roll(np.roll(np.roll(sphere,5,0),-5,1),5,2);
@@ -62,10 +62,13 @@ def generateObject(mysize = [100, 100, 100], obj_dim = [0.1, 0.1, 0.1], obj_type
         
     elif(obj_type ==  'foursphere'):
         # four spherical objects inside a volume
-        obj = dn*(tf_helper.rr(mysize[2], mysize[0], mysize[1], x_center=5, y_center = 0, z_center=10) * obj_dim < diameter);
-        obj = obj+dn*(tf_helper.rr(mysize[2], mysize[0], mysize[1], x_center=-5, y_center = -5, z_center=-10) * obj_dim < diameter);
-        obj = obj+dn*(tf_helper.rr(mysize[2], mysize[0], mysize[1], x_center=10, y_center = 0, z_center=-20) * obj_dim < diameter);
-        obj = obj+dn*(tf_helper.rr(mysize[2], mysize[0], mysize[1], x_center=-10, y_center = 0, z_center=20) * obj_dim < diameter);
+        sphere = dn*(tf_helper.rr((mysize[0], mysize[1], mysize[2]))* obj_dim < diameter)
+        sphere1 = np.roll(np.roll(np.roll(sphere,5,0),5,1),5,2);
+        sphere2 = np.roll(np.roll(np.roll(sphere,5,0),5,1),-5,2);
+        sphere3 = np.roll(np.roll(np.roll(sphere,5,0),-5,1),5,2);
+        sphere4 = np.roll(np.roll(np.roll(sphere,5,0),-5,1),-5,2);
+
+        obj = sphere1 + sphere2 + sphere3 + sphere4
     #f = np.transpose(f, axes=[2, 0, 1])
     elif(obj_type=='SheppLogan'):
         print('WARNING: WRONG DIMENSIONS!!')

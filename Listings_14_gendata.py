@@ -65,10 +65,11 @@ muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
 muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(matlab_pars['Ny'].value))
 muscat.shiftIcY= -.75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 muscat.shiftIcX= .75 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-dn = (1.437-1.3326)
-muscat.NAc = .2
-muscat.Nx = 128
-muscat.Ny = 128
+dn = .05#(1.437-1.3326)
+muscat.NAc = .3
+muscat.Nx = 50
+muscat.Ny = 50
+muscat.Nz = 50
 #muscat.dz = muscat.lambdaM/4
 
 ''' Adjust some parameters to fit it in the memory '''
@@ -76,10 +77,31 @@ muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny
 
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
 mydiameter = 7
-obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = dn)#)dn)
-obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .01)
+if(0):
+    obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = dn)#)dn)
+    obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .01)
+elif(0):
+    obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='twosphere', diameter = mydiameter/8, dn = dn)#)dn)
+    obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='twosphere', diameter = mydiameter/8, dn = .01)
+elif(0):
+    obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='foursphere', diameter = mydiameter/8, dn = dn)#)dn)
+    obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='foursphere', diameter = mydiameter/8, dn = .00)
+elif(0):
+    obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='eightsphere', diameter = mydiameter/8, dn = dn)#)dn)
+    obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='eightsphere', diameter = mydiameter/8, dn = .01)
+elif(0):
+    # load a neuron
+    obj = np.load('./Data/NEURON/myneuron_32_32_70.npy')*dn
+    obj_absorption = obj*0
+else:
+    # load a phantom
+    # obj = np.load('./Data/PHANTOM/phantom_64_64_64.npy')*dn
+    obj = np.load('./Data/PHANTOM/phantom_50_50_50.npy')*dn
+    obj_absorption = obj*0
+        
+
 obj = obj+1j*obj_absorption
-obj = np.roll(obj,-9,0)
+#obj = np.roll(obj,-9,0)
 
 #obj = np.load('my_res_cmplx.npy')
 # introduce zernike factors here
