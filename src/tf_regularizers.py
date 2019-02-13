@@ -49,64 +49,17 @@ def Reg_L2(im):
     return tf.reduce_mean(im ** 2)
 
 
-def Reg_TV_conv(im, eps=1e2, step_sizes=(1, 1, 1)):
-    """
-    Calculates isotropic tv penalty.
-    penalty = sum ( sqrt(|grad(f)|^2+eps^2) )
-    where eps serves to achieve differentiability at low gradient values.
-
-    Arguments:
-        im (tf-tensor, 3d, real): image
-        eps (float): damping term for low values to avoid kink of abs fxn
-        step_sizes = (3-tuple of floats): step sizes (i.e. pixel size)
-                     in different directions.
-                     (axis 0, 1 and 2 corresponding to z, y and x)
-                     if pixel size is the same in all directions, this can
-                     be kept as 1
-
-    This implementations uses 3-pt central difference scheme for 1st
-    derivative.  Gradients are calculated using convolution.
-
-    Right now, the sum is taken over a subimage.  This can be interpreted as
-    if the gradient at the image border (one-pixel-row) is just zero.
-
-    For more info see Appendix B of Kamilov et al. - "Optical Tomographic
-    Image Reconstruction Based on Beam Propagation and Sparse Regularization"
-    DOI: 10.1109/TCI.2016.2519261
-
-    "a penalty promoting joint-sparsity of the gradient components. By
-     promoting signals with sparse gradients, TV minimization recovers images
-     that are piecewise-smooth, which means that they consist of smooth
-     regions separated by sharp edges"
-
-    And for parameter eps see Ferreol Soulez et al. - "Blind deconvolution
-    of 3D data in wide field fluorescence microscopy"
-
-    "Parameter eps > 0 ensures differentiability of prior at 0. When
-     eps is close to the quantization level, this function smooths out non-
-     significant differences between adjacent pixels."
-    -> TODO: what is quantization level ??
-    """
-    grad_z = d1z_central_conv(im, step_sizes[0])[:, 1:-1, 1:-1]
-    grad_y = d1y_central_conv(im, step_sizes[1])[1:-1, :, 1:-1]
-    grad_x = d1x_central_conv(im, step_sizes[2])[1:-1, 1:-1, :]
-
-    # l2 norm of gradients
-    return tf.reduce_mean(tf.sqrt(grad_z ** 2 + grad_y ** 2 + grad_x ** 2 + eps ** 2))
-
 def Reg_GR(tfin, Eps1=1e-15,Eps2=1e-15):
     loss=0.0
     for d in range(tfin.shape.ndims):
-        loss += tf.square(tf.roll(tfin,-1,d) - tf.roll(tfin,1,d))/tf.sqrt(tf.square(tfin)+Eps1)   # /4.0
-    return tf.reduce_mean(tf.cast(tf.sqrt(loss+Eps2),'float64'))/2.0
+        loss += tf.square(tf.manip.roll(tfin,-1,d) - tf.manip.roll(tfin,1,d))/tf.sqrt(tf.square(tfin)+Eps1)   # /4.0
+    return tf.reduce_mean(tf.cast(tf.sqrt(loss+Eps2),tf.float32))/2.0
 
 def Reg_GS(tfin, Eps=1e-15):
     loss=0.0
     for d in range(0,tfin.shape.ndims):
-        loss += tf.reduce_mean(tf.cast((tf.square(tfin - tf.roll(tfin,1,d))+Eps),'float64'))
-    return loss
-
-
+        loss += tf.reduce_mean(tf.cast((tf.square(tfin - tf.manip.roll(tfin,1,d))+Eps),'float64'))
+    return tf.cast(loss, tf.float32)
 
 def Reg_NegSqr(toRegularize):
     mySqrt = tf.where( # Just affects the real part
@@ -212,8 +165,9 @@ def Reg_TV(toRegularize, BetaVals = [1,1,1], epsR = 1, epsC=1e-10, is_circ = Tru
                     epsC*tf.ones_like(mySqrt),
                     mySqrt) # To avoid divisions by zero
     else:               
-        mySqrt = mySqrt
+        mySqrt = mySqrt # tf.clip_by_value(mySqrt, 0, np.inf)    
         
+
         
     myReg = tf.reduce_mean(mySqrt)
 

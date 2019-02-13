@@ -48,7 +48,7 @@ mysubsamplingIC = 1
 '''Define Optimization Parameters'''
 # these are hyperparameters
 my_learningrate = 1e-3  # learning rate
-lambda_tv =  1e-2#((1e0, 1e-1, 1e-2)) # lambda for Total variation - 1e-1
+lambda_tv =  1e-3#((1e0, 1e-1, 1e-2)) # lambda for Total variation - 1e-1
 eps_tv = 1e-8#((1e-2, 1e-1, 1e-0)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10000
@@ -73,7 +73,7 @@ zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0
 shiftIcY= -.75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 shiftIcX= .75 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 dn = 0.05# (1.437-1.3326)#/np.pi
-NAc = .3
+NAc = .52
 
 '''START CODE'''
 tf.reset_default_graph() # just in case there was an open session
@@ -286,4 +286,3 @@ if(1):
         src = (os.path.basename(__file__))
         copyfile(src, savepath+'/script_bak.py')
         
-

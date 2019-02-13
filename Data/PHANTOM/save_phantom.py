@@ -19,10 +19,10 @@ filename = 'phantom_50_50_50'
 
 myfile = h5py.File(filename+'.mat','r')
 myphantom = np.array(myfile.get('phantom'))
-myphantom[myphantom==1]=.2
+myfile.close()
+#myphantom[myphantom==1]=.2
 #myphantom[myphantom==0]=.1
-myphantom[myphantom==.2]=0.01
-
+#myphantom[myphantom==.2]=0.01
 
 plt.subplot(131), plt.imshow(myphantom[:,:,25]), plt.colorbar()
 plt.subplot(132), plt.imshow(myphantom[:,25,:]), plt.colorbar()

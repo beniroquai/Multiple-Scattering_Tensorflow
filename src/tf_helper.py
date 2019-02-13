@@ -291,7 +291,7 @@ def zz(mysize = (256,256), mode = 'center'):
     '''
     return(ramp(mysize,2,mode))
 
-def rr(mysize=(256,256), offset = (0,0,0),scale = None, mode='center'):
+def rr(mysize=(256,256), offset = (0,0,0), scale = None, mode='center'):
     '''
     creates a ramp in r direction 
     standart size is 256 X 256
@@ -317,9 +317,14 @@ def rr(mysize=(256,256), offset = (0,0,0),scale = None, mode='center'):
         scale = list(scale[0:3]);
     else:
         raise TypeError('Wrong data type for scale -> must be integer, list, tuple or none')
-    return(np.sqrt(((ramp(mysize,0, mode)-offset[0])*scale[0])**2
-                   +((ramp(mysize,1, mode)-offset[1])*scale[1])**2
-                   +((ramp(mysize,2, mode)-offset[2])*scale[2])**2))
+
+    if(len(mysize)==2):
+        return(np.sqrt(((ramp(mysize,0, mode)-offset[0])*scale[0])**2
+                       +((ramp(mysize,1, mode)-offset[1])*scale[1])**2))      
+    elif(len(mysize)==3):
+        return(np.sqrt(((ramp(mysize,0, mode)-offset[0])*scale[0])**2
+                       +((ramp(mysize,1, mode)-offset[1])*scale[1])**2
+                       +((ramp(mysize,2, mode)-offset[2])*scale[2])**2))
    
 def phiphi(mysize=(256,256), offset = 0, angle_range = 1):
     '''

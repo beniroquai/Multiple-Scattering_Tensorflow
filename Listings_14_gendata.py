@@ -19,8 +19,8 @@ import time
 # %matplotlib inline
 
 # Optionally, tweak styles.
-mpl.rc('figure',  figsize=(10, 6))
-mpl.rc('image', cmap='gray')
+#mpl.rc('figure',  figsize=(10, 6))
+#mpl.rc('image', cmap='gray')
 
 # load own functions
 import src.model as mus
@@ -48,7 +48,7 @@ is_optimization = False
 is_optimization_psf = False
 is_flip = False
 is_measurement = False
-
+mysubsamplingIC=1
 
 tf.reset_default_graph()
 
@@ -65,8 +65,8 @@ muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
 muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(matlab_pars['Ny'].value))
 muscat.shiftIcY= -.75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 muscat.shiftIcX= .75 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-dn = .05#(1.437-1.3326)
-muscat.NAc = .3
+dn = .1#(1.437-1.3326)
+muscat.NAc = .52
 muscat.Nx = 50
 muscat.Ny = 50
 muscat.Nz = 50
@@ -109,13 +109,13 @@ muscat.zernikefactors = 0*np.array((0,0,0,0,0,0,.1,-1,0,0,-2)) # 7: ComaX, 8: Co
 muscat.zernikemask = muscat.zernikefactors*0
 #muscat.zernikefactors = np.array((-0.05195263 ,-0.3599817 , -0.08740465,  0.3556992  , 2.9515843 , -1.9670948 ,-0.38435063 , 0.45611984 , 3.68658  )) 
 ''' Compute the systems model'''
-muscat.computesys(obj, is_padding=is_padding)
+muscat.computesys(obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC)
 #muscat.A_input = muscat.A_input*np.exp(1j*np.random.rand(muscat.A_input.shape[3])*2*np.pi)
 tf_fwd = muscat.computemodel()
 
 #%% Display the results
 ''' Evaluate the model '''
-sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
+sess = tf.Session()#config=tf.ConfigProto(log_device_placement=True))
 sess.run(tf.global_variables_initializer())
 
 #%% run model and measure memory/time

@@ -71,7 +71,7 @@ class MuScatModel(object):
         self.lambdaM = self.lambda0/self.nEmbb; # wavelength in the medium
  
     #@define_scope
-    def computesys(self, obj, is_padding=False, is_tomo = False, dropout_prob=1, mysubsamplingIC=0):
+    def computesys(self, obj=None, is_padding=False, is_tomo = False, dropout_prob=1, mysubsamplingIC=0):
         """ This computes the FWD-graph of the Q-PHASE microscope;
         1.) Compute the physical dimensions
         2.) Compute the sampling for the waves
@@ -85,8 +85,8 @@ class MuScatModel(object):
         self.is_padding = is_padding
         self.is_tomo = is_tomo
         self.mysubsamplingIC = mysubsamplingIC
-         
-        self.obj = obj
+        self.dropout_prob = dropout_prob
+        
         if(is_padding):
             print('--------->WARNING: Padding is not yet working correctly!!!!!!!!')
             # add padding in X/Y to avoid wrap-arounds
@@ -100,6 +100,18 @@ class MuScatModel(object):
         else:
             self.mysize=np.array((self.Nz, self.Nx, self.Ny))
             self.mysize_old = self.mysize
+            
+        # Allocate memory for the object 
+        if obj is not None:
+            self.obj = obj
+        else:
+            self.obj = np.zeros(self.mysize)
+            
+        # eventually add some dropout to the model?
+        if(self.dropout_prob<1):
+            self.tf_dropout_prob = tf.placeholder(tf.float32,[])
+        else:
+            self.tf_dropout_prob = tf.constant(self.dropout_prob)
  
         # Decide whether we wan'T to optimize or simply execute the model
         if (self.is_optimization==1):
@@ -178,9 +190,16 @@ class MuScatModel(object):
                 self.Ic = (1.*(self.RelFreq < self.S_o) * 1.*(self.RelFreq > self.S_i))>0 # Create the pupil of the condenser plane
  
         # weigh the illumination source with some cos^2 intensity weight?!
-        myIntensityFactor = 70
-        self.Ic_map = np.cos((myIntensityFactor *tf_helper.xx((self.Nx, self.Ny), mode='freq')**2+myIntensityFactor *tf_helper.yy((self.Nx, self.Ny), mode='freq')**2))**2
-
+        if(0):
+            myIntensityFactor = 70
+            self.Ic_map = np.cos((myIntensityFactor *tf_helper.xx((self.Nx, self.Ny), mode='freq')**2+myIntensityFactor *tf_helper.yy((self.Nx, self.Ny), mode='freq')**2))**2
+            print('We are taking the cosine illuminatino shape!')
+        else:
+            print('We are taking the gaussian illuminatino shape!')
+            myIntensityFactor = 0.01
+            self.Ic_map = np.exp(-tf_helper.rr((self.Nx, self.Ny),mode='freq')**2/myIntensityFactor)
+            
+        
         # This is experimental
         if(self.mysubsamplingIC>0):
             self.checkerboard = np.zeros((self.mysubsamplingIC,self.mysubsamplingIC))# ((1,0),(0,0))  # testing for sparse illumination?!
@@ -331,7 +350,13 @@ class MuScatModel(object):
                 TF_imag_3D = tf.squeeze(TF_imag_3D)
         else:
             TF_real_3D = self.TF_obj
-            TF_imag_3D = self.TF_obj_absorption            
+            TF_imag_3D = self.TF_obj_absorption     
+            
+        # Eventually add dropout
+        if(self.dropout_prob<1):
+            TF_real_3D = tf.layers.dropout(TF_real_3D, self.tf_dropout_prob)
+            TF_imag_3D = tf.layers.dropout(TF_imag_3D, self.tf_dropout_prob)
+            print('We add dropout if necessary')
 
         # wrapper for force-positivity on the RI-instead of penalizing it
         if(self.is_forcepos):
@@ -496,7 +521,7 @@ class MuScatModel(object):
         # This is the reconstruction
         if(init_guess is not None):
             myfwd, mymeas, my_res, my_res_absorption, myzernikes = sess.run([tf_fwd, self.tf_meas, self.TF_obj, self.TF_obj_absorption, self.TF_zernikefactors], 
-                    feed_dict={self.tf_meas:np_meas, self.TF_obj:np.real(init_guess), self.TF_obj_absorption:np.imag(init_guess)})
+                    feed_dict={self.tf_meas:np_meas, self.TF_obj:np.real(init_guess), self.TF_obj_absorption:np.imag(init_guess), self.tf_dropout_prob:1})
         else:
             myfwd, mymeas, my_res, my_res_absorption, myzernikes = sess.run([tf_fwd, self.tf_meas, self.TF_obj, self.TF_obj_absorption, self.TF_zernikefactors], feed_dict={self.tf_meas:np_meas})
              
