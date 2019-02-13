@@ -51,13 +51,13 @@ Ndropout = 20 # apply dropout to the object eery N stps in the optimization
 
 '''Define Optimization Parameters'''
 # these are hyperparameters
-my_learningrate = 1e-3  # learning rate
-lambda_tv = 0*((1e-2))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
-eps_tv = ((1e-10))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+my_learningrate = 1e-2  # learning rate
+lambda_tv = 1e-3#((1e-1, 1e-2, 1e-2)) # lambda for Total variation - 1e-1
+eps_tv = 1e-8 #((1e-10, 1e-12, 1e-8)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10000
-Niter = 1000
-Ndisplay = 50
+Niter = 500
+Ndisplay = 40
 Noptpsf = 0
 
 # data files for parameters and measuremets 
@@ -70,7 +70,7 @@ zernikefactors = 0*np.array((0,0,0,0,0,0,-1,-1,0,0,1)) # representing the 9 firs
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
 shiftIcY= -.75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 shiftIcX= .75 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-dn = 0.06# (1.437-1.3326)#/np.pi
+dn = 0.04# (1.437-1.3326)#/np.pi
 NAc = .52
 
 '''START CODE'''
@@ -128,10 +128,9 @@ np_mean = 1# np.mean(np.abs(np_meas))
 print("Mean of the MEasurement is: "+str(np_mean))
 
 '''Define Cost-function'''
-# VERY VERY Important to add 0. and 1. - otherwise it gets converted to float!
-tf_global_phase = tf.Variable(0., tf.float32, name='var_phase') # (0.902339905500412
-tf_global_abs = tf.Variable(1., tf.float32, name='var_abs') #0.36691132
-                           
+tf_global_phase = tf.Variable(0.902339905500412, tf.float32, name='var_phase')
+tf_global_abs = tf.Variable(0.36691132, tf.float32, name='var_abs')
+
 '''REGULARIZER'''
 if(0):
     # Total Variation
@@ -147,7 +146,7 @@ tf_negsqrloss = lambda_neg*reg.Reg_NegSqr(muscat.TF_obj)
 tf_negsqrloss += lambda_neg*reg.Reg_NegSqr(muscat.TF_obj_absorption)
 
 # Correc the fwd model - not good here!
-tf_fwd_corrected = tf_fwd/tf.cast(tf.abs(tf_global_abs), tf.complex64)*tf.exp(1j*tf.cast(tf_global_phase, tf.complex64))
+tf_fwd_corrected = tf_fwd/tf.cast(tf.abs(tf_global_abs), tf.complex64)*tf.exp(-1j*tf.cast(tf_global_phase, tf.complex64))
 
 '''Define Loss-function'''
 if(0):
@@ -181,29 +180,23 @@ sess.run(tf.assign(muscat.TF_obj_absorption, np.imag(init_guess))); # assign abs
 
 ''' Evaluate the model '''
 my_fwd = sess.run(tf_fwd)
-my_fwd_old = my_fwd
+
 #%% We assume, that there is a global phase mismatch between measurment and first estimate of the fwd model, this can be estimated by the difference of mean phase of the two
 # subtracting the mean phase from either measurement or the fwd model could help to speed up the optimization
 # this is the initial guess of the reconstruction
-
+np_meas=matlab_val
 
 
 #%% 
-my_fwd = my_fwd_old
-np_meas=matlab_val
-#np_meas_meanphase = np.mean(np.angle(np_meas))
-#np_fwd_meanphase = np.mean(np.angle(my_fwd)) 
+np_meas_meanphase = np.mean(np.angle(np_meas))
+np_fwd_meanphase = np.mean(np.angle(my_fwd)) 
  
-#np_meas_diffphase = .5*(np.max(np.angle(np_meas))-np.min(np.angle(np_meas))) # subtract globaphase - anyway we want to optimize for that, but now the global phase can be assumed to be 0 initally
-#np_fwd_diffphase = .5*(np.max(np.angle(my_fwd))-np.min(np.angle(my_fwd))) # This is the initial global Phase!
+np_meas_diffphase = .5*(np.max(np.angle(np_meas))-np.min(np.angle(np_meas))) # subtract globaphase - anyway we want to optimize for that, but now the global phase can be assumed to be 0 initally
+np_fwd_diffphase = .5*(np.max(np.angle(my_fwd))-np.min(np.angle(my_fwd))) # This is the initial global Phase!
 # Additionally we want the two mean-phases be centered on top of each other - which means ~zerocenter the phases?!
-#myglobalphase = np_fwd_meanphase +np_fwd_diffphase
-
-# I think it's better to distribute the phase-features symmetrically around the zero to reduce the distance between the features - I guess mean is not a good meausre of doing so
-mymeasphase = - np.min(np.angle(np_meas)) - .5*(np.max(np.angle(np_meas))-np.min(np.angle(np_meas))) # subtract globaphase - anyway we want to optimize for that, but now the global phase can be assumed to be 0 initally
-myglobalphase = - np.min(np.angle(my_fwd)) - .5*(np.max(np.angle(my_fwd))-np.min(np.angle(my_fwd)))
-np_meas = np_meas*np.exp(1j*(mymeasphase))
-my_fwd = my_fwd*np.exp(1j*(myglobalphase))
+myglobalphase = np_fwd_meanphase+np_fwd_diffphase
+np_meas = np_meas*np.exp(-1j*(np_meas_meanphase+np_meas_diffphase))
+my_fwd = my_fwd*np.exp(-1j*(myglobalphase))
 
 # Display the phase
 plt.subplot(231), plt.title('Angle XZ - Measurement'),plt.imshow(np.angle(np_meas)[:,muscat.mysize[1]//2,:]), plt.colorbar()#, plt.show()
@@ -213,13 +206,12 @@ plt.subplot(234), plt.title('Angle YZ - Simulation'),plt.imshow(np.angle(my_fwd)
 plt.subplot(235), plt.title('Angle XZ - Simulation'),plt.imshow(np.angle(my_fwd)[:,:,muscat.mysize[2]//2]), plt.colorbar()#, plt.show()
 plt.subplot(236), plt.title('Angle XY - Simulation'),plt.imshow(np.angle(my_fwd)[muscat.mysize[0]//2,:,:]), plt.colorbar(), plt.show()
 
-#%
+#%%
 # we want to normalize both to magnitude 11
 np_meas_meanabs = np.mean(np.abs(np_meas)) # subtract globaphase - anyway we want to optimize for that, but now the global phase can be assumed to be 0 initally
 np_fwd_meanabs = np.mean(np.abs(my_fwd)) # This is the initial global ABS!
-#np_meas = np_meas/np_meas_meanabs
-myglobalabs = np_fwd_meanabs/np_meas_meanabs
-my_fwd = my_fwd/myglobalabs
+np_meas = np_meas/np_meas_meanabs
+my_fwd = my_fwd/np_fwd_meanabs 
 
 # Display the abs
 plt.subplot(231), plt.title('Abs XZ - Measurement'),plt.imshow(np.abs(np_meas)[:,muscat.mysize[1]//2,:]), plt.colorbar()#, plt.show()
@@ -229,9 +221,9 @@ plt.subplot(234), plt.title('Abs YZ - Simulation'),plt.imshow(np.abs(my_fwd)[:,m
 plt.subplot(235), plt.title('Abs XZ - Simulation'),plt.imshow(np.abs(my_fwd)[:,:,muscat.mysize[2]//2]), plt.colorbar()#, plt.show()
 plt.subplot(236), plt.title('Abs XY - Simulation'),plt.imshow(np.abs(my_fwd)[muscat.mysize[0]//2,:,:]), plt.colorbar(), plt.show()
 
-#%% Assign the measured values
-sess.run(tf.assign(tf_global_abs, myglobalabs));
-sess.run(tf.assign(tf_global_phase, myglobalphase));
+# Assign the measured values
+#sess.run(tf.assign(tf_global_abs, np_fwd_meanabs));
+#sess.run(tf.assign(tf_global_phase, myglobalphase));
 
 #%% optimize over the hyperparameters
 #for mylambdatv in lambda_tv:
@@ -241,7 +233,6 @@ sess.run(tf.assign(tf_global_phase, myglobalphase));
 #            sess.run(tf.assign(muscat.TF_obj, np.real(init_guess))); # assign abs of measurement as initial guess of 
 #            sess.run(tf.assign(muscat.TF_obj_absorption, np.imag(init_guess))); # assign abs of measurement as initial guess of 
 
-                   
          
 if(1):
     if(1):

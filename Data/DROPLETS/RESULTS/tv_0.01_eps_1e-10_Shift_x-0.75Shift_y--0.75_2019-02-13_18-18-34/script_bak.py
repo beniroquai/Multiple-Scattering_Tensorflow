@@ -52,7 +52,7 @@ Ndropout = 20 # apply dropout to the object eery N stps in the optimization
 '''Define Optimization Parameters'''
 # these are hyperparameters
 my_learningrate = 1e-3  # learning rate
-lambda_tv = 0*((1e-2))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+lambda_tv = ((1e-2))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 eps_tv = ((1e-10))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10000
@@ -189,7 +189,7 @@ my_fwd_old = my_fwd
 
 
 #%% 
-my_fwd = my_fwd_old
+#my_fwd = my_fwd_old
 np_meas=matlab_val
 #np_meas_meanphase = np.mean(np.angle(np_meas))
 #np_fwd_meanphase = np.mean(np.angle(my_fwd)) 
@@ -213,13 +213,13 @@ plt.subplot(234), plt.title('Angle YZ - Simulation'),plt.imshow(np.angle(my_fwd)
 plt.subplot(235), plt.title('Angle XZ - Simulation'),plt.imshow(np.angle(my_fwd)[:,:,muscat.mysize[2]//2]), plt.colorbar()#, plt.show()
 plt.subplot(236), plt.title('Angle XY - Simulation'),plt.imshow(np.angle(my_fwd)[muscat.mysize[0]//2,:,:]), plt.colorbar(), plt.show()
 
-#%
+#%%
 # we want to normalize both to magnitude 11
 np_meas_meanabs = np.mean(np.abs(np_meas)) # subtract globaphase - anyway we want to optimize for that, but now the global phase can be assumed to be 0 initally
 np_fwd_meanabs = np.mean(np.abs(my_fwd)) # This is the initial global ABS!
-#np_meas = np_meas/np_meas_meanabs
-myglobalabs = np_fwd_meanabs/np_meas_meanabs
-my_fwd = my_fwd/myglobalabs
+np_meas = np_meas/np_meas_meanabs
+my_fwd = my_fwd/np_fwd_meanabs
+myglobalabs = np_fwd_meanabs
 
 # Display the abs
 plt.subplot(231), plt.title('Abs XZ - Measurement'),plt.imshow(np.abs(np_meas)[:,muscat.mysize[1]//2,:]), plt.colorbar()#, plt.show()
@@ -229,7 +229,7 @@ plt.subplot(234), plt.title('Abs YZ - Simulation'),plt.imshow(np.abs(my_fwd)[:,m
 plt.subplot(235), plt.title('Abs XZ - Simulation'),plt.imshow(np.abs(my_fwd)[:,:,muscat.mysize[2]//2]), plt.colorbar()#, plt.show()
 plt.subplot(236), plt.title('Abs XY - Simulation'),plt.imshow(np.abs(my_fwd)[muscat.mysize[0]//2,:,:]), plt.colorbar(), plt.show()
 
-#%% Assign the measured values
+# Assign the measured values
 sess.run(tf.assign(tf_global_abs, myglobalabs));
 sess.run(tf.assign(tf_global_phase, myglobalphase));
 

@@ -52,7 +52,7 @@ Ndropout = 20 # apply dropout to the object eery N stps in the optimization
 '''Define Optimization Parameters'''
 # these are hyperparameters
 my_learningrate = 1e-3  # learning rate
-lambda_tv = 0*((1e-2))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+lambda_tv = ((1e-2))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 eps_tv = ((1e-10))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10000

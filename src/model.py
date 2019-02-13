@@ -210,7 +210,7 @@ class MuScatModel(object):
         else:
             self.checkerboard = np.ones(self.Ic.shape)
 
-        self.Ic = self.Ic * np.sqrt(self.Ic_map)  # weight the intensity in the condenser aperture, unlikely to be uniform
+        self.Ic = self.Ic * self.Ic_map  # weight the intensity in the condenser aperture, unlikely to be uniform
         # print('--------> ATTENTION! - We are not weighing the Intensity int the illu-pupil!')
  
  
@@ -353,7 +353,7 @@ class MuScatModel(object):
             TF_imag_3D = self.TF_obj_absorption     
             
         # Eventually add dropout
-        if(self.dropout_prob<1):
+        if(0):#self.dropout_prob<1):
             TF_real_3D = tf.layers.dropout(TF_real_3D, self.tf_dropout_prob)
             TF_imag_3D = tf.layers.dropout(TF_imag_3D, self.tf_dropout_prob)
             print('We add dropout if necessary')
@@ -442,7 +442,7 @@ class MuScatModel(object):
  
         # Normalize the image such that the values do not depend on the fineness of
         # the source grid.
-        self.TF_allSumAmp = self.TF_allSumAmp/self.Nc #/tf.cast(tf.reduce_max(tf.abs(self.TF_allSumAmp)), tf.complex64)
+        self.TF_allSumAmp = self.TF_allSumAmp/tf.cast(np.sum(self.Ic), tf.complex64) # tf.cast(tf.reduce_max(tf.abs(self.TF_allSumAmp)), tf.complex64) # self.Nc #/
         # Following is the normalization according to Martin's book. It ensures
         # that a transparent specimen is imaged with unit intensity.
         # normfactor=abs(Po).^2.*abs(Ic); We do not use it, because it leads to
