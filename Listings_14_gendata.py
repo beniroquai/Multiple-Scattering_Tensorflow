@@ -19,8 +19,8 @@ import time
 # %matplotlib inline
 
 # Optionally, tweak styles.
-#mpl.rc('figure',  figsize=(10, 6))
-#mpl.rc('image', cmap='gray')
+mpl.rc('figure',  figsize=(10, 6))
+mpl.rc('image', cmap='gray')
 
 # load own functions
 import src.model as mus
@@ -63,20 +63,21 @@ print('do we need to flip the data?! -> Observe FFT!!')
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
 muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(matlab_pars['Ny'].value))
-muscat.shiftIcY= -.75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-muscat.shiftIcX= .75 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-dn = .1#(1.437-1.3326)
+muscat.shiftIcY= 0#*-.75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+muscat.shiftIcX= 0#*.75 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+dn = .05#(1.437-1.3326)
 muscat.NAc = .52
-muscat.Nx = 50
-muscat.Ny = 50
-muscat.Nz = 50
+muscat.NAo = 1
+muscat.dz = muscat.lambda0/2 
+muscat.Nx = 50; muscat.Ny = 50; muscat.Nz = 50
+#muscat.Nx = 32; muscat.Ny = 32; muscat.Nz = 70
 #muscat.dz = muscat.lambdaM/4
 
 ''' Adjust some parameters to fit it in the memory '''
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
 
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
-mydiameter = 7
+mydiameter = 5
 if(0):
     obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = dn)#)dn)
     obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .01)
@@ -92,6 +93,10 @@ elif(0):
 elif(0):
     # load a neuron
     obj = np.load('./Data/NEURON/myneuron_32_32_70.npy')*dn
+    obj_absorption = obj*0
+elif(0):
+    # load the 3 bar example 
+    obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='bars', diameter = 3, dn = dn)#)dn)
     obj_absorption = obj*0
 else:
     # load a phantom

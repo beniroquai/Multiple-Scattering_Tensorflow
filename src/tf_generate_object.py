@@ -43,8 +43,11 @@ def generateObject(mysize = [100, 100, 100], obj_dim = [0.1, 0.1, 0.1], obj_type
     elif(obj_type == 'twosphere'):
         # two spherical objects inside a volume
         sphere = dn*(tf_helper.rr((mysize[0], mysize[1], mysize[2]))* obj_dim < diameter)
-        sphere1 = np.roll(np.roll(np.roll(sphere,5,0),-5,1),5,2);
-        sphere2 = np.roll(np.roll(np.roll(sphere,-5,0),5,1),-5,2);
+        #sphere1 = np.roll(np.roll(np.roll(sphere,5,0),-5,1),5,2);
+        #sphere2 = np.roll(np.roll(np.roll(sphere,-5,0),5,1),-5,2);
+        sphere1 = np.roll(sphere,7,0);
+        sphere2 = np.roll(sphere,-7,0);
+                
         obj = sphere1 + sphere2 
     elif(obj_type == 'eightsphere'):
         # eight spherical objects inside a volume
@@ -78,6 +81,16 @@ def generateObject(mysize = [100, 100, 100], obj_dim = [0.1, 0.1, 0.1], obj_type
         obj = np.array(mat_input['obj'])*dn
     elif(obj_type=='init'):
         obj = np.ones(mysize) * (dn)
+    elif(obj_type=='bars'):
+        #mysize = ((70,32,32))
+        mysample = np.zeros(mysize)
+        mysample[mysize[0]//2, mysize[1]//2,:]=1
+        mysample[mysize[0]//2-8, mysize[1]//2-8,:]=1
+        mysample[mysize[0]//2+8, mysize[1]//2+8,:]=1
+        mysample = np.real(np.fft.ifftshift(np.fft.ifftn(np.fft.fftn(tf_helper.rr(mysize)<diameter)*np.conj(np.fft.fftn(mysample)))))
+        mysample = mysample/np.max(mysample)*dn
+        obj = mysample
+        #plt.imshow(mysample[:,:,16])
 
     return obj
 

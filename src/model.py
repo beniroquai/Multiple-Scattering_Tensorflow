@@ -194,10 +194,13 @@ class MuScatModel(object):
             myIntensityFactor = 70
             self.Ic_map = np.cos((myIntensityFactor *tf_helper.xx((self.Nx, self.Ny), mode='freq')**2+myIntensityFactor *tf_helper.yy((self.Nx, self.Ny), mode='freq')**2))**2
             print('We are taking the cosine illuminatino shape!')
-        else:
+        elif(0):
             print('We are taking the gaussian illuminatino shape!')
             myIntensityFactor = 0.01
             self.Ic_map = np.exp(-tf_helper.rr((self.Nx, self.Ny),mode='freq')**2/myIntensityFactor)
+        else:
+            print('We are not weighing our illumination!')
+            self.Ic_map = np.ones((self.Nx, self.Ny))
             
         
         # This is experimental

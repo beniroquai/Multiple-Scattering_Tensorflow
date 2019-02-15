@@ -159,7 +159,7 @@ def Reg_TV(toRegularize, BetaVals = [1,1,1], epsR = 1, epsC=1e-10, is_circ = Tru
     
     mySqrt = mySqrtL + mySqrtR; 
     
-    if(0):
+    if(1):
         mySqrt = tf.where(
                     tf.less(mySqrt , epsC*tf.ones_like(mySqrt)),
                     epsC*tf.ones_like(mySqrt),

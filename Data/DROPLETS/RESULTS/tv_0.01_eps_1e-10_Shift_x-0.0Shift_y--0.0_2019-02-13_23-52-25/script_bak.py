@@ -44,21 +44,20 @@ is_optimization = 1
 is_measurement = True
 is_absorption = False
 mysubsamplingIC = 0
-is_mask_object = True 
 
 # dropout parameters (experimental)
 my_dropout_prob = 1
 Ndropout = 20 # apply dropout to the object eery N stps in the optimization
-
+nboundaryz = 0 # Number of pixels where the initial object get's damped at the rim in Z
 '''Define Optimization Parameters'''
 # these are hyperparameters
-my_learningrate = 1e-3  # learning rate
-lambda_tv = ((1e-3))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
-eps_tv = ((1e-8))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+my_learningrate = 1e-2  # learning rate
+lambda_tv = ((1e-2))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+eps_tv = ((1e-10))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10000
-Niter = 1000
-Ndisplay = 50
+Niter = 200
+Ndisplay = 10
 Noptpsf = 0
 
 # data files for parameters and measuremets 
@@ -69,9 +68,9 @@ matlab_par_name = 'myParameter'
 ''' microscope parameters '''
 zernikefactors = 0*np.array((0,0,0,0,0,0,-1,-1,0,0,1)) # representing the 9 first zernike coefficients in noll-writings 
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
-shiftIcY= -.75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-shiftIcX= .75 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-dn = 0.06# (1.437-1.3326)#/np.pi
+shiftIcY= 0*-.75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+shiftIcX= 0*.75 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+dn = 0.1 # (1.437-1.3326)#/np.pi
 NAc = .52
 
 '''START CODE'''
@@ -96,7 +95,9 @@ muscat.shiftIcY=shiftIcY
 muscat.shiftIcX=shiftIcX
 muscat.dn = dn
 muscat.NAc = NAc
-muscat.Nx=muscat.Ny=muscat.Nz = 50
+muscat.Nz = matlab_val.shape[0]
+muscat.Nx = matlab_val.shape[1]
+muscat.Ny = matlab_val.shape[2]
 
 ''' Adjust some parameters to fit it in the memory '''
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
@@ -116,12 +117,11 @@ tf_fwd = muscat.computemodel(is_forcepos=False)
 #%%
 ''' Compute a first guess based on the experimental phase '''
 init_guess = matlab_val
-init_guess = (np.angle(init_guess)-np.min(np.angle(init_guess)))
+init_guess = (np.angle(init_guess)-np.min(np.angle(init_guess)))**3
 init_guess = dn*init_guess/np.max(init_guess)#*dn+1j*.01*np.ones(init_guess.shape)
 
 #%% try to damp along Z
-if(is_mask_object):
-    nboundaryz = 15
+if(nboundaryz>0):
     mymask = abs(tf_helper.yy(init_guess.shape))-init_guess.shape[0]//2+nboundaryz
     mymask[mymask<0]=0; mymask=-mymask
     mymask = np.exp(mymask/nboundaryz*2)
@@ -129,7 +129,7 @@ if(is_mask_object):
     init_guess = mymask*init_guess
 
 
-plt.imshow(np.real(init_guess[:,15,:])), plt.colorbar(), plt.show()
+plt.imshow(np.real(init_guess[:,init_guess.shape[1]//2,:])), plt.colorbar(), plt.show()
 
 #%%
 '''# Estimate the Phase difference between Measurement and Simulation'''
@@ -175,6 +175,7 @@ tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
 tf_lossop_obj_absorption = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj, muscat.TF_obj_absorption, tf_global_abs, tf_global_phase]) # muscat.TF_obj_absorption, 
 tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj, tf_global_abs, tf_global_phase]) # muscat.TF_obj_absorption, 
 tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors])
+tf_lossop = tf_lossop_obj# tf_optimizer.minimize(tf_loss)
 
 ''' Initialize the model '''
 sess = tf.Session()
@@ -242,8 +243,11 @@ plt.subplot(235), plt.title('Abs XZ - Simulation'),plt.imshow(np.abs(my_fwd)[:,:
 plt.subplot(236), plt.title('Abs XY - Simulation'),plt.imshow(np.abs(my_fwd)[muscat.mysize[0]//2,:,:]), plt.colorbar(), plt.show()
 
 #%% Assign the measured values
-sess.run(tf.assign(tf_global_abs, myglobalabs));
-sess.run(tf.assign(tf_global_phase, myglobalphase));
+print('Attention: Resetting the global phase and abs:')
+#myglobalabs = 1
+#myglobalphase = 0
+#sess.run(tf.assign(tf_global_abs, myglobalabs));
+#sess.run(tf.assign(tf_global_phase, myglobalphase));
 
 #%% optimize over the hyperparameters
 #for mylambdatv in lambda_tv:
@@ -324,12 +328,8 @@ if(1):
                 for aa in range(Noptpsf):
                    sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval, muscat.tf_dropout_prob:dropout_prob})
 
+            sess.run([tf_lossop], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval, muscat.tf_dropout_prob:dropout_prob})
 
-            for aa in range(Noptpsf+1):
-                if iterx<100 or not is_absorption:
-                    sess.run([tf_lossop_obj], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval, muscat.tf_dropout_prob:dropout_prob})
-                else:
-                    sess.run([tf_lossop_obj_absorption], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval, muscat.tf_dropout_prob:dropout_prob})
 
             iter_last = iterx
         #%%        
