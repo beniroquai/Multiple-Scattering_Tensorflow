@@ -43,7 +43,7 @@ is_display = True
 is_optimization = 1 
 is_measurement = True
 is_absorption = False
-mysubsamplingIC = 0
+mysubsamplingIC = 1
 NspikeLR = 250 # try to get the system out of some local minima
 
 # dropout parameters (experimental)
@@ -61,20 +61,20 @@ eps_tv = ((1e-10))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 lambda_neg = 10000
 Niter = 1300
 Ndisplay = 10
-Noptpsf = 0
+Noptpsf = 1
 Nsave = 50 # write info to disk
 # data files for parameters and measuremets 
-matlab_val_file = './Data/DROPLETS/RESULTS/allAmp_simu.npy'
-matlab_par_file = './Data/DROPLETS/S19_multiple/Parameter.mat'   
+matlab_val_file = './Data/DROPLETS/S14a_multiple/S14a_subroi1.mat'
+matlab_par_file = './Data/DROPLETS/S14a_multiple/Parameter.mat'   
 matlab_par_name = 'myParameter' 
-        
+matlab_val_name = 'allAmp_red'        
 ''' microscope parameters '''
-zernikefactors = 0*np.array((0,0,0,0,0,0,-1,-1,0,0,1)) # representing the 9 first zernike coefficients in noll-writings 
+zernikefactors = np.array((0,0,0,0,0,0,-1,-1,0,0,1)) # representing the 9 first zernike coefficients in noll-writings 
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
-shiftIcY= 0*-.75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-shiftIcX= 0*.75 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+shiftIcY= -.75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+shiftIcX= .75 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 dn = 0.05 # (1.437-1.3326)#/np.pi
-NAc = .52
+NAc = .3
 
 '''START CODE'''
 tf.reset_default_graph() # just in case there was an open session
@@ -164,7 +164,6 @@ tf_negsqrloss += lambda_neg*reg.Reg_NegSqr(muscat.TF_obj_absorption)
 
 # Correc the fwd model - not good here!
 tf_fwd_corrected = tf_fwd/tf.cast(tf.abs(tf_global_abs), tf.complex64)*tf.exp(1j*tf.cast(tf_global_phase, tf.complex64))
-
 '''Define Loss-function'''
 if(0):
     print('-------> ATTENTION Losstype is L1')

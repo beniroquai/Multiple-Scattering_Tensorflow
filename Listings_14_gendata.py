@@ -48,14 +48,15 @@ is_optimization = False
 is_optimization_psf = False
 is_flip = False
 is_measurement = False
-mysubsamplingIC=1
+mysubsamplingIC=0
 
 tf.reset_default_graph()
 
 ''' File which stores the experimental parameters from the Q-PHASE setup 
     1.) Read in the parameters of the dataset ''' 
-matlab_par_file = './Data/DROPLETS/myParameterNew.mat'    #'./Data/DROPLETS/myParameterNew.mat'   
-matlab_pars = data.import_parameters_mat(filename = matlab_par_file, matname='myParameterNew')
+matlab_par_file = './Data/DROPLETS/myParameterNew.mat';matname='myParameterNew'    #'./Data/DROPLETS/myParameterNew.mat'   
+matlab_par_file = './Data/DROPLETS/S14a_multiple/Parameter.mat'; matname='myParameter'
+matlab_pars = data.import_parameters_mat(filename = matlab_par_file, matname=matname)
 
 
 print('do we need to flip the data?! -> Observe FFT!!')
@@ -63,13 +64,14 @@ print('do we need to flip the data?! -> Observe FFT!!')
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
 muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(matlab_pars['Ny'].value))
-muscat.shiftIcY= 0#*-.75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-muscat.shiftIcX= 0#*.75 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+#muscat.shiftIcY= 0#*-.75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+#muscat.shiftIcX= 0#*.75 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 dn = .05#(1.437-1.3326)
-muscat.NAc = .52
-muscat.NAo = 1
-muscat.dz = muscat.lambda0/2 
-muscat.Nx = 50; muscat.Ny = 50; muscat.Nz = 50
+muscat.NAc = .252
+muscat.dz = muscat.lambda0
+#muscat.NAo = 1
+#muscat.dz = muscat.lambda0/2 
+#muscat.Nx = 50; muscat.Ny = 50; muscat.Nz = 50
 #muscat.Nx = 32; muscat.Ny = 32; muscat.Nz = 70
 #muscat.dz = muscat.lambdaM/4
 
@@ -78,7 +80,7 @@ muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny
 
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
 mydiameter = 5
-if(0):
+if(1):
     obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = dn)#)dn)
     obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .01)
 elif(0):
@@ -90,7 +92,7 @@ elif(0):
 elif(0):
     obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='eightsphere', diameter = mydiameter/8, dn = dn)#)dn)
     obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='eightsphere', diameter = mydiameter/8, dn = .01)
-elif(0):
+elif(1):
     # load a neuron
     obj = np.load('./Data/NEURON/myneuron_32_32_70.npy')*dn
     obj_absorption = obj*0
@@ -132,7 +134,7 @@ print(end - start)
   
 
 #%% display the results
-centerslice = 35
+centerslice = 19
 plt.figure()
 plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(muscat.obj)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
 plt.subplot(232), plt.title('ABS YZ'),plt.imshow(np.abs(muscat.obj)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
@@ -167,6 +169,7 @@ plt.subplot(232), plt.imshow((((muscat.Ic))))
 #%% save the results
 np.save(savepath+'allAmp_simu.npy', myfwd)
 data.export_realdata_h5(filename = './Data/DROPLETS/allAmp_simu.mat', matname = 'allAmp_red', data=myfwd)
+data.export_realdata_h5(filename = './Data/DROPLETS/mySample.mat', matname = 'mySample', data=np.real(muscat.obj))
 
 
 #%% Get memory utilization
