@@ -277,14 +277,14 @@ class MuScatModel(object):
            + self.kycoord * tf_helper.repmat4d(tf_helper.yy((self.mysize[1], self.mysize[2])), self.Nc))) # Corresponds to a plane wave under many oblique illumination angles - bfxfun
          
         ## propagate field to z-stack and sum over all illumination angles
-        self.Alldphi = -np.reshape(np.arange(0, self.mysize[0], 1), [1, 1, self.mysize[0]])*np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2)
+        self.Alldphi = -(np.reshape(np.arange(0, self.mysize[0], 1), [1, 1, self.mysize[0]])-self.Nz/2)*np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2)
           
         # Ordinary backpropagation. This is NOT what we are interested in:
         self.myAllSlicePropagator=np.transpose(np.exp(1j*self.Alldphi) * (np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2) >0), [2, 0, 1]);  # Propagates a single end result backwards to all slices
  
          
     #@define_scope
-    def computemodel(self, is_resnet=False, is_forcepos=False):
+    def computemodel(self, is_resnet=False, is_forcepos=False, is_compute_psf=False):
         ''' Perform Multiple Scattering here
         1.) Multiple Scattering is perfomed by slice-wise propagation the E-Field throught the sample
         2.) Each Field has to be backprojected to the BFP
@@ -294,6 +294,7 @@ class MuScatModel(object):
         simultaneasly)'''
         self.is_resnet = is_resnet
         self.is_forcepos = is_forcepos
+        self.is_compute_psf = is_compute_psf
  
         print("Buildup Q-PHASE Model ")
         ###### make sure, that the first dimension is "batch"-size; in this case it is the illumination number
@@ -312,12 +313,12 @@ class MuScatModel(object):
         myprop = np.transpose(myprop, [3, 0, 1, 2])  # ??????? what the hack is happening with transpose?!
  
         print('--------> ATTENTION: I added a pi factor - is this correct?!')
-        RefrEffect = np.squeeze(1j * np.pi* self.dz * self.k0 * self.RefrCos);  # Precalculate the oblique effect on OPD to speed it up
+        self.RefrEffect = np.squeeze(1j * np.pi* self.dz * self.k0 * self.RefrCos);  # Precalculate the oblique effect on OPD to speed it up
          
         # for now orientate the dimensions as (alpha_illu, x, y, z) - because tensorflow takes the first dimension as batch size
         with tf.name_scope('Variable_assignment'):
             self.TF_A_input = tf.constant(A_prop, dtype=tf.complex64)
-            self.TF_RefrEffect = tf.reshape(tf.constant(RefrEffect, dtype=tf.complex64), [self.Nc, 1, 1])
+            self.TF_RefrEffect = tf.reshape(tf.constant(self.RefrEffect, dtype=tf.complex64), [self.Nc, 1, 1])
             self.TF_myprop = tf.constant(np.squeeze(myprop), dtype=tf.complex64)
             self.TF_Po = tf.cast(tf.constant(self.Po), tf.complex64)
             self.TF_Zernikes = tf.constant(self.myzernikes, dtype=tf.float32)
@@ -337,63 +338,72 @@ class MuScatModel(object):
         # TODO: Introduce the averraged RI along Z - MWeigert
         self.TF_A_prop = tf.squeeze(self.TF_A_input);
         self.U_z_list = []
- 
+
         # Initiliaze memory
         self.allSumAmp = 0
         self.TF_allSumAmp = tf.zeros([self.mysize[0], self.Nx, self.Ny], dtype=tf.complex64)
- 
+        self.TF_allASF = []
+        
+        if not self.is_compute_psf:
+            # only consider object scattering if we want to use it
+        
+            ''' Eventually add a RESNET-layer between RI and Microscope to correct for model discrepancy?'''
+            if(self.is_resnet):
+                with tf.variable_scope('res_real', reuse=False):
+                    TF_real_3D = self.residual_block(tf.expand_dims(tf.expand_dims(self.TF_obj,3),0),1,True)
+                    TF_real_3D = tf.squeeze(TF_real_3D)
+                with tf.variable_scope('res_imag', reuse=False):
+                    TF_imag_3D = self.residual_block(tf.expand_dims(tf.expand_dims(self.TF_obj_absorption,3),0),1,True)
+                    TF_imag_3D = tf.squeeze(TF_imag_3D)
+            else:
+                TF_real_3D = self.TF_obj
+                TF_imag_3D = self.TF_obj_absorption     
+                
+            # Eventually add dropout
+            if(0):#self.dropout_prob<1):
+                TF_real_3D = tf.layers.dropout(TF_real_3D, self.tf_dropout_prob)
+                TF_imag_3D = tf.layers.dropout(TF_imag_3D, self.tf_dropout_prob)
+                print('We add dropout if necessary')
     
-        ''' Eventually add a RESNET-layer between RI and Microscope to correct for model discrepancy?'''
-        if(self.is_resnet):
-            with tf.variable_scope('res_real', reuse=False):
-                TF_real_3D = self.residual_block(tf.expand_dims(tf.expand_dims(self.TF_obj,3),0),1,True)
-                TF_real_3D = tf.squeeze(TF_real_3D)
-            with tf.variable_scope('res_imag', reuse=False):
-                TF_imag_3D = self.residual_block(tf.expand_dims(tf.expand_dims(self.TF_obj_absorption,3),0),1,True)
-                TF_imag_3D = tf.squeeze(TF_imag_3D)
-        else:
-            TF_real_3D = self.TF_obj
-            TF_imag_3D = self.TF_obj_absorption     
-            
-        # Eventually add dropout
-        if(0):#self.dropout_prob<1):
-            TF_real_3D = tf.layers.dropout(TF_real_3D, self.tf_dropout_prob)
-            TF_imag_3D = tf.layers.dropout(TF_imag_3D, self.tf_dropout_prob)
-            print('We add dropout if necessary')
-
-        # wrapper for force-positivity on the RI-instead of penalizing it
-        if(self.is_forcepos):
-            print('----> ATTENTION: We add the PreMonotonicPos' )
-            TF_real_3D = tf_reg.PreMonotonicPos(TF_real_3D)
-            TF_imag_3D = tf_reg.PreMonotonicPos(TF_imag_3D)
-
-        # simulate multiple scattering through object
-        with tf.name_scope('Fwd_Propagate'):
-            #print('---------ATTENTION: We are inverting the RI!')
-            for pz in range(0, self.mysize[0]):
-                #self.TF_A_prop = tf.Print(self.TF_A_prop, [self.tf_iterator], 'Prpagation step: ')
-                with tf.name_scope('Refract'):
-                    # beware the "i" is in TF_RefrEffect already!
-                    if(self.is_padding):
-                        tf_paddings = tf.constant([[self.mysize_old[1]//2, self.mysize_old[1]//2], [self.mysize_old[2]//2, self.mysize_old[2]//2]])
-                        TF_real = tf.pad(TF_real_3D[-pz,:,:], tf_paddings, mode='CONSTANT', name='TF_obj_real_pad')
-                        TF_imag = tf.pad(TF_imag_3D[-pz,:,:], tf_paddings, mode='CONSTANT', name='TF_obj_imag_pad')
-                    else:
-                        TF_real = (TF_real_3D[-pz,:,:])
-                        TF_imag = (TF_imag_3D[-pz,:,:])
-                        
-
-                    self.TF_f = tf.exp(self.TF_RefrEffect*tf.complex(TF_real, TF_imag))
-                    self.TF_A_prop = self.TF_A_prop * self.TF_f  # refraction step
-                with tf.name_scope('Propagate'):
-                    self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * self.TF_myprop) # diffraction step
- 
+            # wrapper for force-positivity on the RI-instead of penalizing it
+            if(self.is_forcepos):
+                print('----> ATTENTION: We add the PreMonotonicPos' )
+                TF_real_3D = tf_reg.PreMonotonicPos(TF_real_3D)
+                TF_imag_3D = tf_reg.PreMonotonicPos(TF_imag_3D)
+    
+            # simulate multiple scattering through object
+            with tf.name_scope('Fwd_Propagate'):
+                #print('---------ATTENTION: We are inverting the RI!')
+                for pz in range(0, self.mysize[0]):
+                    #self.TF_A_prop = tf.Print(self.TF_A_prop, [self.tf_iterator], 'Prpagation step: ')
+                    with tf.name_scope('Refract'):
+                        # beware the "i" is in TF_RefrEffect already!
+                        if(self.is_padding):
+                            tf_paddings = tf.constant([[self.mysize_old[1]//2, self.mysize_old[1]//2], [self.mysize_old[2]//2, self.mysize_old[2]//2]])
+                            TF_real = tf.pad(TF_real_3D[-pz,:,:], tf_paddings, mode='CONSTANT', name='TF_obj_real_pad')
+                            TF_imag = tf.pad(TF_imag_3D[-pz,:,:], tf_paddings, mode='CONSTANT', name='TF_obj_imag_pad')
+                        else:
+                            TF_real = (TF_real_3D[-pz,:,:])
+                            TF_imag = (TF_imag_3D[-pz,:,:])
+                            
+    
+                        self.TF_f = tf.exp(self.TF_RefrEffect*tf.complex(TF_real, TF_imag))
+                        self.TF_A_prop = self.TF_A_prop * self.TF_f  # refraction step
+                    with tf.name_scope('Propagate'):
+                        self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * self.TF_myprop) # diffraction step
+     
  
         # in a final step limit this to the detection NA:
         self.TF_Po_aberr = tf.exp(1j*tf.cast(tf.reduce_sum(self.TF_zernikefactors_filtered*self.TF_Zernikes, axis=2), tf.complex64)) * self.TF_Po
-        self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop)*self.TF_Po * self.TF_Po_aberr)
- 
-        # Experimenting with pseudo tomographic data?
+        if not self.is_compute_psf:
+            self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop)*self.TF_Po * self.TF_Po_aberr)
+        else:
+            # in case we only want to compute the PSF, we don't need the input field
+            self.TF_A_prop = tf_helper.my_ift2d(tf.ones_like(self.TF_A_prop)*tf_helper.ifftshift2d(self.TF_Po * self.TF_Po_aberr)) # propagate in real-space->fftshift!; tf_ones: need for broadcasting!
+            self.TF_myAllSlicePropagator = self.TF_myAllSlicePropagator*tf.exp(-1j*tf.cast(self.Nz/2, tf.complex64))
+            
+            
+        # Experimenting with pseudo tomographic data? No backpropgation necessary!
         if self.is_tomo:
             print('Only Experimental! Tomographic data?!')
             # Bring the slice back to focus - does this make any sense?! 
@@ -438,7 +448,8 @@ class MuScatModel(object):
  
                     with tf.name_scope('Sum_Amps'): # Normalize amplitude by condenser intensity
                         self.TF_allSumAmp = self.TF_allSumAmp + self.TF_allAmp #/ self.intensityweights[pillu];  # Superpose the Amplitudes
-                         
+                        if self.is_compute_psf:
+                            self.TF_allASF.append(self.TF_allAmp)
                              
                     # print('Current illumination angle # is: ' + str(pillu))
  
@@ -453,8 +464,12 @@ class MuScatModel(object):
         # perfomed above, we ensure that image of a point under matched
         # illumination is unity. The brightness of all the other configurations is
         # relative to this benchmark.
-        #         
  
+        if self.is_compute_psf:
+            self.TF_allASF = tf.stack(self.TF_allASF)
+            self.TF_ATF = tf.squeeze(tf_helper.my_ft3d(tf.reduce_sum(self.TF_allASF, 0)/np.sum(self.Ic)))
+            self.TF_ATF = self.TF_ATF/self.TF_ATF[0,0,0] # normalize ATF
+            
         # negate padding        
         if self.is_padding:
             self.TF_allSumAmp = self.TF_allSumAmp[:,self.Nx//2-self.Nx//4:self.Nx//2+self.Nx//4, self.Ny//2-self.Ny//4:self.Ny//2+self.Ny//4]
@@ -462,26 +477,41 @@ class MuScatModel(object):
         return self.TF_allSumAmp
      
      
-    def computepsf(self):
-        # compute the transferfunction
-        # does this makes any sense?
-        ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
-        print('Computing the APSF/ATF of the system')
-        pointscat = np.zeros(self.mysize) + 1j*np.zeros(self.mysize)
-        pointscat[pointscat.shape[0]//2, pointscat.shape[1]//2, pointscat.shape[2]//2] = 1+1j
-        # introduce zernike factors here
-         
-        ''' Compute the systems model'''
-        self.computesys(pointscat)
-         
-        ''' Evaluate the model '''
-        sess = tf.Session()
-        sess.run(tf.global_variables_initializer())
-        apsf = sess.run(self.computemodel())
-        atf = np.fft.fftshift(np.fft.fftn(apsf))
-         
- 
-        return atf, apsf 
+    def computeconvolution(self):
+        # We want to compute the born-fwd model
+        print('Computing the fwd model in born approximation')
+        
+        TF_real_3D = self.TF_obj
+        TF_imag_3D = self.TF_obj_absorption    
+        
+        # wrapper for force-positivity on the RI-instead of penalizing it
+        if(self.is_forcepos):
+            print('----> ATTENTION: We add the PreMonotonicPos' )
+            TF_real_3D = tf_reg.PreMonotonicPos(TF_real_3D)
+            TF_imag_3D = tf_reg.PreMonotonicPos(TF_imag_3D)
+
+        
+        ''' MATLAB
+        dn = .1+0*.1i;
+        mysphere = rr([mysize, Nz])<5;
+        f = zeros(size(mysphere))+nEmbb;
+        f(mysphere) = dn;
+        myN = 1i*nEmbb+dz*k0*f; %RefrCos
+        RefrEffect=-1i*dz*k0;RefrCos;  % To speed it up
+        myN = exp(RefrEffect*f);
+        
+        myres = squeeze(ift3d(ft3d(myN)*ft3d(allSumAmp)));
+        myres = squeeze(sum(myres, [], 4))
+        '''
+        TF_f = tf.complex(TF_real_3D, TF_imag_3D)
+        TF_myN = tf.exp(tf.expand_dims(self.TF_RefrEffect,-1)*TF_f)
+
+        self.TF_ATF_placeholder = tf.placeholder(tf.complex64, shape=TF_f.shape, name='TF_ATF_placeholder')
+        # convolve object with ASF
+        TF_myN = tf.squeeze(tf.reduce_mean(TF_myN, 0))
+        
+        TF_res = tf_helper.my_ift3d(tf_helper.my_ft3d(TF_myN)*self.TF_ATF_placeholder)
+        return tf.squeeze(TF_res)
      
      
     def addRegularizer(self, is_tv, is_gr, is_pos):
