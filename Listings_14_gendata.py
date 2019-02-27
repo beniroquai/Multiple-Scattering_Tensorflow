@@ -66,9 +66,8 @@ muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
 muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(matlab_pars['Ny'].value))
 #muscat.shiftIcY= 0#*-.75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 #muscat.shiftIcX= 0#*.75 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-dn = .05#(1.437-1.3326)
+dn = .1#(1.437-1.3326)
 muscat.NAc = .252
-muscat.dz = muscat.lambda0
 #muscat.NAo = 1
 #muscat.dz = muscat.lambda0/2 
 #muscat.Nx = 50; muscat.Ny = 50; muscat.Nz = 50

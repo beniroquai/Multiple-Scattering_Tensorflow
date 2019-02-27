@@ -462,7 +462,7 @@ class MuScatModel(object):
         return self.TF_allSumAmp
      
      
-    def computetrans(self):
+    def computepsf(self):
         # compute the transferfunction
         # does this makes any sense?
         ''' Create a 3D Refractive Index Distributaton as a artificial sample'''

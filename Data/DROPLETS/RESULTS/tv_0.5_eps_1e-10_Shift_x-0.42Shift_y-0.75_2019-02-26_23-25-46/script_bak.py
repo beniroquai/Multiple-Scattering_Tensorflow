@@ -53,13 +53,13 @@ nboundaryz = 0 # Number of pixels where the initial object get's damped at the r
 '''Define Optimization Parameters'''
 # these are hyperparameters
 my_learningrate = 1e-2  # learning rate
-NreduceLR = 500 # when should we reduce the Learningrate? 
+NreduceLR = 300 # when should we reduce the Learningrate? 
 
 lambda_tv = ((5e-1))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 eps_tv = ((1e-10))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10000
-Niter = 2000
+Niter = 1000
 Ndisplay = 50
 Noptpsf = 1
 Nsave = 50 # write info to disk
@@ -278,8 +278,8 @@ if(1):
                 globalabslist.append(myglobalabs) 
                 
                 ''' Save Figures and Parameters '''
-                #muscat.saveFigures(sess, savepath, tf_fwd_corrected, np_meas, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, globalphaselist, globalabslist, 
-                #            result_phaselist=None, result_absorptionlist=None, init_guess=None, figsuffix='Iter'+str(iterx))
+                muscat.saveFigures(sess, savepath, tf_fwd_corrected, np_meas, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, globalphaselist, globalabslist, 
+                            result_phaselist=None, result_absorptionlist=None, init_guess=None, figsuffix='Iter'+str(iterx))
                     
             # Alternate between pure object optimization and aberration recovery
             if False:# (iterx>10) & (Noptpsf>0):

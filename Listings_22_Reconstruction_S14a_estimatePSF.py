@@ -53,31 +53,29 @@ nboundaryz = 0 # Number of pixels where the initial object get's damped at the r
 '''Define Optimization Parameters'''
 # these are hyperparameters
 my_learningrate = 1e-2  # learning rate
-NreduceLR = 500 # when should we reduce the Learningrate? 
+NreduceLR = 100 # when should we reduce the Learningrate? 
 
 lambda_tv = ((5e-1))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 eps_tv = ((1e-10))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10000
-Niter = 2000
-Ndisplay = 50
+Niter = 1300
+Ndisplay = 10
 Noptpsf = 1
 Nsave = 50 # write info to disk
 # data files for parameters and measuremets 
-matlab_val_file = './Data/DROPLETS/S14a_multiple/S14a_subroi9.mat'
+matlab_val_file = './Data/DROPLETS/S14a_multiple/S14a_subroi1.mat'
 matlab_par_file = './Data/DROPLETS/S14a_multiple/Parameter.mat'   
 matlab_par_name = 'myParameter' 
 matlab_val_name = 'allAmp_red'        
 ''' microscope parameters '''
 zernikefactors = np.array((0, 0, 0, 0.001 ,0.001,0.001, -1, -1, .0001, 0.0001,  0.59230834))
-zernikefactors = np.array((0. ,        0.          ,0.      ,    0.49638072 , 0.88168746, -1.11872625  ,-0.02625366 ,-0.5901584  ,-1.0360527  , 0.92185229,  0.14297058))
 #zernikefactors = np.array((0,0,0,0,0,0,-1,-1,0,0,1)) # representing the 9 first zernike coefficients in noll-writings 
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
-shiftIcY= .75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-shiftIcX= .42 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-dn = (1.437-1.3326)#/np.pi
+shiftIcY= 1 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+shiftIcX= 1 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+dn = .07#(1.437-1.3326)#/np.pi
 NAc = .2
-
 '''START CODE'''
 tf.reset_default_graph() # just in case there was an open session
 
@@ -125,14 +123,30 @@ init_guess = np.angle(matlab_val)
 init_guess = init_guess-np.min(init_guess)
 init_guess = dn*init_guess/np.max(init_guess)#*dn+1j*.01*np.ones(init_guess.shape)
 
-#% try to damp along Z
-if(nboundaryz>0):
-    mymask = abs(tf_helper.yy(init_guess.shape))-init_guess.shape[0]//2+nboundaryz
-    mymask[mymask<0]=0; mymask=-mymask
-    mymask = np.exp(mymask/nboundaryz*2)
-    plt.imshow(mymask[:,16,:]), plt.colorbar(), plt.title('Mask to confine the initial object in the center only')
-    init_guess = mymask*init_guess
+''' Create a 3D Refractive Index Distributaton as a artificial sample'''
+#for sphere5 
+mydiameter = 3
+obj=matlab_val
+squeezefac=muscat.dx/muscat.dz
+obj = (((squeezefac*tf_helper.xx(mysize=obj.shape)**2)+(tf_helper.yy(mysize=obj.shape)**2)+(squeezefac*tf_helper.zz(mysize=obj.shape)**2))<(mydiameter**2))*dn#tf_go.generateObject(mysize=obj.shape, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = dn)
+obj_absorption = tf_go.generateObject(mysize=obj.shape, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .01)
+obj = obj+1j*obj_absorption
+obj = np.roll(obj,5,0) # z
+obj = np.roll(obj,-3,1) # y
+obj = np.roll(obj,1,2) # x
 
+init_guess = obj
+if(False):
+    init_guess = matlab_val
+    init_guess = dn*np.angle(init_guess)-np.min(np.angle(init_guess))
+    init_guess = init_guess/np.max(init_guess)*dn+1j*.01*np.ones(init_guess.shape)
+    
+plt.subplot(231),plt.imshow(np.real(init_guess[:,16,:])), plt.colorbar, plt.title('x')#, plt.show()
+plt.subplot(232),plt.imshow(np.real(init_guess[:,:,16])), plt.colorbar, plt.title('y')#, plt.show()
+plt.subplot(233),plt.imshow(np.real(init_guess[19,:,:])), plt.colorbar, plt.title('z')#, plt.show()
+plt.subplot(234),plt.imshow(np.abs(matlab_val[:,16,:])), plt.colorbar#, plt.show()
+plt.subplot(235),plt.imshow(np.abs(matlab_val[:,:,16])), plt.colorbar#, plt.show()
+plt.subplot(236),plt.imshow(np.abs(matlab_val[19,:,:])), plt.colorbar, plt.show()
 
 
 #%%
@@ -180,7 +194,7 @@ tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
 tf_lossop_obj_absorption = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj, muscat.TF_obj_absorption, tf_global_abs, tf_global_phase]) # muscat.TF_obj_absorption, 
 tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj, tf_global_abs, tf_global_phase]) # muscat.TF_obj_absorption, 
 tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors])
-tf_lossop = tf_optimizer.minimize(tf_loss)#, var_list =  [muscat.TF_obj, tf_global_abs, tf_global_phase, muscat.TF_obj_absorption])
+tf_lossop = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors, tf_global_abs, tf_global_phase]) # tf_optimizer.minimize(tf_loss)
 
 ''' Initialize the model '''
 sess = tf.Session()
