@@ -330,7 +330,7 @@ class MuScatModel(object):
                         TF_real_updates = TF_real[row_start:row_end, row_start:row_end]
                         TF_imag_updates = TF_imag[row_start:row_end, row_start:row_end]
                         
-                        # Build tensor with "filtered" gradient
+                        # Build tensor with "filtered" gradient - https://stackoverflow.com/questions/53047021/how-can-i-use-tensorflows-scatter-nd-with-slices
                         TF_real_part = tf.scatter_nd(indexes, TF_real_updates, tf.shape(TF_real))
                         TF_imag_part = tf.scatter_nd(indexes, TF_imag_updates, tf.shape(TF_imag))
                         

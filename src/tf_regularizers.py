@@ -159,7 +159,7 @@ def Reg_TV(toRegularize, BetaVals = [1,1,1], epsR = 1, epsC=1e-10, is_circ = Tru
     
     mySqrt = mySqrtL + mySqrtR; 
     
-    if(1):
+    if(0):
         mySqrt = tf.where(
                     tf.less(mySqrt , epsC*tf.ones_like(mySqrt)),
                     epsC*tf.ones_like(mySqrt),
@@ -172,6 +172,19 @@ def Reg_TV(toRegularize, BetaVals = [1,1,1], epsR = 1, epsC=1e-10, is_circ = Tru
     myReg = tf.reduce_mean(mySqrt)
 
     return myReg
+
+
+def Reg_TV_RH(tfin, Eps=1e-15, doubleSided=False):
+    loss=0.0
+    if doubleSided:
+        for d in range(tfin.shape.ndims):   # sum over the dimensions to calculate the one norm
+            loss += tf.square(tf.manip.roll(tfin,-1,d) - tf.manip.roll(tfin,1,d))
+    else:
+        for d in range(tfin.shape.ndims):   # sum over the dimensions to calculate the one norm
+            loss += tf.square(tfin - tf.manip.roll(tfin,1,d))
+    if doubleSided:
+        loss=loss/2.0
+    return tf.reduce_mean(tf.cast(tf.sqrt(loss+Eps),'float64')) # /2.0
 
     
 def PreMonotonicPosNAN(tfin):

@@ -20,7 +20,8 @@ from src import tf_helper as tf_helper
 from src import zernike as zern
 from src import data as data
 from src import tf_regularizers as tf_reg
-
+from src import poisson_disk as pd
+ 
 class MuScatModel(object):
     def __init__(self, my_mat_paras, is_optimization = False):
  
@@ -210,6 +211,11 @@ class MuScatModel(object):
             print('-------> ATTENTION: WE have a CHECKeRBOArD  MASK IN THE PUPIL PLANE!!!!')
             self.checkerboard = np.matlib.repmat(self.checkerboard,self.Ic_map.shape[0]//self.mysubsamplingIC+1,self.Ic_map.shape[1]//self.mysubsamplingIC+1)
             self.checkerboard = self.checkerboard[0:self.Ic_map.shape[0], 0:self.Ic_map.shape[1]]
+            
+       
+            print('Create a new random disk')
+            self.checkerboard = np.fft.fftshift(self.Po)*pd.get_poisson_disk(self.Ic.shape[0],self.Ic.shape[1],self.mysubsamplingIC)
+            #self.checkerboard = (np.fft.fftshift(self.Po)*np.random.rand(self.Ic.shape[0],self.Ic.shape[1])>.95)
         else:
             self.checkerboard = np.ones(self.Ic.shape)
 
@@ -277,7 +283,8 @@ class MuScatModel(object):
            + self.kycoord * tf_helper.repmat4d(tf_helper.yy((self.mysize[1], self.mysize[2])), self.Nc))) # Corresponds to a plane wave under many oblique illumination angles - bfxfun
          
         ## propagate field to z-stack and sum over all illumination angles
-        self.Alldphi = -(np.reshape(np.arange(0, self.mysize[0], 1), [1, 1, self.mysize[0]])-self.Nz/2)*np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2)
+        self.Alldphi = -(np.reshape(np.arange(0, self.mysize[0], 1), [1, 1, self.mysize[0]]))*np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2)
+        #self.Alldphi = -(np.reshape(np.arange(0, self.mysize[0], 1), [1, 1, self.mysize[0]])-self.Nz/2)*np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2)
           
         # Ordinary backpropagation. This is NOT what we are interested in:
         self.myAllSlicePropagator=np.transpose(np.exp(1j*self.Alldphi) * (np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2) >0), [2, 0, 1]);  # Propagates a single end result backwards to all slices
@@ -400,7 +407,6 @@ class MuScatModel(object):
         else:
             # in case we only want to compute the PSF, we don't need the input field
             self.TF_A_prop = tf_helper.my_ift2d(tf.ones_like(self.TF_A_prop)*tf_helper.ifftshift2d(self.TF_Po * self.TF_Po_aberr)) # propagate in real-space->fftshift!; tf_ones: need for broadcasting!
-            self.TF_myAllSlicePropagator = self.TF_myAllSlicePropagator*tf.exp(-1j*tf.cast(self.Nz/2, tf.complex64))
             
             
         # Experimenting with pseudo tomographic data? No backpropgation necessary!
@@ -467,8 +473,9 @@ class MuScatModel(object):
  
         if self.is_compute_psf:
             self.TF_allASF = tf.stack(self.TF_allASF)
-            self.TF_ATF = tf.squeeze(tf_helper.my_ft3d(tf.reduce_sum(self.TF_allASF, 0)/np.sum(self.Ic)))
-            self.TF_ATF = self.TF_ATF/self.TF_ATF[0,0,0] # normalize ATF
+            self.TF_allASF = self.TF_allASF/tf.reduce_sum(self.TF_allASF)
+            self.TF_ATF = tf.squeeze(tf_helper.my_ft3d(tf.reduce_sum(self.TF_allASF, 0)))#/np.sum(self.Ic)))
+            #self.TF_ATF = self.TF_ATF/self.TF_ATF[0,0,0] #tf.cast(tf.reduce_max(tf.abs(self.TF_ATF)), tf.complex64)#  # normalize ATF
             
         # negate padding        
         if self.is_padding:
@@ -503,13 +510,17 @@ class MuScatModel(object):
         myres = squeeze(ift3d(ft3d(myN)*ft3d(allSumAmp)));
         myres = squeeze(sum(myres, [], 4))
         '''
+        TF_RefrEffect = tf.cast(np.squeeze(1j * np.pi* self.dz * self.k0), tf.complex64)
         TF_f = tf.complex(TF_real_3D, TF_imag_3D)
-        TF_myN = tf.exp(tf.expand_dims(self.TF_RefrEffect,-1)*TF_f)
+        #TF_myN = tf.exp(tf.expand_dims(self.TF_RefrEffect,-1)*TF_f)
+        #TF_myN = tf.squeeze(tf.reduce_mean(TF_myN, 0))
+        TF_myN = tf.exp(TF_RefrEffect*TF_f)
 
-        self.TF_ATF_placeholder = tf.placeholder(tf.complex64, shape=TF_f.shape, name='TF_ATF_placeholder')
+       
+        # We need to have a placeholder because the ATF is computed afterwards...
+        self.TF_ATF_placeholder = tf.placeholder(dtype=tf.complex64, shape=self.mysize, name='TF_ATF_placeholder')
+
         # convolve object with ASF
-        TF_myN = tf.squeeze(tf.reduce_mean(TF_myN, 0))
-        
         TF_res = tf_helper.my_ift3d(tf_helper.my_ft3d(TF_myN)*self.TF_ATF_placeholder)
         return tf.squeeze(TF_res)
      
@@ -548,9 +559,73 @@ class MuScatModel(object):
         with open(filepath, 'w') as outfile:
                 yaml.dump(mydata, outfile, default_flow_style=False)
                  
-      
+    
+            
+            
+         
+    def saveFigures_list(self, savepath, myfwdlist, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, result_phaselist, result_absorptionlist, 
+                              globalphaselist, globalabslist, mymeas, figsuffix):
+        ''' We want to save some figures for debugging purposes'''
+
+        # get latest resutl from lists
+        myfwd = myfwdlist[-1]
+        my_res = result_phaselist[-1]
+        my_res_absorption = result_absorptionlist[-1]
+        
+             
+        plt.figure()
+        plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(232), plt.title('ABS YZ'),plt.imshow(np.abs(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(233), plt.title('ABS XY'),plt.imshow(np.abs(myfwd)[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.subplot(234), plt.title('Angle XZ'),plt.imshow(np.angle(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(235), plt.title('Angle XZ'),plt.imshow(np.angle(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(236), plt.title('Angle XY'),plt.imshow(np.angle(myfwd)[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.savefig(savepath+'/res_myfwd'+figsuffix+'.png'), plt.show()
+     
+        # This is the measurment
+        plt.figure()
+        plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(mymeas)[:,mymeas.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(232), plt.title('ABS YZ'),plt.imshow(np.abs(mymeas)[:,:,mymeas.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(233), plt.title('ABS XY'),plt.imshow(np.abs(mymeas)[mymeas.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.subplot(234), plt.title('Angle XZ'),plt.imshow(np.angle(mymeas)[:,mymeas.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(235), plt.title('Angle XZ'),plt.imshow(np.angle(mymeas)[:,:,mymeas.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(236), plt.title('Angle XY'),plt.imshow(np.angle(mymeas)[mymeas.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.savefig(savepath+'/res_mymeas'+figsuffix+'.png'), plt.show()
+     
+        # This is the residual
+        plt.figure()
+        plt.subplot(231), plt.title('Residual ABS XZ'),plt.imshow((np.abs(myfwd)-np.abs(mymeas))[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(232), plt.title('Residual ABS YZ'),plt.imshow((np.abs(myfwd)-np.abs(mymeas))[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(233), plt.title('Residual ABS XY'),plt.imshow((np.abs(myfwd)-np.abs(mymeas))[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.subplot(234), plt.title('Residual Angle XZ'),plt.imshow((np.angle(myfwd)-np.angle(mymeas))[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(235), plt.title('Residual Angle XZ'),plt.imshow((np.angle(myfwd)-np.angle(mymeas))[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(236), plt.title('Residual Angle XY'),plt.imshow((np.angle(myfwd)-np.angle(mymeas))[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.savefig(savepath+'/res_myresidual'+figsuffix+'.png'), plt.show()
+         
+        # diplay the error over time
+        plt.figure()
+        plt.subplot(231), plt.title('Error/Cost-function'), plt.semilogy((np.array(mylosslist)))#, plt.show()
+        plt.subplot(232), plt.title('Fidelity-function'), plt.semilogy((np.array(myfidelitylist)))#, plt.show()
+        plt.subplot(233), plt.title('Neg-loss-function'), plt.plot(np.array(myneglosslist))#, plt.show()
+        plt.subplot(234), plt.title('TV-loss-function'), plt.semilogy(np.array(mytvlosslist))#, plt.show()
+        plt.subplot(235), plt.title('Global Phase'), plt.plot(np.array(globalphaselist))#, plt.show()
+        plt.subplot(236), plt.title('Global ABS'), plt.plot(np.array(globalabslist))#, plt.show()
+        plt.savefig(savepath+'/myplots'+figsuffix+'.png'), plt.show()
+         
+        # Display RI result
+        plt.figure()
+        plt.subplot(231), plt.title('Result Phase: XZ'),plt.imshow(my_res[:,my_res.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(232), plt.title('Result Phase: XZ'),plt.imshow(my_res[:,:,my_res.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(233), plt.title('Result Phase: XY'),plt.imshow(my_res[my_res.shape[0]//2,:,:]), plt.colorbar()
+        plt.subplot(234), plt.title('Result Abs: XZ'),plt.imshow(my_res_absorption[:,my_res.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(235), plt.title('Result abs: XZ'),plt.imshow(my_res_absorption[:,:,my_res.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(236), plt.title('Result abs: XY'),plt.imshow(my_res_absorption[my_res.shape[0]//2,:,:]), plt.colorbar()
+        plt.savefig(savepath+'/RI_abs_result'+figsuffix+'.png'), plt.show()
+         
+
     def saveFigures(self, sess, savepath, tf_fwd, np_meas, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, globalphaselist, globalabslist, 
                     result_phaselist=None, result_absorptionlist=None, init_guess=None, figsuffix=''):
+        ''' We want to save some figures for debugging purposes'''
         # This is the reconstruction
         if(init_guess is not None):
             myfwd, mymeas, my_res, my_res_absorption, myzernikes = sess.run([tf_fwd, self.tf_meas, self.TF_obj, self.TF_obj_absorption, self.TF_zernikefactors], 

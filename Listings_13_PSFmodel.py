@@ -19,7 +19,7 @@ import time
 # %matplotlib inline
 
 # Optionally, tweak styles.
-mpl.rc('figure',  figsize=(10, 6))
+mpl.rc('figure',  figsize=(7, 4))
 mpl.rc('image', cmap='gray')
 
 # load own functions
@@ -64,17 +64,19 @@ print('do we need to flip the data?! -> Observe FFT!!')
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
 muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(matlab_pars['Ny'].value))
-#muscat.shiftIcY= 0#*-.75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-#muscat.shiftIcX= 0#*.75 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-dn = .1#(1.437-1.3326)
-muscat.NAc = .52
-muscat.NAo = .95
-muscat.dz = 0.1625*2#muscat.lambda0/4
-muscat.dy = 0.1560#muscat.lambda0/4
-muscat.dx = 0.1560#muscat.lambda0/4
+muscat.shiftIcY= 0#*-.75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+muscat.shiftIcX= 0#*.75 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+dn = .05#(1.437-1.3326)
+muscat.NAc = .4
+
+#muscat.NAo = .95
+#muscat.dz = 0.1625*2#muscat.lambda0/4
+#muscat.dy = 0.1560#muscat.lambda0/4
+#muscat.dx = 0.1560#muscat.lambda0/4
 muscat.Nx = 50; muscat.Ny = 50; muscat.Nz = 50
 #muscat.Nx = 32; muscat.Ny = 32; muscat.Nz = 70
 #muscat.dz = muscat.lambdaM/4
+#muscat.Nz = 36
 
 ''' Adjust some parameters to fit it in the memory '''
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
@@ -83,7 +85,7 @@ muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny
 mydiameter = 5
 if(0):
     obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)#)dn)
-    obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .01, nEmbb = muscat.nEmbb)
+    obj_absorption = 0*tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .0, nEmbb = muscat.nEmbb)
 elif(0):
     obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='twosphere', diameter = mydiameter/8, dn = dn)#)dn)
     obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='twosphere', diameter = mydiameter/8, dn = .01)
@@ -113,7 +115,7 @@ obj = obj+1j*obj_absorption
 
 #obj = np.load('my_res_cmplx.npy')
 # introduce zernike factors here
-muscat.zernikefactors = np.array((0,0,0,0,0,0,.1,-1,0,0,-2)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
+muscat.zernikefactors = 0*np.array((0,0,0,0,0,0,.1,-1,0,0,-2)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
 muscat.zernikemask = muscat.zernikefactors*0
 #muscat.zernikefactors = np.array((-0.05195263 ,-0.3599817 , -0.08740465,  0.3556992  , 2.9515843 , -1.9670948 ,-0.38435063 , 0.45611984 , 3.68658  )) 
 ''' Compute the systems model'''
@@ -135,14 +137,14 @@ myATF = sess.run(muscat.TF_ATF)
 
 #%% run model and measure memory/time
 start = time.time()
-myPSF_k = sess.run(myres, feed_dict={muscat.TF_ATF_placeholder:myATF,  muscat.TF_obj:obj, muscat.TF_obj_absorption:obj_absorption})#, options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE, output_partition_graphs=True), run_metadata=run_metadata)
+myfwd = sess.run(myres, feed_dict={muscat.TF_ATF_placeholder:myATF,  muscat.TF_obj:obj, muscat.TF_obj_absorption:obj_absorption})#, options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE, output_partition_graphs=True), run_metadata=run_metadata)
 end = time.time()
 print(end - start)
 
 
 
 #%% display the results
-myfwd = np.squeeze(myPSF_k) #np.sum(myPSF_k, 0)# (np.squeeze(myPSF_k[0,:,:,:])) #np.sum(myfwd, 0) # np.sum(myPSF_k, 0) #
+myfwd = np.squeeze(myfwd) #np.sum(myPSF_k, 0)# (np.squeeze(myPSF_k[0,:,:,:])) #np.sum(myfwd, 0) # np.sum(myPSF_k, 0) #
 centerslice = myfwd.shape[0]//2
 plt.figure()
 plt.subplot(231), plt.title('Angle XZ'),plt.imshow(np.angle(obj)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()

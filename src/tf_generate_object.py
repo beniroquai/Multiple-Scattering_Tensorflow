@@ -39,7 +39,7 @@ def generateObject(mysize = [100, 100, 100], obj_dim = [0.1, 0.1, 0.1], obj_type
     if(obj_type=='sphere'):
         # one spherical object inside a volume
         obj = np.zeros(mysize)+nEmbb
-        mysphere = (tf_helper.rr((mysize[0], mysize[1], mysize[2]), mode='center')<diameter)
+        mysphere = (tf_helper.rr((mysize[0], mysize[1], mysize[2]), mode='center', scale=[1.5, .75, .75])<diameter)
         obj[mysphere] = dn+nEmbb
         
     elif(obj_type == 'twosphere'):
