@@ -43,10 +43,13 @@ is_display = True
 is_optimization = 1 
 is_measurement = True
 is_absorption = False
-mysubsamplingIC = 5
+mysubsamplingIC = 3
 NspikeLR = 25000 # try to get the system out of some local minima
-nboundaryz = 0 # Number of pixels where the initial object get's damped at the rim in Z
 
+# dropout parameters (experimental)
+my_dropout_prob = 1
+Ndropout = 20 # apply dropout to the object eery N stps in the optimization
+nboundaryz = 0 # Number of pixels where the initial object get's damped at the rim in Z
 '''Define Optimization Parameters'''
 # these are hyperparameters
 my_learningrate = 1e+2  # learning rate
@@ -56,7 +59,7 @@ lambda_tv = ((5e-0))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 eps_tv = ((1e-10))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10000
-Niter = 1000
+Niter = 4000
 Ndisplay = 50
 Noptpsf = 1
 Nsave = 50 # write info to disk
@@ -75,7 +78,7 @@ zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0
 shiftIcY= 0*.75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 shiftIcX= 4 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 dn = .06#(1.437-1.3326)#/np.pi
-NAc = .20
+NAc = .25
 #muscat.dz = 3
 '''START CODE'''
 tf.reset_default_graph() # just in case there was an open session
@@ -113,7 +116,7 @@ muscat.zernikemask = zernikemask
 
 ''' Compute the systems model'''
 # Compute the System's properties (e.g. Pupil function/Illumination Source, K-vectors, etc.)¶
-muscat.computesys(obj=None, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC)
+muscat.computesys(obj=None, is_padding=is_padding, dropout_prob=my_dropout_prob, mysubsamplingIC=mysubsamplingIC)
 plt.imshow(muscat.Ic), plt.show()
 # Generate Computational Graph (fwd model)
 tf_fwd = muscat.computemodel(is_forcepos=False)

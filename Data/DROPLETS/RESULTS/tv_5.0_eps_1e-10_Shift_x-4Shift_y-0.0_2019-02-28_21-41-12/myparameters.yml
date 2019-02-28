@@ -1,0 +1,17 @@
+NAc: 0.25
+NAo: 0.3
+Nc: 119.0
+Nx: 80.0
+Ny: 80.0
+Nz: 20.0
+dn: 0.06
+dx: 0.7426825396825396
+dy: 0.7426825396825396
+dz: 1.5075
+eps_tv: 1.0e-10
+lambda0: 0.65
+lambdaM: 0.48872180451127817
+lambda_tv: 5.0
+learningrate: 0.001
+shiftIcX: 4.0
+shiftIcY: 0.0

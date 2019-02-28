@@ -21,7 +21,7 @@ class PoissonDiskSampler:
   #---------------------------
   def __init__(self,width, height, radius):
 
-    self.k = 40 # max nb of candidate generation attempts before deactivation of a sample
+    self.k = 200 # max nb of candidate generation attempts before deactivation of a sample
     self.radius2 = radius**2
     self.R = 3 * self.radius2 # distance de sampling maximale ? Pourquoi *3 ? Pourquoi **2 ?
     self.cellSize = radius * sqrt(0.5)

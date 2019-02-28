@@ -69,11 +69,10 @@ muscat.shiftIcY= 0 # has influence on the YZ-Plot - negative values shifts the i
 muscat.shiftIcX= -2 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 dn = .05#(1.437-1.3326)
 muscat.NAc = .2
-mysubsamplingIC = 0
+mysubsamplingIC = 2
 #muscat.dz = 3
 #muscat.NAo = 1
-#muscat.dx = muscat.lambda0/2 
-#muscat.dy = muscat.lambda0/2 
+muscat.dx = .75; muscat.dy = .75; muscat.dz = 1.5; #muscat.lambda0/2 
 #muscat.Nx = 50; muscat.Ny = 50; muscat.Nz = 50
 muscat.Nx = 32; muscat.Ny = 32; muscat.Nz = 70
 #muscat.dz = muscat.lambdaM/4
@@ -124,7 +123,7 @@ muscat.computesys(obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC)
 #muscat.A_input = muscat.A_input*np.exp(1j*np.random.rand(muscat.A_input.shape[3])*2*np.pi)
 tf_fwd = muscat.computemodel()
 plt.imshow(muscat.Ic)
-
+asdf
 
 #%% Display the results
 ''' Evaluate the model '''
