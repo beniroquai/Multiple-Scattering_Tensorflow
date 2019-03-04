@@ -43,38 +43,40 @@ is_display = True
 is_optimization = 1 
 is_measurement = True
 is_absorption = False
-mysubsamplingIC = 5
+mysubsamplingIC = 6
 NspikeLR = 25000 # try to get the system out of some local minima
 nboundaryz = 0 # Number of pixels where the initial object get's damped at the rim in Z
 
 '''Define Optimization Parameters'''
 # these are hyperparameters
-my_learningrate = 1e+2  # learning rate
+my_learningrate = 1e+0  # learning rate
 NreduceLR = 500 # when should we reduce the Learningrate? 
 
 lambda_tv = ((5e-0))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 eps_tv = ((1e-10))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10000
-Niter = 1000
+Niter = 2000
 Ndisplay = 50
 Noptpsf = 1
 Nsave = 50 # write info to disk
 # data files for parameters and measuremets 
-matlab_val_file = './Data/cells/cross_section_10x0.3_hologram.tif_allAmp.mat'
-matlab_par_file = './Data/cells/cross_section_10x0.3_hologram.tif_myParameter.mat'
+#matlab_val_file = './Data/cells/cross_section_10x0.3_hologram.tif_allAmp.mat'
+#matlab_par_file = './Data/cells/cross_section_10x0.3_hologram.tif_myParameter.mat'
+matlab_val_file = './Data/cells/cross_section_10x0.3_hologram_full.tif_allAmp.mat'
+matlab_par_file = './Data/cells/cross_section_10x0.3_hologram_full.tif_myParameter.mat'
 matlab_par_name = 'myParameter' 
 matlab_val_name = 'allAmpSimu'    
-    
+
 ''' microscope parameters '''
 #zernikefactors = 0*np.array((0, 0, 0, 0.001 ,0.001,0.001, -1, -1, .0001, 0.0001,  0.59230834))
-zernikefactors = np.array((0, 0, 0, 0.001 ,0.001,0.001, -2, -0, .0001, 0.0001,  0.59230834))
+zernikefactors = 0*np.array((0, 0, 0, 0.001 ,0.001,0.001, -2, -0, .0001, 0.0001,  0.59230834))
 #zernikefactors = np.array((0. ,        0.          ,0.      ,    0.49638072 , 0.88168746, -1.11872625  ,-0.02625366 ,-0.5901584  ,-1.0360527  , 0.92185229,  0.14297058))
 #zernikefactors = np.array((0,0,0,0,0,0,-1,-1,0,0,1)) # representing the 9 first zernike coefficients in noll-writings 
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
 shiftIcY= 0*.75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-shiftIcX= 4 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-dn = .06#(1.437-1.3326)#/np.pi
+shiftIcX= 0*4 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+dn = .03#(1.437-1.3326)#/np.pi
 NAc = .20
 #muscat.dz = 3
 '''START CODE'''
@@ -120,9 +122,15 @@ tf_fwd = muscat.computemodel(is_forcepos=False)
 
 #%%
 ''' Compute a first guess based on the experimental phase '''
-init_guess = np.angle(matlab_val)
+init_guess = np.real(matlab_val)
 init_guess = init_guess-np.min(init_guess)
-init_guess = dn*init_guess/np.max(init_guess)#*dn+1j*.01*np.ones(init_guess.shape)
+init_guess = 0*dn*init_guess/np.max(init_guess)#*dn+1j*.01*np.ones(init_guess.shape)
+
+plt.figure()    
+plt.subplot(131), plt.imshow(init_guess[:,init_guess.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(132), plt.imshow(init_guess[:,init_guess.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(133), plt.imshow(init_guess[:,init_guess.shape[1]//2,:]), plt.colorbar(), plt.show()
+
 
 #% try to damp along Z
 if(nboundaryz>0):
@@ -248,21 +256,12 @@ if(1):
                 my_learningrate = 1e-1
             else:
                 my_learningrate = 1e-3
-            
-
-            # Apply Dropout every N-iteration - experimental
-            if(not np.mod(iterx, Ndropout) and my_dropout_prob<1):
-                dropout_prob = my_dropout_prob 
-                print('Applying dropout now!')
-            else:
-                dropout_prob = 1
-                
                 
             # This is for debbugging purposes - writ th result to disk every n-iteration
             if(iterx==0 or not np.mod(iterx, Ndisplay)):
                 my_res, my_res_absortpion, my_loss, my_fidelity, my_negloss, my_tvloss, myglobalphase, myglobalabs, myfwd =  \
                     sess.run([muscat.TF_obj, muscat.TF_obj_absorption, tf_loss, tf_fidelity, tf_negsqrloss, tf_tvloss, tf_global_phase, tf_global_abs, tf_fwd_corrected], \
-                             feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval, muscat.tf_dropout_prob:dropout_prob})
+                             feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
             
             if(iterx==0 or not np.mod(iterx, Nsave)):
             
@@ -283,11 +282,11 @@ if(1):
             # Alternate between pure object optimization and aberration recovery
             if False:# (iterx>10) & (Noptpsf>0):
                 for aa in range(Noptpsf):
-                   sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval, muscat.tf_dropout_prob:dropout_prob})
+                   sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
                 for aa in range(Noptpsf):
-                   sess.run([tf_lossop], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval, muscat.tf_dropout_prob:dropout_prob})
+                   sess.run([tf_lossop], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
             else:   
-                sess.run([tf_lossop], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval, muscat.tf_dropout_prob:dropout_prob})
+                sess.run([tf_lossop], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
 
 
             iter_last = iterx
