@@ -67,7 +67,7 @@ muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(m
 muscat.shiftIcY= 0#*-.75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 muscat.shiftIcX= 0#*.75 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 dn = .05#(1.437-1.3326)
-muscat.NAc = .4
+muscat.NAc = .1
 
 #muscat.NAo = .95
 #muscat.dz = 0.1625*2#muscat.lambda0/4
@@ -83,7 +83,7 @@ muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny
 
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
 mydiameter = 5
-if(0):
+if(1):
     obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)#)dn)
     obj_absorption = 0*tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .0, nEmbb = muscat.nEmbb)
 elif(0):
@@ -134,6 +134,7 @@ sess.run(tf.global_variables_initializer())
 
 ''' Compute the ATF '''
 myATF = sess.run(muscat.TF_ATF)
+myASF = sess.run(muscat.TF_ASF)
 
 #%% run model and measure memory/time
 start = time.time()
@@ -161,10 +162,19 @@ plt.subplot(143), plt.imshow(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2)[:,:
 plt.subplot(144), plt.imshow(np.sum(np.abs(np.fft.fftshift(np.fft.fftn(myfwd))**.2),0)), plt.colorbar(), plt.show()    
 
 plt.figure()    
+plt.subplot(231), plt.imshow(np.abs(np.fft.fftshift((myATF))**.2)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(232), plt.imshow(np.abs(np.fft.fftshift((myATF))**.2)[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+plt.subplot(233), plt.imshow(np.abs(np.fft.fftshift((myATF))**.2)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()    
+plt.subplot(234), plt.imshow(np.abs(((myASF))**.2)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(235), plt.imshow(np.abs(((myASF))**.2)[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+plt.subplot(236), plt.imshow(np.abs(((myASF))**.2)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()    
+
+
+plt.figure()    
 plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
 plt.subplot(232), plt.title('ABS YZ'),plt.imshow(np.abs(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
 plt.subplot(233), plt.title('ABS XY'),plt.imshow(np.abs(myfwd)[centerslice ,:,:]), plt.colorbar()# plt.show()
-myfwd=myfwd*np.exp(1j*2)
+#myfwd=myfwd*np.exp(1j*2)
 plt.subplot(234), plt.title('Angle XZ'),plt.imshow(np.angle(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
 plt.subplot(235), plt.title('Angle YZ'),plt.imshow(np.angle(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
 plt.subplot(236), plt.title('Angle XY'),plt.imshow(np.angle(myfwd)[centerslice ,:,:]), plt.colorbar(), plt.show()

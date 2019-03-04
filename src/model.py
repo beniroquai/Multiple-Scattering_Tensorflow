@@ -284,11 +284,11 @@ class MuScatModel(object):
          
         ## propagate field to z-stack and sum over all illumination angles
         self.Alldphi = -(np.reshape(np.arange(0, self.mysize[0], 1), [1, 1, self.mysize[0]]))*np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2)
-        #self.Alldphi = -(np.reshape(np.arange(0, self.mysize[0], 1), [1, 1, self.mysize[0]])-self.Nz/2)*np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2)
+        self.Alldphi_psf = -(np.reshape(np.arange(0, self.mysize[0], 1), [1, 1, self.mysize[0]])-self.Nz/2)*np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2)
           
         # Ordinary backpropagation. This is NOT what we are interested in:
-        self.myAllSlicePropagator=np.transpose(np.exp(1j*self.Alldphi) * (np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2) >0), [2, 0, 1]);  # Propagates a single end result backwards to all slices
- 
+        self.myAllSlicePropagator = np.transpose(np.exp(1j*self.Alldphi) * (np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2) >0), [2, 0, 1]);  # Propagates a single end result backwards to all slices
+        self.myAllSlicePropagator_psf = np.transpose(np.exp(1j*self.Alldphi_psf) * (np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2) >0), [2, 0, 1]);  # Propagates a single end result backwards to all slices
          
     #@define_scope
     def computemodel(self, is_resnet=False, is_forcepos=False, is_compute_psf=False):
@@ -406,7 +406,8 @@ class MuScatModel(object):
             self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop)*self.TF_Po * self.TF_Po_aberr)
         else:
             # in case we only want to compute the PSF, we don't need the input field
-            self.TF_A_prop = tf_helper.my_ift2d(tf.ones_like(self.TF_A_prop)*tf_helper.ifftshift2d(self.TF_Po * self.TF_Po_aberr)) # propagate in real-space->fftshift!; tf_ones: need for broadcasting!
+            self.TF_myAllSlicePropagator = self.myAllSlicePropagator_psf
+            self.TF_A_prop =  tf_helper.my_ift2d(tf.ones_like(self.TF_A_prop)*tf_helper.ifftshift2d(self.TF_Po * self.TF_Po_aberr)) # propagate in real-space->fftshift!; tf_ones: need for broadcasting!
             
             
         # Experimenting with pseudo tomographic data? No backpropgation necessary!
@@ -443,7 +444,7 @@ class MuScatModel(object):
                         #tf_global_phase = tf.cast(np.random.randn(1)*np.pi,tf.complex64)
                         #self.TF_allAmp = self.TF_allAmp * tf.exp(1j*tf_global_phase) # Global Phases need to be adjusted at this step!  Use the zero frequency
                          
-                    if (1):
+                    if (0):
                         with tf.name_scope('Propagate'):
                             self.TF_allAmp_3dft = tf.fft3d(tf.expand_dims(self.TF_allAmp, axis=0))
                             tf_global_phase = tf.angle(self.TF_allAmp_3dft[0,0,0,0])#tf.angle(self.TF_allAmp_3dft[0, self.mid3D[2], self.mid3D[1], self.mid3D[0]])
@@ -454,8 +455,6 @@ class MuScatModel(object):
  
                     with tf.name_scope('Sum_Amps'): # Normalize amplitude by condenser intensity
                         self.TF_allSumAmp = self.TF_allSumAmp + self.TF_allAmp #/ self.intensityweights[pillu];  # Superpose the Amplitudes
-                        if self.is_compute_psf:
-                            self.TF_allASF.append(self.TF_allAmp)
                              
                     # print('Current illumination angle # is: ' + str(pillu))
  
@@ -472,10 +471,13 @@ class MuScatModel(object):
         # relative to this benchmark.
  
         if self.is_compute_psf:
-            self.TF_allASF = tf.stack(self.TF_allASF)
-            self.TF_allASF = self.TF_allASF/tf.reduce_sum(self.TF_allASF)
-            self.TF_ATF = tf.squeeze(tf_helper.my_ft3d(tf.reduce_sum(self.TF_allASF, 0)))#/np.sum(self.Ic)))
-            #self.TF_ATF = self.TF_ATF/self.TF_ATF[0,0,0] #tf.cast(tf.reduce_max(tf.abs(self.TF_ATF)), tf.complex64)#  # normalize ATF
+            self.TF_ASF = self.TF_allSumAmp
+            self.TF_ASF = self.TF_ASF/tf.cast(tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(self.TF_ASF))), tf.complex64)
+            self.TF_ATF = tf_helper.my_ft3d(self.TF_ASF)/tf.cast(tf.sqrt(1.*np.prod(self.mysize)), tf.complex64)
+            
+            tf_global_phase = tf.angle(self.TF_ATF[0,0,0])#tf.angle(self.TF_allAmp_3dft[0, self.mid3D[2], self.mid3D[1], self.mid3D[0]])
+            tf_global_phase = tf.cast(tf_global_phase, tf.complex64)
+            self.TF_ATF = self.TF_ATF * tf.exp(1j * tf_global_phase);  # normalize ATF
             
         # negate padding        
         if self.is_padding:
@@ -510,18 +512,15 @@ class MuScatModel(object):
         myres = squeeze(ift3d(ft3d(myN)*ft3d(allSumAmp)));
         myres = squeeze(sum(myres, [], 4))
         '''
-        TF_RefrEffect = tf.cast(np.squeeze(1j * np.pi* self.dz * self.k0), tf.complex64)
         TF_f = tf.complex(TF_real_3D, TF_imag_3D)
-        #TF_myN = tf.exp(tf.expand_dims(self.TF_RefrEffect,-1)*TF_f)
-        #TF_myN = tf.squeeze(tf.reduce_mean(TF_myN, 0))
-        TF_myN = tf.exp(TF_RefrEffect*TF_f)
+        TF_V = (2*np.pi/self.lambda0)**2*(TF_f**2-self.nEmbb**2)
 
-       
         # We need to have a placeholder because the ATF is computed afterwards...
         self.TF_ATF_placeholder = tf.placeholder(dtype=tf.complex64, shape=self.mysize, name='TF_ATF_placeholder')
 
         # convolve object with ASF
-        TF_res = tf_helper.my_ift3d(tf_helper.my_ft3d(TF_myN)*self.TF_ATF_placeholder)
+        TF_res = tf_helper.my_ift3d(tf_helper.my_ft3d(TF_V)*self.TF_ATF_placeholder)-tf.cast(1e-3*1j, tf.complex64)
+        print('ATTENTION: WEIRD MAGIC NUMBER for background field!!')
         return tf.squeeze(TF_res)
      
      
