@@ -55,14 +55,14 @@ nboundaryz = 0 # Number of pixels where the initial object get's damped at the r
 my_learningrate = 1e2  # learning rate
 NreduceLR = 100 # when should we reduce the Learningrate? 
 
-lambda_tv =((1e2))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
-eps_tv = ((1e-8))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+lambda_tv =((1e-4))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+eps_tv = ((1e-15))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10000
-Niter = 3000
-Ndisplay = 200
+Niter = 1000
+Ndisplay = 100
 Noptpsf = 1
-Nsave = 200 # write info to disk
+Nsave = 100 # write info to disk
 # data files for parameters and measuremets 
 matlab_val_file = './Data/cells/cross_section_10x0.3_hologram.tif_allAmp.mat'
 matlab_par_file = './Data/cells/cross_section_10x0.3_hologram.tif_myParameter.mat'

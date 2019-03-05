@@ -66,7 +66,7 @@ muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
 muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(matlab_pars['Ny'].value))
 muscat.shiftIcY= 0#*-.75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 muscat.shiftIcX= 0#*.75 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-dn = .05#(1.437-1.3326)
+dn = .1#(1.437-1.3326)
 muscat.NAc = .1
 
 #muscat.NAo = .95
@@ -169,7 +169,10 @@ plt.subplot(234), plt.imshow(np.abs(((myASF))**.2)[:,myfwd.shape[1]//2,:]), plt.
 plt.subplot(235), plt.imshow(np.abs(((myASF))**.2)[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
 plt.subplot(236), plt.imshow(np.abs(((myASF))**.2)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()    
 
-
+myfwd_old = myfwd 
+#%%
+myfwd = myfwd_old
+myfwd = myfwd-100j
 plt.figure()    
 plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
 plt.subplot(232), plt.title('ABS YZ'),plt.imshow(np.abs(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
@@ -179,6 +182,7 @@ plt.subplot(234), plt.title('Angle XZ'),plt.imshow(np.angle(myfwd)[:,myfwd.shape
 plt.subplot(235), plt.title('Angle YZ'),plt.imshow(np.angle(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
 plt.subplot(236), plt.title('Angle XY'),plt.imshow(np.angle(myfwd)[centerslice ,:,:]), plt.colorbar(), plt.show()
 
+#%%
 plt.figure()    
 plt.subplot(231), plt.title('muscat.obj Real XZ'),plt.imshow(np.real(muscat.obj)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
 plt.subplot(232), plt.title('muscat.obj Real XZ'),plt.imshow(np.real(muscat.obj)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()

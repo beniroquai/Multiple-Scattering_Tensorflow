@@ -55,14 +55,14 @@ nboundaryz = 0 # Number of pixels where the initial object get's damped at the r
 my_learningrate = 1e2  # learning rate
 NreduceLR = 100 # when should we reduce the Learningrate? 
 
-lambda_tv =((1e2))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
-eps_tv = ((1e-8))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+lambda_tv =((1e-4))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+eps_tv = ((1e-15))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10000
-Niter = 3000
-Ndisplay = 200
+Niter = 1000
+Ndisplay = 100
 Noptpsf = 1
-Nsave = 200 # write info to disk
+Nsave = 100 # write info to disk
 # data files for parameters and measuremets 
 matlab_val_file = './Data/cells/cross_section_10x0.3_hologram.tif_allAmp.mat'
 matlab_par_file = './Data/cells/cross_section_10x0.3_hologram.tif_myParameter.mat'
@@ -75,7 +75,7 @@ zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0
 shiftIcY= 0*.75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 shiftIcX= 0*.42 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 dn = .05#(1.437-1.3326)#/np.pi
-NAc = .001
+NAc = .1
 
 
 '''START CODE'''
@@ -101,7 +101,7 @@ muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(m
 muscat.shiftIcY=shiftIcY
 muscat.shiftIcX=shiftIcX
 muscat.dn = dn
-muscat.NAc = NAc
+muscat.NAc = .4
 muscat.Nz = matlab_val.shape[0]
 muscat.Nx = matlab_val.shape[1]
 muscat.Ny = matlab_val.shape[2]
@@ -187,7 +187,7 @@ tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
 tf_lossop_obj_absorption = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj, muscat.TF_obj_absorption, tf_global_abs, tf_global_phase]) # muscat.TF_obj_absorption, 
 tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj, tf_global_abs, tf_global_phase]) # muscat.TF_obj_absorption, 
 #tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors])
-tf_lossop = tf_optimizer.minimize(tf_loss, var_list =  [muscat.TF_obj, tf_global_phase, tf_global_abs, muscat.TF_obj_absorption])
+tf_lossop = tf_optimizer.minimize(tf_loss, var_list =  [muscat.TF_obj, tf_global_phase, muscat.TF_obj_absorption])
 
 ''' Initialize the model '''
 sess = tf.Session()
@@ -205,13 +205,8 @@ sess.run(tf.assign(muscat.TF_obj, np.real(init_guess))); # assign abs of measure
 sess.run(tf.assign(muscat.TF_obj_absorption, np.imag(init_guess))); # assign abs of measurement as initial guess of 
 
 ''' Compute the ATF '''
-if(0):
-    myATF = sess.run(muscat.TF_ATF)
-    #%%
-    np.save('myATF.npy', myATF)
-    #%%
-else:
-    myATF = np.load('myATF.npy')
+myATF = sess.run(muscat.TF_ATF)
+
 mylambdatv = lambda_tv
 myepstvval = eps_tv
    

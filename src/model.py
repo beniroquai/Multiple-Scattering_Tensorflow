@@ -444,7 +444,7 @@ class MuScatModel(object):
                         #tf_global_phase = tf.cast(np.random.randn(1)*np.pi,tf.complex64)
                         #self.TF_allAmp = self.TF_allAmp * tf.exp(1j*tf_global_phase) # Global Phases need to be adjusted at this step!  Use the zero frequency
                          
-                    if (0):
+                    if (1):
                         with tf.name_scope('Propagate'):
                             self.TF_allAmp_3dft = tf.fft3d(tf.expand_dims(self.TF_allAmp, axis=0))
                             tf_global_phase = tf.angle(self.TF_allAmp_3dft[0,0,0,0])#tf.angle(self.TF_allAmp_3dft[0, self.mid3D[2], self.mid3D[1], self.mid3D[0]])
@@ -473,9 +473,9 @@ class MuScatModel(object):
         if self.is_compute_psf:
             self.TF_ASF = self.TF_allSumAmp
             self.TF_ASF = self.TF_ASF/tf.cast(tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(self.TF_ASF))), tf.complex64)
-            self.TF_ATF = tf_helper.my_ft3d(self.TF_ASF)/tf.cast(tf.sqrt(1.*np.prod(self.mysize)), tf.complex64)
+            self.TF_ATF = tf_helper.my_ft3d(self.TF_ASF)#/tf.cast(tf.sqrt(1.*np.prod(self.mysize)), tf.complex64)
             
-            tf_global_phase = tf.angle(self.TF_ATF[0,0,0])#tf.angle(self.TF_allAmp_3dft[0, self.mid3D[2], self.mid3D[1], self.mid3D[0]])
+            tf_global_phase = tf.angle(self.TF_ATF[self.mysize[0]//2,self.mysize[1]//2,self.mysize[2]//2])#tf.angle(self.TF_allAmp_3dft[0, self.mid3D[2], self.mid3D[1], self.mid3D[0]])
             tf_global_phase = tf.cast(tf_global_phase, tf.complex64)
             self.TF_ATF = self.TF_ATF * tf.exp(1j * tf_global_phase);  # normalize ATF
             
@@ -519,9 +519,9 @@ class MuScatModel(object):
         self.TF_ATF_placeholder = tf.placeholder(dtype=tf.complex64, shape=self.mysize, name='TF_ATF_placeholder')
 
         # convolve object with ASF
-        TF_res = tf_helper.my_ift3d(tf_helper.my_ft3d(TF_V)*self.TF_ATF_placeholder)-tf.cast(1e-3*1j, tf.complex64)
+        TF_res = tf_helper.my_ift3d(tf_helper.my_ft3d(TF_V)*self.TF_ATF_placeholder)
         print('ATTENTION: WEIRD MAGIC NUMBER for background field!!')
-        return tf.squeeze(TF_res)
+        return tf.squeeze(TF_res-1j*100)
      
      
     def addRegularizer(self, is_tv, is_gr, is_pos):

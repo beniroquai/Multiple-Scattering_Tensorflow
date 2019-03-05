@@ -55,8 +55,8 @@ nboundaryz = 0 # Number of pixels where the initial object get's damped at the r
 my_learningrate = 1e2  # learning rate
 NreduceLR = 100 # when should we reduce the Learningrate? 
 
-lambda_tv =((1e2))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
-eps_tv = ((1e-8))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+lambda_tv =((1e1))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+eps_tv = ((1e-15))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10000
 Niter = 3000
