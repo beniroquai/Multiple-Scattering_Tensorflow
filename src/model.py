@@ -72,7 +72,7 @@ class MuScatModel(object):
         self.lambdaM = self.lambda0/self.nEmbb; # wavelength in the medium
  
     #@define_scope
-    def computesys(self, obj=None, is_padding=False, is_tomo = False, dropout_prob=1, mysubsamplingIC=0):
+    def computesys(self, obj=None, is_padding=False, is_tomo = False, dropout_prob=1, mysubsamplingIC=0, is_compute_psf=False):
         """ This computes the FWD-graph of the Q-PHASE microscope;
         1.) Compute the physical dimensions
         2.) Compute the sampling for the waves
@@ -87,6 +87,7 @@ class MuScatModel(object):
         self.is_tomo = is_tomo
         self.mysubsamplingIC = mysubsamplingIC
         self.dropout_prob = dropout_prob
+        self.is_compute_psf = is_compute_psf
         
         if(is_padding):
             print('--------->WARNING: Padding is not yet working correctly!!!!!!!!')
@@ -218,7 +219,7 @@ class MuScatModel(object):
             #self.checkerboard = (np.fft.fftshift(self.Po)*np.random.rand(self.Ic.shape[0],self.Ic.shape[1])>.95)
         else:
             self.checkerboard = np.ones(self.Ic.shape)
-
+        
         self.Ic = self.Ic * self.Ic_map  # weight the intensity in the condenser aperture, unlikely to be uniform
         # print('--------> ATTENTION! - We are not weighing the Intensity int the illu-pupil!')
  
@@ -238,7 +239,6 @@ class MuScatModel(object):
                     self.shift_xx = tf_helper.xx((self.mysize[1], self.mysize[2]),'freq')
                     self.Ic = np.abs(np.fft.ifft2(np.fft.fft2(self.Ic)*np.exp(1j*2*np.pi*self.shift_xx*self.shiftIcX))) 
 
-
         # Shift the pupil in Y-direction (optical missalignment)
         if hasattr(self, 'shiftIcY'):
             if self.shiftIcY != None:
@@ -254,7 +254,16 @@ class MuScatModel(object):
                     self.shift_yy = tf_helper.yy((self.mysize[1], self.mysize[2]),'freq')
                     self.Ic = np.abs(np.fft.ifft2(np.fft.fft2(self.Ic)*np.exp(1j*self.shift_yy*self.shiftIcY))) 
 
+        # Reduce the number of illumination source point by filtering it with the poissson random disk or alike
         self.Ic = self.Ic * self.checkerboard
+        
+        if(self.is_compute_psf):
+            # if we only want to compute the PSF, we need only one illumination angle - dirty hack!
+            print('We are estimating the PSF by the correlation of objective and condenser pupil')
+            self.Ic_psf = self.Ic
+            self.Ic=self.Ic*0; 
+            self.Ic[self.Ic.shape[0]//2, self.Ic.shape[1]//2] = 1 # only one propagation angle 
+
  
         ## Forward propagator  (Ewald sphere based) DO NOT USE NORMALIZED COORDINATES HERE
         self.kxysqr= (tf_helper.abssqr(tf_helper.xx((self.mysize[1], self.mysize[2]), 'freq') / self.dx) + tf_helper.abssqr(
@@ -291,7 +300,7 @@ class MuScatModel(object):
         self.myAllSlicePropagator_psf = np.transpose(np.exp(1j*self.Alldphi_psf) * (np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2) >0), [2, 0, 1]);  # Propagates a single end result backwards to all slices
          
     #@define_scope
-    def computemodel(self, is_resnet=False, is_forcepos=False, is_compute_psf=False):
+    def computemodel(self, is_resnet=False, is_forcepos=False):
         ''' Perform Multiple Scattering here
         1.) Multiple Scattering is perfomed by slice-wise propagation the E-Field throught the sample
         2.) Each Field has to be backprojected to the BFP
@@ -301,7 +310,6 @@ class MuScatModel(object):
         simultaneasly)'''
         self.is_resnet = is_resnet
         self.is_forcepos = is_forcepos
-        self.is_compute_psf = is_compute_psf
  
         print("Buildup Q-PHASE Model ")
         ###### make sure, that the first dimension is "batch"-size; in this case it is the illumination number
@@ -327,6 +335,7 @@ class MuScatModel(object):
             self.TF_A_input = tf.constant(A_prop, dtype=tf.complex64)
             self.TF_RefrEffect = tf.reshape(tf.constant(self.RefrEffect, dtype=tf.complex64), [self.Nc, 1, 1])
             self.TF_myprop = tf.constant(np.squeeze(myprop), dtype=tf.complex64)
+            self.TF_Ic = tf.cast(tf.constant(self.Ic), tf.complex64)
             self.TF_Po = tf.cast(tf.constant(self.Po), tf.complex64)
             self.TF_Zernikes = tf.constant(self.myzernikes, dtype=tf.float32)
             self.TF_myAllSlicePropagator = tf.constant(self.myAllSlicePropagator, dtype=tf.complex64)
@@ -345,13 +354,65 @@ class MuScatModel(object):
         # TODO: Introduce the averraged RI along Z - MWeigert
         self.TF_A_prop = tf.squeeze(self.TF_A_input);
         self.U_z_list = []
+        
 
         # Initiliaze memory
         self.allSumAmp = 0
-        self.TF_allSumAmp = tf.zeros([self.mysize[0], self.Nx, self.Ny], dtype=tf.complex64)
-        self.TF_allASF = []
         
+        # compute multiple scattering only in higher Born order        
         if not self.is_compute_psf:
+            self.propslices()
+        
+        # in a final step limit this to the detection NA:
+        self.TF_Po_aberr = tf.exp(1j*tf.cast(tf.reduce_sum(self.TF_zernikefactors_filtered*self.TF_Zernikes, axis=2), tf.complex64)) * self.TF_Po
+        if not self.is_compute_psf:
+            self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop)*self.TF_Po * self.TF_Po_aberr)
+            
+        # Experimenting with pseudo tomographic data? No backpropgation necessary!
+        if self.is_tomo:
+            return self.computetomo()         
+                
+        if not self.is_compute_psf:
+            # now backpropagate the multiple scattered slice to a focus stack - i.e. convolve with PTF
+            self.TF_allSumAmp = self.propangles(self.TF_A_prop)
+        else:
+            # here we only want to gather the partially coherent transfer function PTF
+            # which is the correlation of the PTF_c and PTF_i 
+            # we compute it as the slice propagation of the pupil function
+            
+            # 1.) Define the input field as the BFP and effective pupil plane of the condenser 
+            TF_Ic_psf = tf.cast(tf.constant(self.Ic_psf), tf.complex64)
+            self.TF_myAllSlicePropagator = self.myAllSlicePropagator_psf
+            TF_A_prop_o =  tf_helper.my_ift2d(tf.ones_like(self.TF_A_prop)*tf_helper.ifftshift2d(self.TF_Po * self.TF_Po_aberr)) # propagate in real-space->fftshift!; tf_ones: need for broadcasting!
+            TF_A_prop_c =  tf_helper.my_ift2d(tf.ones_like(self.TF_A_prop)*TF_Ic_psf) # propagate in real-space->fftshift!; tf_ones: need for broadcasting!
+            
+            # 2.) Compute the ASF for the Condenser and Imaging Pupil
+            self.TF_ASF_o = self.propangles(tf.expand_dims(TF_A_prop_o,0))
+            self.TF_ASF_c = self.propangles(tf.expand_dims(TF_A_prop_c,0))
+            
+            # 3.) correlation of the pupil function to get the APTF
+            self.TF_ATF = tf_helper.my_ift3d(self.TF_ASF_c*tf.conj(self.TF_ASF_o))
+            tf_global_phase = tf.angle(self.TF_ATF[self.mysize[0]//2,self.mysize[1]//2,self.mysize[2]//2])#tf.angle(self.TF_allAmp_3dft[0, self.mid3D[2], self.mid3D[1], self.mid3D[0]])
+            tf_global_phase = tf.cast(tf_global_phase, tf.complex64)
+            self.TF_ATF = self.TF_ATF * tf.exp(1j * tf_global_phase);  # normalize ATF
+
+            # 4.) Comput the ATF and normalize it
+            self.TF_ASF = tf_helper.my_ift3d(self.TF_ATF)
+            self.TF_ASF = self.TF_ASF/tf.cast(tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(self.TF_ASF))), tf.complex64)
+            self.TF_ATF = tf_helper.my_ft3d(self.TF_ASF)
+            
+            # ASsign dummy variable- not used
+            self.TF_allSumAmp = None 
+            
+            
+        # negate padding        
+        if self.is_padding:
+            self.TF_allSumAmp = self.TF_allSumAmp[:,self.Nx//2-self.Nx//4:self.Nx//2+self.Nx//4, self.Ny//2-self.Ny//4:self.Ny//2+self.Ny//4]
+             
+        return self.TF_allSumAmp
+     
+        
+    def propslices(self):
             # only consider object scattering if we want to use it
         
             ''' Eventually add a RESNET-layer between RI and Microscope to correct for model discrepancy?'''
@@ -399,26 +460,42 @@ class MuScatModel(object):
                     with tf.name_scope('Propagate'):
                         self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * self.TF_myprop) # diffraction step
      
- 
-        # in a final step limit this to the detection NA:
-        self.TF_Po_aberr = tf.exp(1j*tf.cast(tf.reduce_sum(self.TF_zernikefactors_filtered*self.TF_Zernikes, axis=2), tf.complex64)) * self.TF_Po
-        if not self.is_compute_psf:
-            self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop)*self.TF_Po * self.TF_Po_aberr)
+
+     
+    def computeconvolution(self, tf_atf=None):
+        # We want to compute the born-fwd model
+        # tf_atf - is the tensorflow node holding the ATF - alternatively use numpy arry!
+        print('Computing the fwd model in born approximation')
+        
+        TF_real_3D = self.TF_obj
+        TF_imag_3D = self.TF_obj_absorption    
+        
+        # wrapper for force-positivity on the RI-instead of penalizing it
+        if(self.is_forcepos):
+            print('----> ATTENTION: We add the PreMonotonicPos' )
+            TF_real_3D = tf_reg.PreMonotonicPos(TF_real_3D)
+            TF_imag_3D = tf_reg.PreMonotonicPos(TF_imag_3D)
+
+        TF_f = tf.complex(TF_real_3D, TF_imag_3D)
+        TF_V = (2*np.pi/self.lambda0)**2*(TF_f**2-self.nEmbb**2)
+
+        # We need to have a placeholder because the ATF is computed afterwards...
+        if (tf_atf is None):
+            self.TF_ATF_placeholder = tf.placeholder(dtype=tf.complex64, shape=self.mysize, name='TF_ATF_placeholder')
         else:
-            # in case we only want to compute the PSF, we don't need the input field
-            self.TF_myAllSlicePropagator = self.myAllSlicePropagator_psf
-            self.TF_A_prop =  tf_helper.my_ift2d(tf.ones_like(self.TF_A_prop)*tf_helper.ifftshift2d(self.TF_Po * self.TF_Po_aberr)) # propagate in real-space->fftshift!; tf_ones: need for broadcasting!
-            
-            
-        # Experimenting with pseudo tomographic data? No backpropgation necessary!
-        if self.is_tomo:
-            print('Only Experimental! Tomographic data?!')
-            # Bring the slice back to focus - does this make any sense?! 
-            print('----------> Bringing field back to focus')
-            TF_centerprop = tf.exp(-1j*tf.cast(self.Nz/2*tf.angle(self.TF_myprop), tf.complex64))
-            self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * TF_centerprop) # diffraction step
-            return self.TF_A_prop
-         
+            self.TF_ATF_placeholder = tf_atf
+                
+
+        # convolve object with ASF
+        TF_res = tf_helper.my_ift3d(tf_helper.my_ft3d(TF_V)*self.TF_ATF_placeholder)
+        print('ATTENTION: WEIRD MAGIC NUMBER for background field!!')
+        return tf.squeeze(TF_res)#-1j*100)
+      
+        
+    def propangles(self, TF_A_prop):
+        # TF_A_prop - Input field to propagate
+        TF_allSumAmp = tf.zeros([self.mysize[0], self.Nx, self.Ny], dtype=tf.complex64)
+        
         # create Z-Stack by backpropagating Information in BFP to Z-Position
         self.kzcoord = np.reshape(self.kz[self.Ic>0], [1, 1, 1, self.Nc]);
  
@@ -430,8 +507,7 @@ class MuScatModel(object):
                 with tf.name_scope('Back_Propagate_Step'):
                     with tf.name_scope('Adjust'):
                         #    fprintf('BackpropaAngle no: #d\n',pillu);
-                        OneAmp = tf.expand_dims(self.TF_A_prop[pillu, :, :], 0)
-
+                        OneAmp = tf.expand_dims(TF_A_prop[pillu, :, :], 0)
                         # Fancy backpropagation assuming what would be measured if the sample was moved under oblique illumination:
                         # The trick is: First use conceptually the normal way
                         # and then apply the XYZ shift using the Fourier shift theorem (corresponds to physically shifting the object volume, scattered field stays the same):
@@ -454,76 +530,32 @@ class MuScatModel(object):
                     #print('Global phase: '+str(tf.exp(1j*tf.cast(tf.angle(self.TF_allAmp[self.mid3D[0],self.mid3D[1],self.mid3D[2]]), tf.complex64).eval()))
  
                     with tf.name_scope('Sum_Amps'): # Normalize amplitude by condenser intensity
-                        self.TF_allSumAmp = self.TF_allSumAmp + self.TF_allAmp #/ self.intensityweights[pillu];  # Superpose the Amplitudes
+                        TF_allSumAmp = TF_allSumAmp + self.TF_allAmp #/ self.intensityweights[pillu];  # Superpose the Amplitudes
                              
                     # print('Current illumination angle # is: ' + str(pillu))
  
  
-        # Normalize the image such that the values do not depend on the fineness of
-        # the source grid.
-        self.TF_allSumAmp = self.TF_allSumAmp/tf.cast(np.sum(self.Ic), tf.complex64) # tf.cast(tf.reduce_max(tf.abs(self.TF_allSumAmp)), tf.complex64) # self.Nc #/
-        # Following is the normalization according to Martin's book. It ensures
-        # that a transparent specimen is imaged with unit intensity.
-        # normfactor=abs(Po).^2.*abs(Ic); We do not use it, because it leads to
-        # divide by zero for dark-field system. Instead, through normalizations
-        # perfomed above, we ensure that image of a point under matched
-        # illumination is unity. The brightness of all the other configurations is
-        # relative to this benchmark.
- 
-        if self.is_compute_psf:
-            self.TF_ASF = self.TF_allSumAmp
-            self.TF_ASF = self.TF_ASF/tf.cast(tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(self.TF_ASF))), tf.complex64)
-            self.TF_ATF = tf_helper.my_ft3d(self.TF_ASF)#/tf.cast(tf.sqrt(1.*np.prod(self.mysize)), tf.complex64)
-            
-            tf_global_phase = tf.angle(self.TF_ATF[self.mysize[0]//2,self.mysize[1]//2,self.mysize[2]//2])#tf.angle(self.TF_allAmp_3dft[0, self.mid3D[2], self.mid3D[1], self.mid3D[0]])
-            tf_global_phase = tf.cast(tf_global_phase, tf.complex64)
-            self.TF_ATF = self.TF_ATF * tf.exp(1j * tf_global_phase);  # normalize ATF
-            
-        # negate padding        
-        if self.is_padding:
-            self.TF_allSumAmp = self.TF_allSumAmp[:,self.Nx//2-self.Nx//4:self.Nx//2+self.Nx//4, self.Ny//2-self.Ny//4:self.Ny//2+self.Ny//4]
-             
-        return self.TF_allSumAmp
+            # Normalize the image such that the values do not depend on the fineness of
+            # the source grid.
+            TF_allSumAmp = TF_allSumAmp/tf.cast(np.sum(self.Ic), tf.complex64) # tf.cast(tf.reduce_max(tf.abs(self.TF_allSumAmp)), tf.complex64) # self.Nc #/
+            # Following is the normalization according to Martin's book. It ensures
+            # that a transparent specimen is imaged with unit intensity.
+            # normfactor=abs(Po).^2.*abs(Ic); We do not use it, because it leads to
+            # divide by zero for dark-field system. Instead, through normalizations
+            # perfomed above, we ensure that image of a point under matched
+            # illumination is unity. The brightness of all the other configurations is
+            # relative to this benchmark.
+            return TF_allSumAmp
      
-     
-    def computeconvolution(self):
-        # We want to compute the born-fwd model
-        print('Computing the fwd model in born approximation')
-        
-        TF_real_3D = self.TF_obj
-        TF_imag_3D = self.TF_obj_absorption    
-        
-        # wrapper for force-positivity on the RI-instead of penalizing it
-        if(self.is_forcepos):
-            print('----> ATTENTION: We add the PreMonotonicPos' )
-            TF_real_3D = tf_reg.PreMonotonicPos(TF_real_3D)
-            TF_imag_3D = tf_reg.PreMonotonicPos(TF_imag_3D)
+    def computetomo(self):
+        print('Only Experimental! Tomographic data?!')
+        # Bring the slice back to focus - does this make any sense?! 
+        print('----------> Bringing field back to focus')
+        TF_centerprop = tf.exp(-1j*tf.cast(self.Nz/2*tf.angle(self.TF_myprop), tf.complex64))
+        self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * TF_centerprop) # diffraction step
+        return self.TF_A_prop
 
-        
-        ''' MATLAB
-        dn = .1+0*.1i;
-        mysphere = rr([mysize, Nz])<5;
-        f = zeros(size(mysphere))+nEmbb;
-        f(mysphere) = dn;
-        myN = 1i*nEmbb+dz*k0*f; %RefrCos
-        RefrEffect=-1i*dz*k0;RefrCos;  % To speed it up
-        myN = exp(RefrEffect*f);
-        
-        myres = squeeze(ift3d(ft3d(myN)*ft3d(allSumAmp)));
-        myres = squeeze(sum(myres, [], 4))
-        '''
-        TF_f = tf.complex(TF_real_3D, TF_imag_3D)
-        TF_V = (2*np.pi/self.lambda0)**2*(TF_f**2-self.nEmbb**2)
 
-        # We need to have a placeholder because the ATF is computed afterwards...
-        self.TF_ATF_placeholder = tf.placeholder(dtype=tf.complex64, shape=self.mysize, name='TF_ATF_placeholder')
-
-        # convolve object with ASF
-        TF_res = tf_helper.my_ift3d(tf_helper.my_ft3d(TF_V)*self.TF_ATF_placeholder)
-        print('ATTENTION: WEIRD MAGIC NUMBER for background field!!')
-        return tf.squeeze(TF_res-1j*100)
-     
-     
     def addRegularizer(self, is_tv, is_gr, is_pos):
         print('Do stuff')
  
