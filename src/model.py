@@ -257,17 +257,10 @@ class MuScatModel(object):
         # Reduce the number of illumination source point by filtering it with the poissson random disk or alike
         self.Ic = self.Ic * self.checkerboard
         
-        if(self.is_compute_psf):
-            # if we only want to compute the PSF, we need only one illumination angle - dirty hack!
-            print('We are estimating the PSF by the correlation of objective and condenser pupil')
-            self.Ic_psf = self.Ic
-            self.Ic=self.Ic*0; 
-            self.Ic[self.Ic.shape[0]//2, self.Ic.shape[1]//2] = 1 # only one propagation angle 
-
- 
+        
         ## Forward propagator  (Ewald sphere based) DO NOT USE NORMALIZED COORDINATES HERE
-        self.kxysqr= (tf_helper.abssqr(tf_helper.xx((self.mysize[1], self.mysize[2]), 'freq') / self.dx) + tf_helper.abssqr(
-            tf_helper.yy((self.mysize[1], self.mysize[2]), 'freq') / self.dy)) + 0j;
+        self.kxysqr= (tf_helper.abssqr(tf_helper.xx((self.mysize[1], self.mysize[2]), 'freq') / self.dx) + 
+                      tf_helper.abssqr(tf_helper.yy((self.mysize[1], self.mysize[2]), 'freq') / self.dy)) + 0j;
         self.k0=1/self.lambdaM;
         self.kzsqr= tf_helper.abssqr(self.k0) - self.kxysqr;
         self.kz=np.sqrt(self.kzsqr);
@@ -279,26 +272,48 @@ class MuScatModel(object):
         yfreq= tf_helper.yy((self.mysize[1], self.mysize[2]),'freq');
         self.Nc=np.sum(self.Ic>0); 
         print('Number of Illumination Angles / Plane waves: '+str(self.Nc))
-         
-        # Calculate the computatonal grid/sampling
-        self.kxcoord = np.reshape(xfreq[self.Ic>0],[1, 1, 1, self.Nc]);    # NA-positions in condenser aperture plane in x-direction
-        self.kycoord = np.reshape(yfreq[self.Ic>0],[1, 1, 1, self.Nc]);    # NA-positions in condenser aperture plane in y-direction
-        self.RefrCos = np.reshape(self.k0/self.kz[self.Ic>0],[1, 1, 1, self.Nc]);   # 1/cosine used for the application of the refractive index steps to acount for longer OPD in medium under an oblique illumination angle
-         
-        ## Generate the illumination amplitudes
-        self.intensityweights = self.Ic[self.Ic>0]
-        self.A_input = self.intensityweights *np.exp((2*np.pi*1j) *
-            (self.kxcoord * tf_helper.repmat4d(tf_helper.xx((self.mysize[1], self.mysize[2])), self.Nc) 
-           + self.kycoord * tf_helper.repmat4d(tf_helper.yy((self.mysize[1], self.mysize[2])), self.Nc))) # Corresponds to a plane wave under many oblique illumination angles - bfxfun
-         
-        ## propagate field to z-stack and sum over all illumination angles
-        self.Alldphi = -(np.reshape(np.arange(0, self.mysize[0], 1), [1, 1, self.mysize[0]]))*np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2)
-        self.Alldphi_psf = -(np.reshape(np.arange(0, self.mysize[0], 1), [1, 1, self.mysize[0]])-self.Nz/2)*np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2)
-          
-        # Ordinary backpropagation. This is NOT what we are interested in:
-        self.myAllSlicePropagator = np.transpose(np.exp(1j*self.Alldphi) * (np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2) >0), [2, 0, 1]);  # Propagates a single end result backwards to all slices
-        self.myAllSlicePropagator_psf = np.transpose(np.exp(1j*self.Alldphi_psf) * (np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2) >0), [2, 0, 1]);  # Propagates a single end result backwards to all slices
-         
+        
+        if not self.is_compute_psf:
+        
+            # Calculate the computatonal grid/sampling
+            self.kxcoord = np.reshape(xfreq[self.Ic>0],[1, 1, 1, self.Nc]);    # NA-positions in condenser aperture plane in x-direction
+            self.kycoord = np.reshape(yfreq[self.Ic>0],[1, 1, 1, self.Nc]);    # NA-positions in condenser aperture plane in y-direction
+            self.RefrCos = np.reshape(self.k0/self.kz[self.Ic>0],[1, 1, 1, self.Nc]);   # 1/cosine used for the application of the refractive index steps to acount for longer OPD in medium under an oblique illumination angle
+             
+            ## Generate the illumination amplitudes
+            self.intensityweights = self.Ic[self.Ic>0]
+            self.A_input = self.intensityweights *np.exp((2*np.pi*1j) *
+                (self.kxcoord * tf_helper.repmat4d(tf_helper.xx((self.mysize[1], self.mysize[2])), self.Nc) 
+               + self.kycoord * tf_helper.repmat4d(tf_helper.yy((self.mysize[1], self.mysize[2])), self.Nc))) # Corresponds to a plane wave under many oblique illumination angles - bfxfun
+             
+            ## propagate field to z-stack and sum over all illumination angles
+            self.Alldphi = -(np.reshape(np.arange(0, self.mysize[0], 1), [1, 1, self.mysize[0]]))*np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2)
+              
+            # Ordinary backpropagation. This is NOT what we are interested in:
+            self.myAllSlicePropagator = np.transpose(np.exp(1j*self.Alldphi) * (np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2) >0), [2, 0, 1]);  # Propagates a single end result backwards to all slices
+
+            ## propagate the field through the entire object for all angles simultaneously
+            self.A_prop = np.transpose(self.A_input,[3, 0, 1, 2])  # ??????? what the hack is happening with transpose?!
+
+            # Precalculate the oblique effect on OPD to speed it up
+            print('--------> ATTENTION: I added a pi factor - is this correct?!')
+            self.RefrEffect = np.reshape(np.squeeze(1j * np.pi* self.dz * self.k0 * self.RefrCos), [self.Nc, 1, 1]) 
+            
+            myprop = np.exp(1j * self.dphi) * (self.dphi > 0);  # excludes the near field components in each step
+            myprop = tf_helper.repmat4d(np.fft.fftshift(myprop), self.Nc)
+            self.myprop = np.transpose(myprop, [3, 0, 1, 2])  # ??????? what the hack is happening with transpose?!
+            
+
+            self.myAllSlicePropagator_psf = 0*self.myAllSlicePropagator # dummy variable to make the algorithm happy
+        else:
+            self.Alldphi_psf = (np.reshape(np.arange(0, self.mysize[0], 1), [1, 1, self.mysize[0]])-self.Nz/2)*np.repeat(self.dphi[:, :, np.newaxis], self.mysize[0], axis=2)
+            self.myAllSlicePropagator_psf = np.transpose(np.exp(1j*self.Alldphi_psf) * (np.repeat(self.dphi[:, :, np.newaxis], self.mysize[0], axis=2) >0), [2, 0, 1]);  # Propagates a single end result backwards to all slices
+            self.myAllSlicePropagator = 0*self.myAllSlicePropagator_psf # dummy variable to make the algorithm happy
+            self.A_prop = 0*self.Alldphi_psf # dummy variable to make the algorithm happy
+            self.RefrEffect = 0 # dummy variable to make the algorithm happy
+            self.myprop = 0*self.Alldphi_psf # dummy variable to make the algorithm happy
+            
+            
     #@define_scope
     def computemodel(self, is_resnet=False, is_forcepos=False):
         ''' Perform Multiple Scattering here
@@ -316,30 +331,22 @@ class MuScatModel(object):
         # @beniroquai It's common to have to batch dimensions first and not last.!!!!!
         # the following loop propagates the field sequentially to all different Z-planes
  
-        ## propagate the field through the entire object for all angles simultaneously
-        A_prop = np.transpose(self.A_input,[3, 0, 1, 2])  # ??????? what the hack is happening with transpose?!
          
         if(self.is_tomo):
             print('Experimentally using the tomographic scheme!')
-            A_prop = np.conj(A_prop)
+            self.A_prop = np.conj(self.A_prop)
              
-        myprop = np.exp(1j * self.dphi) * (self.dphi > 0);  # excludes the near field components in each step
-        myprop = tf_helper.repmat4d(np.fft.fftshift(myprop), self.Nc)
-        myprop = np.transpose(myprop, [3, 0, 1, 2])  # ??????? what the hack is happening with transpose?!
- 
-        print('--------> ATTENTION: I added a pi factor - is this correct?!')
-        self.RefrEffect = np.squeeze(1j * np.pi* self.dz * self.k0 * self.RefrCos);  # Precalculate the oblique effect on OPD to speed it up
          
         # for now orientate the dimensions as (alpha_illu, x, y, z) - because tensorflow takes the first dimension as batch size
         with tf.name_scope('Variable_assignment'):
-            self.TF_A_input = tf.constant(A_prop, dtype=tf.complex64)
-            self.TF_RefrEffect = tf.reshape(tf.constant(self.RefrEffect, dtype=tf.complex64), [self.Nc, 1, 1])
-            self.TF_myprop = tf.constant(np.squeeze(myprop), dtype=tf.complex64)
+            self.TF_A_input = tf.constant(self.A_prop, dtype=tf.complex64)
+            self.TF_RefrEffect = tf.constant(self.RefrEffect, dtype=tf.complex64)
+            self.TF_myprop = tf.constant(np.squeeze(self.myprop), dtype=tf.complex64)
             self.TF_Ic = tf.cast(tf.constant(self.Ic), tf.complex64)
             self.TF_Po = tf.cast(tf.constant(self.Po), tf.complex64)
             self.TF_Zernikes = tf.constant(self.myzernikes, dtype=tf.float32)
             self.TF_myAllSlicePropagator = tf.constant(self.myAllSlicePropagator, dtype=tf.complex64)
-
+            self.TF_myAllSlicePropagator_psf = tf.constant(self.myAllSlicePropagator_psf, dtype=tf.complex64)
            
             # Only update those Factors which are really necesarry (e.g. Defocus is not very likely!)
             self.TF_zernikefactors = tf.Variable(self.zernikefactors, dtype = tf.float32, name='var_zernikes')
@@ -366,7 +373,8 @@ class MuScatModel(object):
         # in a final step limit this to the detection NA:
         self.TF_Po_aberr = tf.exp(1j*tf.cast(tf.reduce_sum(self.TF_zernikefactors_filtered*self.TF_Zernikes, axis=2), tf.complex64)) * self.TF_Po
         if not self.is_compute_psf:
-            self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop)*self.TF_Po * self.TF_Po_aberr)
+            # The input field of the PSF calculation is the BFP of the objective lens
+            self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop)*self.TF_Po_aberr)
             
         # Experimenting with pseudo tomographic data? No backpropgation necessary!
         if self.is_tomo:
@@ -380,26 +388,21 @@ class MuScatModel(object):
             # which is the correlation of the PTF_c and PTF_i 
             # we compute it as the slice propagation of the pupil function
             
-            # 1.) Define the input field as the BFP and effective pupil plane of the condenser 
-            TF_Ic_psf = tf.cast(tf.constant(self.Ic_psf), tf.complex64)
-            self.TF_myAllSlicePropagator = self.myAllSlicePropagator_psf
-            TF_A_prop_o =  tf_helper.my_ift2d(tf.ones_like(self.TF_A_prop)*tf_helper.ifftshift2d(self.TF_Po * self.TF_Po_aberr)) # propagate in real-space->fftshift!; tf_ones: need for broadcasting!
-            TF_A_prop_c =  tf_helper.my_ift2d(tf.ones_like(self.TF_A_prop)*TF_Ic_psf) # propagate in real-space->fftshift!; tf_ones: need for broadcasting!
-            
-            # 2.) Compute the ASF for the Condenser and Imaging Pupil
-            self.TF_ASF_o = self.propangles(tf.expand_dims(TF_A_prop_o,0))
-            self.TF_ASF_c = self.propangles(tf.expand_dims(TF_A_prop_c,0))
+            # 1. + 2.) Define the input field as the BFP and effective pupil plane of the condenser 
+            # Compute the ASF for the Condenser and Imaging Pupil
+            self.TF_ASF_o = tf_helper.my_ift2d(self.TF_myAllSlicePropagator_psf * tf_helper.fftshift2d(self.TF_Po * self.TF_Po_aberr))
+            self.TF_ASF_c = tf_helper.my_ift2d(self.TF_myAllSlicePropagator_psf * self.TF_Ic)
             
             # 3.) correlation of the pupil function to get the APTF
-            self.TF_ATF = tf_helper.my_ift3d(self.TF_ASF_c*tf.conj(self.TF_ASF_o))
+            self.TF_ATF = tf_helper.my_ift3d(self.TF_ASF_o*tf.conj(self.TF_ASF_c))
             tf_global_phase = tf.angle(self.TF_ATF[self.mysize[0]//2,self.mysize[1]//2,self.mysize[2]//2])#tf.angle(self.TF_allAmp_3dft[0, self.mid3D[2], self.mid3D[1], self.mid3D[0]])
             tf_global_phase = tf.cast(tf_global_phase, tf.complex64)
             self.TF_ATF = self.TF_ATF * tf.exp(1j * tf_global_phase);  # normalize ATF
 
             # 4.) Comput the ATF and normalize it
-            self.TF_ASF = tf_helper.my_ift3d(self.TF_ATF)
+            self.TF_ASF = tf_helper.my_ft3d(self.TF_ATF)
             self.TF_ASF = self.TF_ASF/tf.cast(tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(self.TF_ASF))), tf.complex64)
-            self.TF_ATF = tf_helper.my_ft3d(self.TF_ASF)
+            self.TF_ATF = tf_helper.my_ift3d(self.TF_ASF)#/tf.cast(np.sqrt(np.prod(self.mysize)), tf.complex64)
             
             # ASsign dummy variable- not used
             self.TF_allSumAmp = None 
@@ -462,9 +465,9 @@ class MuScatModel(object):
      
 
      
-    def computeconvolution(self, tf_atf=None):
+    def computeconvolution(self, TF_ATF=None, myfac=1e-3):
         # We want to compute the born-fwd model
-        # tf_atf - is the tensorflow node holding the ATF - alternatively use numpy arry!
+        # TF_ATF - is the tensorflow node holding the ATF - alternatively use numpy arry!
         print('Computing the fwd model in born approximation')
         
         TF_real_3D = self.TF_obj
@@ -480,16 +483,20 @@ class MuScatModel(object):
         TF_V = (2*np.pi/self.lambda0)**2*(TF_f**2-self.nEmbb**2)
 
         # We need to have a placeholder because the ATF is computed afterwards...
-        if (tf_atf is None):
+        if (TF_ATF is None):
             self.TF_ATF_placeholder = tf.placeholder(dtype=tf.complex64, shape=self.mysize, name='TF_ATF_placeholder')
         else:
-            self.TF_ATF_placeholder = tf_atf
+            self.TF_ATF_placeholder = TF_ATF
                 
 
         # convolve object with ASF
-        TF_res = tf_helper.my_ift3d(tf_helper.my_ft3d(TF_V)*self.TF_ATF_placeholder)
+        TF_res = (tf_helper.my_ift3d(tf_helper.my_ft3d(TF_V)*self.TF_ATF_placeholder))
         print('ATTENTION: WEIRD MAGIC NUMBER for background field!!')
-        return tf.squeeze(TF_res)#-1j*100)
+        #myfac=1e-3 # why and which factor makes sense?
+        print(myfac)
+        TF_res = (TF_res-1j*myfac)/myfac
+
+        return tf.squeeze(TF_res)
       
         
     def propangles(self, TF_A_prop):
@@ -624,13 +631,19 @@ class MuScatModel(object):
         plt.savefig(savepath+'/res_mymeas'+figsuffix+'.png'), plt.show()
      
         # This is the residual
+        myresi = tf_helper.abssqr(myfwd-mymeas)
         plt.figure()
-        plt.subplot(231), plt.title('Residual ABS XZ'),plt.imshow((np.abs(myfwd)-np.abs(mymeas))[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
-        plt.subplot(232), plt.title('Residual ABS YZ'),plt.imshow((np.abs(myfwd)-np.abs(mymeas))[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-        plt.subplot(233), plt.title('Residual ABS XY'),plt.imshow((np.abs(myfwd)-np.abs(mymeas))[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
-        plt.subplot(234), plt.title('Residual Angle XZ'),plt.imshow((np.angle(myfwd)-np.angle(mymeas))[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
-        plt.subplot(235), plt.title('Residual Angle XZ'),plt.imshow((np.angle(myfwd)-np.angle(mymeas))[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-        plt.subplot(236), plt.title('Residual Angle XY'),plt.imshow((np.angle(myfwd)-np.angle(mymeas))[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.subplot(331), plt.title('Residual ABS XZ'),plt.imshow((np.abs(myfwd)-np.abs(mymeas))[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(332), plt.title('Residual ABS YZ'),plt.imshow((np.abs(myfwd)-np.abs(mymeas))[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(333), plt.title('Residual ABS XY'),plt.imshow((np.abs(myfwd)-np.abs(mymeas))[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.subplot(334), plt.title('Residual Angle XZ'),plt.imshow((np.angle(myfwd)-np.angle(mymeas))[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(335), plt.title('Residual Angle XZ'),plt.imshow((np.angle(myfwd)-np.angle(mymeas))[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(336), plt.title('Residual Angle XY'),plt.imshow((np.angle(myfwd)-np.angle(mymeas))[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.subplot(337), plt.title('Residual abssqr XZ'), plt.imshow((((myresi))**.2)[:,myresi.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(338), plt.title('Residual abssqr Yz'), plt.imshow((((myresi))**.2)[myresi.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+        plt.subplot(339), plt.title('Residual abssqr XY'), plt.imshow((((myresi))**.2)[:,:,myresi.shape[2]//2]), plt.colorbar()#, plt.show()    
+        
+
         plt.savefig(savepath+'/res_myresidual'+figsuffix+'.png'), plt.show()
          
         # diplay the error over time

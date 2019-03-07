@@ -25,7 +25,7 @@ import src.data as data
 import src.tf_regularizers as reg
 
 # Optionally, tweak styles.
-mpl.rc('figure',  figsize=(8, 5.5))
+mpl.rc('figure',  figsize=(6, 4.5))
 mpl.rc('image', cmap='gray')
 #plt.switch_backend('agg')
 np.set_printoptions(threshold=np.nan)
@@ -53,29 +53,28 @@ nboundaryz = 0 # Number of pixels where the initial object get's damped at the r
 '''Define Optimization Parameters'''
 # these are hyperparameters
 my_learningrate = 1e2  # learning rate
-NreduceLR = 100 # when should we reduce the Learningrate? 
+NreduceLR = 1000 # when should we reduce the Learningrate? 
 
-lambda_tv =((1e2))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
-eps_tv = ((1e-8))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+lambda_tv =((1e1))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+eps_tv = ((1e-10))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10000
-Niter = 3000
-Ndisplay = 200
+Niter = 1000
+Ndisplay = 10
 Noptpsf = 1
-Nsave = 200 # write info to disk
+Nsave = 100 # write info to disk
 # data files for parameters and measuremets 
 matlab_val_file = './/Data//cells//Cell_20x_100a_150-250.tif_allAmp.mat'
 matlab_par_file = './Data//cells//Cell_20x_100a_150-250.tif_myParameter.mat'
 matlab_par_name = 'myParameter' 
 matlab_val_name = 'allAmpSimu'    
 ''' microscope parameters '''
-zernikefactors = np.array((0,0,0,0,0,0,.1,-1,0,0,-2)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
-zernikefactors = np.array((0. ,        0.          ,0.      ,    0.49638072 , 0.88168746, -1.11872625  ,-0.02625366 ,-0.5901584  ,-1.0360527  , 0.92185229,  0.14297058))
+zernikefactors = np.array((0,0.1,0.1,0,0,0,-1,-1,0.01,0.01,.10)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
-shiftIcY= .75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-shiftIcX= .42 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-dn = .03#(1.437-1.3326)#/np.pi
-NAc = .3
+shiftIcY= 0*.75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+shiftIcX= 0*.42 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+dn = .01#(1.437-1.3326)#/np.pi
+NAc = .2
 
 
 '''START CODE'''
@@ -92,7 +91,10 @@ if(matlab_val_file.find('mat')==-1):
 else:
     matlab_val = data.import_realdata_h5(filename = matlab_val_file, matname=matlab_val_name, is_complex=True)
 
-matlab_val = matlab_val[0:36,:,:]
+# 201 215
+#matlab_val = np.flip(matlab_val[:,0:300,0:300],0)
+matlab_val = np.flip(matlab_val[:,195:235,180:220],0)
+
 
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
@@ -128,9 +130,14 @@ tf_fwd = muscat.computeconvolution(muscat.TF_ATF)
 
 #%%
 ''' Compute a first guess based on the experimental phase '''
-init_guess = np.angle(matlab_val)
+init_guess = np.angle(matlab_val) #np.random.rand(matlab_val.shape[0],matlab_val.shape[1],matlab_val.shape[2])
 init_guess = init_guess-np.min(init_guess)
 init_guess = dn*init_guess/np.max(init_guess)+muscat.nEmbb#*dn+1j*.01*np.ones(init_guess.shape)
+if(0):
+    mydiameter=2
+    obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)#)dn)
+    obj_absorption = 0*tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .0, nEmbb = muscat.nEmbb)
+    init_guess = obj+1j*obj_absorption*0
 
 #%%
 '''# Estimate the Phase difference between Measurement and Simulation'''
@@ -304,4 +311,19 @@ src = (os.path.basename(__file__))
 copyfile(src, savepath+'/script_bak.py')
 
 #%%
-plt.imshow(np.angle(sess.run(muscat.TF_Po)))
+plt.imshow(np.angle(sess.run(muscat.TF_Po_aberr)))
+print(sess.run(muscat.TF_zernikefactors))
+
+
+myres = tf_helper.abssqr(myfwd-np_meas)
+myASF = np.fft.fftshift(np.fft.fftn(myfwd))
+plt.figure()    
+plt.subplot(231), plt.imshow(np.real(((myres))**.2)[:,myATF.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(232), plt.imshow(np.real(((myres))**.2)[myATF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+plt.subplot(233), plt.imshow(np.real(((myres))**.2)[:,:,myATF.shape[2]//2]), plt.colorbar()#, plt.show()    
+
+plt.subplot(234), plt.imshow(np.abs(((myASF))**.12)[:,myATF.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(235), plt.imshow(np.abs(((myASF))**.12)[myATF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+plt.subplot(236), plt.imshow(np.abs(((myASF))**.12)[:,:,myATF.shape[2]//2]), plt.colorbar()#, plt.show()    
+
+

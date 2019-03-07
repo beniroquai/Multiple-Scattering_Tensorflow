@@ -25,7 +25,8 @@ import src.data as data
 import src.tf_regularizers as reg
 
 # Optionally, tweak styles.
-mpl.rc('figure',  figsize=(8, 5.5))
+#%%
+mpl.rc('figure',  figsize=(8,6))
 mpl.rc('image', cmap='gray')
 #plt.switch_backend('agg')
 np.set_printoptions(threshold=np.nan)
@@ -43,7 +44,7 @@ is_display = True
 is_optimization = 1 
 is_measurement = True
 is_absorption = False
-mysubsamplingIC = 5
+mysubsamplingIC = 0
 NspikeLR = 25000 # try to get the system out of some local minima
 
 # dropout parameters (experimental)
@@ -53,29 +54,28 @@ nboundaryz = 0 # Number of pixels where the initial object get's damped at the r
 '''Define Optimization Parameters'''
 # these are hyperparameters
 my_learningrate = 1e2  # learning rate
-NreduceLR = 100 # when should we reduce the Learningrate? 
+NreduceLR = 1000 # when should we reduce the Learningrate? 
 
-lambda_tv =((1e-4))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
-eps_tv = ((1e-15))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+lambda_tv =((1e1))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+eps_tv = ((1e-10))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10000
-Niter = 1000
-Ndisplay = 100
+Niter = 3000
+Ndisplay = 10
 Noptpsf = 1
 Nsave = 100 # write info to disk
 # data files for parameters and measuremets 
-matlab_val_file = './Data/cells/cross_section_10x0.3_hologram.tif_allAmp.mat'
-matlab_par_file = './Data/cells/cross_section_10x0.3_hologram.tif_myParameter.mat'
+matlab_val_file = './Data/cells/cross_section_10x0.3_hologram_full.tif_allAmp.mat'
+matlab_par_file = './Data/cells/cross_section_10x0.3_hologram_full.tif_myParameter.mat'
 matlab_par_name = 'myParameter' 
-matlab_val_name = 'allAmpSimu'    
+matlab_val_name = 'allAmpSimu'      
 ''' microscope parameters '''
-zernikefactors = np.array((0,0,0,0,0,0,.1,-1,0,0,-2)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
-zernikefactors = 0*np.array((0. ,        0.          ,0.      ,    0.49638072 , 0.88168746, -1.11872625  ,-0.02625366 ,-0.5901584  ,-1.0360527  , 0.92185229,  0.14297058))
+zernikefactors = np.array((0,0.1,0.1,0,0,0,-1,-1,0.01,0.01,.10)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
 shiftIcY= 0*.75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 shiftIcX= 0*.42 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-dn = .05#(1.437-1.3326)#/np.pi
-NAc = .1
+dn = .01#(1.437-1.3326)#/np.pi
+NAc = .52
 
 
 '''START CODE'''
@@ -92,7 +92,11 @@ if(matlab_val_file.find('mat')==-1):
 else:
     matlab_val = data.import_realdata_h5(filename = matlab_val_file, matname=matlab_val_name, is_complex=True)
 
-matlab_val = matlab_val[0:36,:,:]
+# 201 215
+#matlab_val = np.flip(matlab_val[:,0:300,0:300],0)
+roisize=50
+roicenter = np.array((215,201))
+matlab_val = np.flip(matlab_val[0:100,:,:],0)
 
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
@@ -101,10 +105,11 @@ muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(m
 muscat.shiftIcY=shiftIcY
 muscat.shiftIcX=shiftIcX
 muscat.dn = dn
-muscat.NAc = .4
+muscat.NAc = NAc
 muscat.Nz = matlab_val.shape[0]
 muscat.Nx = matlab_val.shape[1]
 muscat.Ny = matlab_val.shape[2]
+
 #muscat.dx = muscat.lambda0/4
 #muscat.dy = muscat.lambda0/4
 #muscat.dz = muscat.lambda0/2
@@ -118,29 +123,24 @@ muscat.zernikemask = zernikemask
 
 ''' Compute the systems model'''
 # Compute the System's properties (e.g. Pupil function/Illumination Source, K-vectors, etc.)¶
-muscat.computesys(obj=None, is_padding=is_padding, dropout_prob=my_dropout_prob, mysubsamplingIC=mysubsamplingIC)
+muscat.computesys(obj=None, is_padding=is_padding, dropout_prob=my_dropout_prob, mysubsamplingIC=mysubsamplingIC, is_compute_psf=True)
 
 ''' Create Model Instance'''
-muscat.computemodel(is_compute_psf=True)
+muscat.computemodel()
    
 ''' Define Fwd operator'''
-tf_fwd = muscat.computeconvolution()
+tf_fwd = muscat.computeconvolution(muscat.TF_ATFm, myfac=1e-1)
 
 #%%
 ''' Compute a first guess based on the experimental phase '''
-init_guess = np.angle(matlab_val)
+init_guess = np.angle(matlab_val) #np.random.rand(matlab_val.shape[0],matlab_val.shape[1],matlab_val.shape[2])
 init_guess = init_guess-np.min(init_guess)
 init_guess = dn*init_guess/np.max(init_guess)+muscat.nEmbb#*dn+1j*.01*np.ones(init_guess.shape)
-
-#% try to damp along Z
-if(nboundaryz>0):
-    mymask = abs(tf_helper.yy(init_guess.shape))-init_guess.shape[0]//2+nboundaryz
-    mymask[mymask<0]=0; mymask=-mymask
-    mymask = np.exp(mymask/nboundaryz*2)
-    plt.imshow(mymask[:,16,:]), plt.colorbar(), plt.title('Mask to confine the initial object in the center only')
-    init_guess = mymask*init_guess
-
-
+if(0):
+    mydiameter=2
+    obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)#)dn)
+    obj_absorption = 0*tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .0, nEmbb = muscat.nEmbb)
+    init_guess = obj+1j*obj_absorption*0
 
 #%%
 '''# Estimate the Phase difference between Measurement and Simulation'''
@@ -156,23 +156,18 @@ tf_global_phase = tf.Variable(2., tf.float32, name='var_phase') # (0.90233990550
 tf_global_abs = tf.Variable(1., tf.float32, name='var_abs') #0.36691132
                            
 '''REGULARIZER'''
-if(1):
-    # Total Variation
-    print('We are using TV - Regularization')
-    tf_tvloss = muscat.tf_lambda_tv*reg.Reg_TV(muscat.TF_obj, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
-    tf_tvloss += muscat.tf_lambda_tv*reg.Reg_TV(muscat.TF_obj_absorption, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
-else:
-    # Goods Roughness 
-    print('We are using GOODS ROUGHNESS - Regularization')
-    tf_tvloss = muscat.tf_lambda_tv*reg.Reg_GR(muscat.TF_obj)  #Alernatively tf_total_variation_regularization # total_variation
-    tf_tvloss += muscat.tf_lambda_tv*reg.Reg_GR(muscat.TF_obj_absorption)
-                                           
+# Total Variation
+print('We are using TV - Regularization')
+tf_tvloss = muscat.tf_lambda_tv*reg.Reg_TV(muscat.TF_obj, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
+tf_tvloss += muscat.tf_lambda_tv*reg.Reg_TV(muscat.TF_obj_absorption, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
+                                         
 '''Negativity Constraint'''                                          
 tf_negsqrloss = lambda_neg*reg.Reg_NegSqr(muscat.TF_obj)
 tf_negsqrloss += lambda_neg*reg.Reg_NegSqr(muscat.TF_obj_absorption)
 
 # Correc the fwd model - not good here!
-tf_fwd_corrected = tf_fwd/tf.cast(tf.abs(tf_global_abs), tf.complex64)*tf.exp(1j*tf.cast(tf_global_phase, tf.complex64))
+#tf_fwd_corrected = tf_fwd/tf.cast(tf.abs(tf_global_abs), tf.complex64)*tf.exp(1j*tf.cast(tf_global_phase, tf.complex64))
+tf_fwd_corrected = tf_fwd*tf.cast(tf.abs(tf_global_abs), tf.complex64)-1j*tf.cast(tf_global_phase, tf.complex64) # compensate the bacground wave
 '''Define Loss-function'''
 if(0):
     print('-------> ATTENTION Losstype is L1')
@@ -186,27 +181,37 @@ tf_loss = tf_fidelity + tf_tvloss + tf_negsqrloss
 tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
 tf_lossop_obj_absorption = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj, muscat.TF_obj_absorption, tf_global_abs, tf_global_phase]) # muscat.TF_obj_absorption, 
 tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj, tf_global_abs, tf_global_phase]) # muscat.TF_obj_absorption, 
-#tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors])
-tf_lossop = tf_optimizer.minimize(tf_loss, var_list =  [muscat.TF_obj, tf_global_phase, muscat.TF_obj_absorption])
+#tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors])muscat.TF_zernikefactors
+tf_lossop = tf_optimizer.minimize(tf_loss, var_list =  [muscat.TF_obj, tf_global_phase, tf_global_abs, muscat.TF_obj_absorption])
 
 ''' Initialize the model '''
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
-
-'''Print all trainable variables - how bout the momentum?'''
-variables_names = [v.name for v in tf.trainable_variables()]
-values = sess.run(variables_names)
-for k, v in zip(variables_names, values):
-    print( "Variable: ", k)
-    print( "Shape: ", v.shape)
 
 # Assign the initial guess to the object inside the fwd-model
 sess.run(tf.assign(muscat.TF_obj, np.real(init_guess))); # assign abs of measurement as initial guess of 
 sess.run(tf.assign(muscat.TF_obj_absorption, np.imag(init_guess))); # assign abs of measurement as initial guess of 
 
 ''' Compute the ATF '''
-myATF = sess.run(muscat.TF_ATF)
-
+if(1):
+    print('We are precomputing the PSF')
+    myATF = sess.run(muscat.TF_ATF)
+    #%%
+    #np.save('myATF.npy', myATF)
+    #%%
+else:
+    myATF = np.load('myATF.npy')
+#%%
+myASF = np.fft.fftshift(np.fft.fftn(myATF))
+plt.figure()    
+plt.subplot(231), plt.imshow(np.abs(((myATF))**.2)[:,myATF.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(232), plt.imshow(np.abs(((myATF))**.2)[myATF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+plt.subplot(233), plt.imshow(np.abs(((myATF))**.2)[:,:,myATF.shape[2]//2]), plt.colorbar()#, plt.show()    
+plt.subplot(234), plt.imshow(np.abs(((myASF))**.2)[:,myATF.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(235), plt.imshow(np.abs(((myASF))**.2)[myATF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+plt.subplot(236), plt.imshow(np.abs(((myASF))**.2)[:,:,myATF.shape[2]//2]), plt.colorbar()#, plt.show()    
+#%%
+    
 mylambdatv = lambda_tv
 myepstvval = eps_tv
    
@@ -263,7 +268,7 @@ for iterx in range(iter_last,Niter):
     if(iterx==0 or not np.mod(iterx, Ndisplay)):
         my_res, my_res_absortpion, my_loss, my_fidelity, my_negloss, my_tvloss, myglobalphase, myglobalabs, myfwd =  \
             sess.run([muscat.TF_obj, muscat.TF_obj_absorption, tf_loss, tf_fidelity, tf_negsqrloss, tf_tvloss, tf_global_phase, tf_global_abs, tf_fwd_corrected], \
-                     feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval, muscat.tf_dropout_prob:dropout_prob, muscat.TF_ATF_placeholder:myATF})
+                     feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval, muscat.tf_dropout_prob:dropout_prob}) #, muscat.TF_ATF_placeholder:myATF
     
     if(iterx==0 or not np.mod(iterx, Nsave)):
     
@@ -289,7 +294,7 @@ for iterx in range(iter_last,Niter):
         for aa in range(Noptpsf):
            sess.run([tf_lossop], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval, muscat.tf_dropout_prob:dropout_prob, muscat.TF_ATF_placeholder:myATF})
     else:   
-        sess.run([tf_lossop], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval, muscat.tf_dropout_prob:dropout_prob, muscat.TF_ATF_placeholder:myATF})
+        sess.run([tf_lossop], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval, muscat.tf_dropout_prob:dropout_prob})
 
 
     iter_last = iterx
@@ -309,4 +314,20 @@ import os
 src = (os.path.basename(__file__))
 copyfile(src, savepath+'/script_bak.py')
 
-        #
+#%%
+plt.imshow(np.angle(sess.run(muscat.TF_Po_aberr)))
+print(sess.run(muscat.TF_zernikefactors))
+
+
+myres = tf_helper.abssqr(myfwd-np_meas)
+myASF = np.fft.fftshift(np.fft.fftn(myfwd))
+plt.figure()    
+plt.subplot(231), plt.imshow(np.real(((myres))**.2)[:,myATF.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(232), plt.imshow(np.real(((myres))**.2)[myATF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+plt.subplot(233), plt.imshow(np.real(((myres))**.2)[:,:,myATF.shape[2]//2]), plt.colorbar()#, plt.show()    
+
+plt.subplot(234), plt.imshow(np.abs(((myASF))**.12)[:,myATF.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(235), plt.imshow(np.abs(((myASF))**.12)[myATF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+plt.subplot(236), plt.imshow(np.abs(((myASF))**.12)[:,:,myATF.shape[2]//2]), plt.colorbar()#, plt.show()    
+
+

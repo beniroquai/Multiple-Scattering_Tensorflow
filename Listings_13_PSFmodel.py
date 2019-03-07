@@ -56,7 +56,10 @@ tf.reset_default_graph()
     1.) Read in the parameters of the dataset ''' 
 matlab_par_file = './Data/DROPLETS/myParameterNew.mat';matname='myParameterNew'    #'./Data/DROPLETS/myParameterNew.mat'   
 matlab_par_file = './Data/DROPLETS/S14a_multiple/Parameter.mat'; matname='myParameter'
-#matlab_par_file = './Data//cells//Cell_20x_100a_150-250.tif_myParameter.mat'; matname='myParameter'
+matlab_par_file = './Data/DROPLETS/S19_multiple/Parameter.mat'; matlab_par_name = 'myParameter' 
+matlab_par_file = './Data//cells//Cell_20x_100a_150-250.tif_myParameter.mat'; matlab_par_name = 'myParameter' 
+matlab_par_file = './Data/DROPLETS/S19_multiple/Parameter.mat'; matlab_par_name = 'myParameter' 
+
 matlab_pars = data.import_parameters_mat(filename = matlab_par_file, matname=matname)
 
 
@@ -65,19 +68,19 @@ print('do we need to flip the data?! -> Observe FFT!!')
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
 muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(matlab_pars['Ny'].value))
-muscat.shiftIcY= -3#*-.75 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-muscat.shiftIcX= 0#*.75 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-dn = .1
-muscat.NAc = .1
-muscat.Nz = 70
-
+zernikefactors = np.array((0,0,0,0,0,0,-.1,2,0.01,0.01,.10)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
+zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
+muscat.shiftIcY = 0 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+muscat.shiftIcX = 0 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+dn = .01#(1.437-1.3326)#/np.pi
+muscat.NAc = .15
 
 #muscat.NAo = .95
 #muscat.dz = 0.1625*2#muscat.lambda0/4
-#muscat.dy = 0.1560#muscat.lambda0/4
+#muscat.dy = .2; muscat.dx = muscat.dy#muscat.lambda0/4
 #muscat.dx = 0.1560#muscat.lambda0/4
-muscat.Nx = 50; muscat.Ny = 50; muscat.Nz = 50
-#muscat.Nx = 32; muscat.Ny = 32; muscat.Nz = 70
+#muscat.Nx = 50; muscat.Ny = 50; muscat.Nz = 50
+muscat.Nx = 40; muscat.Ny = 40; muscat.Nz = 100
 #muscat.dz = muscat.lambdaM/4
 #muscat.Nz = 36
 
@@ -85,8 +88,8 @@ muscat.Nx = 50; muscat.Ny = 50; muscat.Nz = 50
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
 
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
-mydiameter = 5
-if(0):
+mydiameter = 2
+if(1):
     obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)#)dn)
     obj_absorption = 0*tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .0, nEmbb = muscat.nEmbb)
 elif(0):
@@ -116,9 +119,10 @@ else:
 obj = obj+1j*obj_absorption
 #obj = np.roll(obj,-9,0)
 
-#obj = np.load('my_res_cmplx.npy')
+
 # introduce zernike factors here
-muscat.zernikefactors = np.array((0,0,0,0,0,0,.1,-1,0,0,-2)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
+muscat.zernikefactors = zernikefactors
+#muscat.zernikefactors = np.array((0,0,0,0,0,0,.1,-1,0,0,-2)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
 muscat.zernikemask = muscat.zernikefactors*0
 #muscat.zernikefactors = np.array((-0.05195263 ,-0.3599817 , -0.08740465,  0.3556992  , 2.9515843 , -1.9670948 ,-0.38435063 , 0.45611984 , 3.68658  )) 
 ''' Compute the systems model'''
@@ -128,7 +132,7 @@ muscat.computesys(obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, i
 muscat.computemodel()
    
 ''' Define Fwd operator'''
-myres = muscat.computeconvolution()
+myres = muscat.computeconvolution(None,myfac=1e-3)
 
 #%% Display the results
 ''' Evaluate the model '''
@@ -151,12 +155,14 @@ print(end - start)
 myfwd = np.squeeze(myfwd) #np.sum(myPSF_k, 0)# (np.squeeze(myPSF_k[0,:,:,:])) #np.sum(myfwd, 0) # np.sum(myPSF_k, 0) #
 centerslice = myfwd.shape[0]//2
 plt.figure()
+
 plt.subplot(231), plt.title('Angle XZ'),plt.imshow(np.angle(obj)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
 plt.subplot(232), plt.title('Angle YZ'),plt.imshow(np.angle(obj)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
 plt.subplot(233), plt.title('Angle XY'),plt.imshow(np.angle(obj)[myfwd.shape[0]//2,:,:]), plt.colorbar(), plt.show()
 plt.subplot(234), plt.title('ABS XZ'),plt.imshow(np.abs(obj)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
 plt.subplot(235), plt.title('ABS YZ'),plt.imshow(np.abs(obj)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
 plt.subplot(236), plt.title('ABS XY'),plt.imshow(np.abs(obj)[myfwd.shape[0]//2,:,:]), plt.colorbar(), plt.show()
+
 
 plt.figure()    
 plt.subplot(231), plt.imshow(np.abs(((myATF))**.2)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
@@ -168,8 +174,7 @@ plt.subplot(236), plt.imshow(np.abs(((myASF))**.2)[:,:,myfwd.shape[2]//2]), plt.
 
 myfwd_old = myfwd 
 #%%
-myfwd = myfwd_old
-myfwd = myfwd-200*1j
+
 plt.figure()    
 plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
 plt.subplot(232), plt.title('ABS YZ'),plt.imshow(np.abs(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
@@ -191,7 +196,13 @@ plt.subplot(236), plt.title('muscat.obj Imag XY'),plt.imshow(np.imag(muscat.obj)
 plt.figure()
 plt.subplot(231), plt.imshow(np.fft.fftshift(np.angle(sess.run(muscat.TF_Po_aberr))))
 plt.subplot(232), plt.imshow(np.fft.fftshift(np.abs(sess.run(muscat.TF_Po))))
-plt.subplot(233), plt.imshow((((muscat.Ic_psf))))
+plt.subplot(233), plt.imshow((((muscat.Ic))))
+myObjFT = np.fft.fftshift(np.fft.fftn((myfwd)))
+plt.subplot(234), plt.imshow(np.abs(((myObjFT))**.12)[:,myATF.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(235), plt.imshow(np.abs(((myObjFT))**.12)[myATF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+plt.subplot(236), plt.imshow(np.abs(((myObjFT))**.12)[:,:,myATF.shape[2]//2]), plt.colorbar()#, plt.show()    
+
+
 #%% save the results
 np.save(savepath+'allAmp_simu.npy', myfwd)
 data.export_realdata_h5(filename = './Data/DROPLETS/allAmp_simu.mat', matname = 'allAmp_red', data=myfwd)
