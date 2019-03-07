@@ -70,10 +70,10 @@ muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
 muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(matlab_pars['Ny'].value))
 zernikefactors = np.array((0,0,0,0,0,0,-.1,2,0.01,0.01,.10)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
-muscat.shiftIcY = 0 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 muscat.shiftIcX = 0 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-dn = .01#(1.437-1.3326)#/np.pi
-muscat.NAc = .15
+muscat.shiftIcY = 1 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+dn = .1 #(1.437-1.3326)#/np.pi
+muscat.NAc = .42
 
 #muscat.NAo = .95
 #muscat.dz = 0.1625*2#muscat.lambda0/4
@@ -88,7 +88,7 @@ muscat.Nx = 40; muscat.Ny = 40; muscat.Nz = 100
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
 
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
-mydiameter = 2
+mydiameter = 5
 if(1):
     obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)#)dn)
     obj_absorption = 0*tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .0, nEmbb = muscat.nEmbb)
@@ -132,7 +132,7 @@ muscat.computesys(obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, i
 muscat.computemodel()
    
 ''' Define Fwd operator'''
-myres = muscat.computeconvolution(None,myfac=1e-3)
+myres = muscat.computeconvolution(None, myfac = 5e-4, myabsnorm = 1/.00018)
 
 #%% Display the results
 ''' Evaluate the model '''

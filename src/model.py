@@ -413,7 +413,41 @@ class MuScatModel(object):
             self.TF_allSumAmp = self.TF_allSumAmp[:,self.Nx//2-self.Nx//4:self.Nx//2+self.Nx//4, self.Ny//2-self.Ny//4:self.Ny//2+self.Ny//4]
              
         return self.TF_allSumAmp
-     
+
+
+    def computeconvolution(self, TF_ATF=None, myfac=1e-3, myabsnorm=1):
+        # We want to compute the born-fwd model
+        # TF_ATF - is the tensorflow node holding the ATF - alternatively use numpy arry!
+        print('Computing the fwd model in born approximation')
+        
+        TF_real_3D = self.TF_obj
+        TF_imag_3D = self.TF_obj_absorption    
+        
+        # wrapper for force-positivity on the RI-instead of penalizing it
+        if(self.is_forcepos):
+            print('----> ATTENTION: We add the PreMonotonicPos' )
+            TF_real_3D = tf_reg.PreMonotonicPos(TF_real_3D)
+            TF_imag_3D = tf_reg.PreMonotonicPos(TF_imag_3D)
+
+        TF_f = tf.complex(TF_real_3D, TF_imag_3D)
+        TF_V = -(2*np.pi/self.lambda0)**2*(TF_f**2-self.nEmbb**2)
+
+        # We need to have a placeholder because the ATF is computed afterwards...
+        if (TF_ATF is None):
+            self.TF_ATF_placeholder = tf.placeholder(dtype=tf.complex64, shape=self.mysize, name='TF_ATF_placeholder')
+        else:
+            self.TF_ATF_placeholder = TF_ATF
+                
+
+        # convolve object with ASF
+        TF_res = (tf_helper.my_ift3d(tf_helper.my_ft3d(TF_V)*self.TF_ATF_placeholder))
+        print('ATTENTION: WEIRD MAGIC NUMBER for background field!!')
+        #myfac=1e-3 # why and which factor makes sense?
+        print(myfac)
+        TF_res = (TF_res-tf.cast(1j*myfac, tf.complex64))/tf.cast(myabsnorm, tf.complex64)
+
+        return tf.squeeze(TF_res)
+           
         
     def propslices(self):
             # only consider object scattering if we want to use it
@@ -465,39 +499,7 @@ class MuScatModel(object):
      
 
      
-    def computeconvolution(self, TF_ATF=None, myfac=1e-3):
-        # We want to compute the born-fwd model
-        # TF_ATF - is the tensorflow node holding the ATF - alternatively use numpy arry!
-        print('Computing the fwd model in born approximation')
-        
-        TF_real_3D = self.TF_obj
-        TF_imag_3D = self.TF_obj_absorption    
-        
-        # wrapper for force-positivity on the RI-instead of penalizing it
-        if(self.is_forcepos):
-            print('----> ATTENTION: We add the PreMonotonicPos' )
-            TF_real_3D = tf_reg.PreMonotonicPos(TF_real_3D)
-            TF_imag_3D = tf_reg.PreMonotonicPos(TF_imag_3D)
 
-        TF_f = tf.complex(TF_real_3D, TF_imag_3D)
-        TF_V = (2*np.pi/self.lambda0)**2*(TF_f**2-self.nEmbb**2)
-
-        # We need to have a placeholder because the ATF is computed afterwards...
-        if (TF_ATF is None):
-            self.TF_ATF_placeholder = tf.placeholder(dtype=tf.complex64, shape=self.mysize, name='TF_ATF_placeholder')
-        else:
-            self.TF_ATF_placeholder = TF_ATF
-                
-
-        # convolve object with ASF
-        TF_res = (tf_helper.my_ift3d(tf_helper.my_ft3d(TF_V)*self.TF_ATF_placeholder))
-        print('ATTENTION: WEIRD MAGIC NUMBER for background field!!')
-        #myfac=1e-3 # why and which factor makes sense?
-        print(myfac)
-        TF_res = (TF_res-1j*myfac)/myfac
-
-        return tf.squeeze(TF_res)
-      
         
     def propangles(self, TF_A_prop):
         # TF_A_prop - Input field to propagate
@@ -612,36 +614,36 @@ class MuScatModel(object):
         
              
         plt.figure()
-        plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
-        plt.subplot(232), plt.title('ABS YZ'),plt.imshow(np.abs(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-        plt.subplot(233), plt.title('ABS XY'),plt.imshow(np.abs(myfwd)[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
-        plt.subplot(234), plt.title('Angle XZ'),plt.imshow(np.angle(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
-        plt.subplot(235), plt.title('Angle XZ'),plt.imshow(np.angle(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-        plt.subplot(236), plt.title('Angle XY'),plt.imshow(np.angle(myfwd)[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.subplot(231), plt.title('REAL XZ'),plt.imshow(np.real(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(232), plt.title('REAL YZ'),plt.imshow(np.real(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(233), plt.title('REAL XY'),plt.imshow(np.real(myfwd)[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.subplot(234), plt.title('Imag XZ'),plt.imshow(np.imag(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(235), plt.title('Imag XZ'),plt.imshow(np.imag(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(236), plt.title('Imag XY'),plt.imshow(np.imag(myfwd)[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
         plt.savefig(savepath+'/res_myfwd'+figsuffix+'.png'), plt.show()
      
         # This is the measurment
         plt.figure()
-        plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(mymeas)[:,mymeas.shape[1]//2,:]), plt.colorbar()#, plt.show()
-        plt.subplot(232), plt.title('ABS YZ'),plt.imshow(np.abs(mymeas)[:,:,mymeas.shape[2]//2]), plt.colorbar()#, plt.show()
-        plt.subplot(233), plt.title('ABS XY'),plt.imshow(np.abs(mymeas)[mymeas.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
-        plt.subplot(234), plt.title('Angle XZ'),plt.imshow(np.angle(mymeas)[:,mymeas.shape[1]//2,:]), plt.colorbar()#, plt.show()
-        plt.subplot(235), plt.title('Angle XZ'),plt.imshow(np.angle(mymeas)[:,:,mymeas.shape[2]//2]), plt.colorbar()#, plt.show()
-        plt.subplot(236), plt.title('Angle XY'),plt.imshow(np.angle(mymeas)[mymeas.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.subplot(231), plt.title('REAL XZ'),plt.imshow(np.real(mymeas)[:,mymeas.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(232), plt.title('REAL YZ'),plt.imshow(np.real(mymeas)[:,:,mymeas.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(233), plt.title('REAL XY'),plt.imshow(np.real(mymeas)[mymeas.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.subplot(234), plt.title('Imag XZ'),plt.imshow(np.imag(mymeas)[:,mymeas.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(235), plt.title('Imag XZ'),plt.imshow(np.imag(mymeas)[:,:,mymeas.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(236), plt.title('Imag XY'),plt.imshow(np.imag(mymeas)[mymeas.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
         plt.savefig(savepath+'/res_mymeas'+figsuffix+'.png'), plt.show()
      
         # This is the residual
         myresi = tf_helper.abssqr(myfwd-mymeas)
         plt.figure()
-        plt.subplot(331), plt.title('Residual ABS XZ'),plt.imshow((np.abs(myfwd)-np.abs(mymeas))[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
-        plt.subplot(332), plt.title('Residual ABS YZ'),plt.imshow((np.abs(myfwd)-np.abs(mymeas))[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-        plt.subplot(333), plt.title('Residual ABS XY'),plt.imshow((np.abs(myfwd)-np.abs(mymeas))[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
-        plt.subplot(334), plt.title('Residual Angle XZ'),plt.imshow((np.angle(myfwd)-np.angle(mymeas))[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
-        plt.subplot(335), plt.title('Residual Angle XZ'),plt.imshow((np.angle(myfwd)-np.angle(mymeas))[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-        plt.subplot(336), plt.title('Residual Angle XY'),plt.imshow((np.angle(myfwd)-np.angle(mymeas))[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.subplot(331), plt.title('Residual REAL XZ'),plt.imshow((np.real(myfwd)-np.real(mymeas))[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(332), plt.title('Residual REAL YZ'),plt.imshow((np.real(myfwd)-np.real(mymeas))[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(333), plt.title('Residual REAL XY'),plt.imshow((np.real(myfwd)-np.real(mymeas))[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
+        plt.subplot(334), plt.title('Residual Imag XZ'),plt.imshow((np.imag(myfwd)-np.imag(mymeas))[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(335), plt.title('Residual Imag XZ'),plt.imshow((np.imag(myfwd)-np.imag(mymeas))[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(336), plt.title('Residual Imag XY'),plt.imshow((np.imag(myfwd)-np.imag(mymeas))[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
         plt.subplot(337), plt.title('Residual abssqr XZ'), plt.imshow((((myresi))**.2)[:,myresi.shape[1]//2,:]), plt.colorbar()#, plt.show()
-        plt.subplot(338), plt.title('Residual abssqr Yz'), plt.imshow((((myresi))**.2)[myresi.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
-        plt.subplot(339), plt.title('Residual abssqr XY'), plt.imshow((((myresi))**.2)[:,:,myresi.shape[2]//2]), plt.colorbar()#, plt.show()    
+        plt.subplot(338), plt.title('Residual abssqr XY'), plt.imshow((((myresi))**.2)[:,:,myresi.shape[2]//2]), plt.colorbar()#, plt.show()    
+        plt.subplot(339), plt.title('Residual abssqr Yz'), plt.imshow((((myresi))**.2)[myresi.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
         
 
         plt.savefig(savepath+'/res_myresidual'+figsuffix+'.png'), plt.show()
@@ -666,6 +668,7 @@ class MuScatModel(object):
         plt.subplot(236), plt.title('Result abs: XY'),plt.imshow(my_res_absorption[my_res.shape[0]//2,:,:]), plt.colorbar()
         plt.savefig(savepath+'/RI_abs_result'+figsuffix+'.png'), plt.show()
          
+        
 
     def saveFigures(self, sess, savepath, tf_fwd, np_meas, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, globalphaselist, globalabslist, 
                     result_phaselist=None, result_absorptionlist=None, init_guess=None, figsuffix=''):
