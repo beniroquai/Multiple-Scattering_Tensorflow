@@ -484,9 +484,11 @@ class MuScatModel(object):
         print('ATTENTION: WEIRD MAGIC NUMBER for background field!!')
         #myfac=1e-3 # why and which factor makes sense?
         print(myfac)
-        TF_res = (TF_res-tf.cast(1j*myfac, tf.complex64))/tf.cast(myabsnorm, tf.complex64)
-
-        return tf.squeeze(TF_res)
+        
+        #TF_res = (TF_res-(1j*(1e-4)))/(1e-4)# tf.complex64) #-tf.complex(0., myfac))/tf.complex(myabsnorm,0.)
+        #TF_res = TF_res-tf.cast(tf.constant(1j*1e-4), tf.complex64)
+        #return (tf.squeeze(TF_res)-1e-4j)/1e-4#tf.squeeze((TF_res-(0+1j*(1e-4)))/(1e-4))
+        return (tf.squeeze(TF_res)-1j*myfac)/myabsnorm #tf.squeeze((TF_res-(0+1j*(1e-4)))/(1e-4))
            
         
     def propslices(self):

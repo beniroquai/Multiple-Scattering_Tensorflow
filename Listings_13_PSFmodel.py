@@ -72,8 +72,11 @@ zernikefactors = 0*np.array((0,0,0,0,0,0,-.1,2,0.01,0.01,.10)) # 7: ComaX, 8: Co
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
 muscat.shiftIcX = 0 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 muscat.shiftIcY = 0 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-dn = .1 #(1.437-1.3326)#/np.pi
 muscat.NAc = .42
+
+dn = .1 #(1.437-1.3326)#/np.pi
+myfac = dn*1e-3#- 1e-6
+myabsnorm = myfac
 
 #muscat.NAo = .95
 #muscat.dz = 0.1625*2#muscat.lambda0/4
@@ -88,7 +91,7 @@ muscat.Nx = 32; muscat.Ny = 32; muscat.Nz = 70
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
 
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
-mydiameter = 5
+mydiameter = 8
 if(1):
     obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)#)dn)
     obj_absorption = 0*tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .1, nEmbb = muscat.nEmbb)
@@ -115,9 +118,9 @@ else:
     obj = np.load('./Data/PHANTOM/phantom_50_50_50.npy')*dn+ muscat.nEmbb
     obj_absorption = obj
         
-
-obj = obj+1j*obj_absorption
-#obj = np.roll(obj,-9,0)
+obj = muscat.nEmbb + dn*np.random.rand(muscat.Nz, muscat.Nx, muscat.Ny)
+obj = obj+1j*obj_absorption*0
+##obj = np.roll(obj,-9,0)
 
 
 # introduce zernike factors here
@@ -132,8 +135,7 @@ muscat.computesys(obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, i
 muscat.computemodel()
    
 ''' Define Fwd operator'''
-myfac = 0
-myres = muscat.computeconvolution(None, myfac = myfac, myabsnorm = 1)
+myres = muscat.computeconvolution(None, myfac = myfac, myabsnorm = myabsnorm)
 
 #%% Display the results
 ''' Evaluate the model '''
@@ -153,7 +155,6 @@ print(end - start)
 
 
 #%% display the results
-myfwd = np.squeeze(myfwd) #np.sum(myPSF_k, 0)# (np.squeeze(myPSF_k[0,:,:,:])) #np.sum(myfwd, 0) # np.sum(myPSF_k, 0) #
 centerslice = myfwd.shape[0]//2
 plt.figure()
 
@@ -175,16 +176,21 @@ plt.subplot(236), plt.imshow(np.abs(((myASF))**.2)[:,:,myfwd.shape[2]//2]), plt.
 
 myfwd_old = myfwd 
 #%%
-myfac = 1e2
-myfwd = (myfwd_old - 1j*myfac)/myfac
+if(0):
+    myfwd = myfwd_old
+    #myfac 
+    myfwd = (np.squeeze(myfwd_old)-(1e-4j))/(1e-4)
+    #myfac = 1e-4
+    #myfwd = (myfwd - 1j*myfac)/myfac
+#myfwd = (myfwd_old - 1j*myfac)/myfac
 plt.figure()    
-plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
-plt.subplot(232), plt.title('ABS YZ'),plt.imshow(np.abs(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-plt.subplot(233), plt.title('ABS XY'),plt.imshow(np.abs(myfwd)[centerslice ,:,:]), plt.colorbar()# plt.show()
+plt.subplot(231), plt.title('real XZ'),plt.imshow(np.real(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(232), plt.title('real YZ'),plt.imshow(np.real(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+plt.subplot(233), plt.title('real XY'),plt.imshow(np.real(myfwd)[centerslice ,:,:]), plt.colorbar()# plt.show()
 #myfwd=myfwd*np.exp(1j*2)
-plt.subplot(234), plt.title('Angle XZ'),plt.imshow(np.angle(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
-plt.subplot(235), plt.title('Angle YZ'),plt.imshow(np.angle(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-plt.subplot(236), plt.title('Angle XY'),plt.imshow(np.angle(myfwd)[centerslice ,:,:]), plt.colorbar(), plt.show()
+plt.subplot(234), plt.title('imag XZ'),plt.imshow(np.imag(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(235), plt.title('imag YZ'),plt.imshow(np.imag(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+plt.subplot(236), plt.title('imag XY'),plt.imshow(np.imag(myfwd)[centerslice ,:,:]), plt.colorbar(), plt.show()
 
 #%%
 plt.figure()    

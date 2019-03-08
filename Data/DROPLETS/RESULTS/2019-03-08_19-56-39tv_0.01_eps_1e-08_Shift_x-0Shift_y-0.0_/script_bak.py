@@ -37,7 +37,7 @@ mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 basepath = './'#'/projectnb/cislidt/diederich/muScat/Multiple-Scattering_Tensorflow/'
 resultpath = 'Data/DROPLETS/RESULTS/'
 
-
+dn = 0.05
 # Define parameters 
 is_padding = False 
 is_display = True
@@ -67,9 +67,8 @@ matlab_par_file = './Data/cells/cross_section_10x0.3_hologram_full.tif_myParamet
 matlab_par_name = 'myParameter' 
 matlab_val_name = 'allAmpSimu' 
  
-dn = .1 #(1.437-1.3326)#/np.pi
-myfac = dn*1e-3#- 1e-6
-myabsnorm = myfac
+myfac = 1e-4 # represents bbackground wave 
+myabsnorm = 1/myfac # normalizes magnitude 
 
 np_global_phase = 0.
 np_global_abs = 0.
