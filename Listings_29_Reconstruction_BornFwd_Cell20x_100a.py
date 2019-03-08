@@ -37,40 +37,43 @@ mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 basepath = './'#'/projectnb/cislidt/diederich/muScat/Multiple-Scattering_Tensorflow/'
 resultpath = 'Data/DROPLETS/RESULTS/'
 
-dn = 0.05
+
 # Define parameters 
 is_padding = False 
 is_display = True
 is_optimization = 1 
 is_measurement = True
 is_absorption = False
-mysubsamplingIC = 5
+mysubsamplingIC = 0
 NspikeLR = 25000 # try to get the system out of some local minima
 
 '''Define Optimization Parameters'''
 # these are hyperparameters
-my_learningrate = 1e2  # learning rate
+my_learningrate = 1e-1  # learning rate
 NreduceLR = 100 # when should we reduce the Learningrate? 
 
-lambda_tv = ((1e-2))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
-eps_tv = ((1e-8))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+lambda_tv = ((1e-1))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+eps_tv = ((1e-12))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10000
-Niter = 2000
+Niter = 1000
 
 Noptpsf = 1
 Nsave = 100 # write info to disk
 Ndisplay = Nsave
 # data files for parameters and measuremets 
-matlab_val_file = './/Data//cells//Cell_20x_100a_150-250.tif_allAmp.mat'
-matlab_par_file = './Data//cells//Cell_20x_100a_150-250.tif_myParameter.mat'
+matlab_val_file = './Data/cells/Cell_20x_100a_150-250.tif_allAmp.mat'
+matlab_par_file = './Data/cells/Cell_20x_100a_150-250.tif_myParameter.mat'
 matlab_par_name = 'myParameter' 
 matlab_val_name = 'allAmpSimu' 
  
-myabsnorm = 1 # normalizes magnitude 
-myfac = 1e2 # represents bbackground wave 
+# need to figure out why this holds somehow true - at least produces reasonable results
+dn = .1
+myfac = dn*1e-3
+myabsnorm = myfac
+
 np_global_phase = 0.
-np_global_abs = 1.
+np_global_abs = 0.
 
 
 if(0):
@@ -83,7 +86,7 @@ if(0):
 
 
 ''' microscope parameters '''
-NAc = .3
+NAc = .4
 shiftIcY = 0*.8 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 shiftIcX = 0*1 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 zernikefactors = np.array((0,0,0,0,0,0,-.01,-.5001,0.01,0.01,.010))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
@@ -107,9 +110,9 @@ else:
 
 if(np.mod(matlab_val.shape[0],2)==1):
     matlab_val = matlab_val[0:matlab_val.shape[0]-1,:,:]
-roisize=50
-roicenter = np.array((215,201))
-matlab_val = np.flip(matlab_val[0:100,roicenter[0]-roisize:roicenter[0]+roisize,roicenter[1]-roisize:roicenter[1]+roisize],0)
+#roisize=50
+#roicenter = np.array((215,201))
+#matlab_val = np.flip(matlab_val[0:100,roicenter[0]-roisize:roicenter[0]+roisize,roicenter[1]-roisize:roicenter[1]+roisize],0)
 
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
@@ -129,7 +132,7 @@ muscat.zernikemask = zernikemask
 
 ''' Compute the systems model'''
 # Compute the System's properties (e.g. Pupil function/Illumination Source, K-vectors, etc.)¶
-muscat.computesys(obj=None, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='sep')
+muscat.computesys(obj=None, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='corr')
 
 ''' Create Model Instance'''
 muscat.computemodel()
@@ -143,9 +146,10 @@ tf_fwd = muscat.computeconvolution(muscat.TF_ATF, myfac=myfac, myabsnorm = myabs
 
 #%%
 ''' Compute a first guess based on the experimental phase '''
-init_guess = np.angle(matlab_val)# np.ones(matlab_val.shape)# 
-init_guess = init_guess-np.min(init_guess)
+init_guess =  np.ones(matlab_val.shape)# np.angle(matlab_val)## 
+#init_guess = init_guess-np.min(init_guess)
 init_guess = dn*init_guess/np.max(init_guess)+muscat.nEmbb#*dn+1j*.01*np.ones(init_guess.shape)
+
 if(0):
     mydiameter = 5
     obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = dn)#)dn)
@@ -156,10 +160,9 @@ if(0):
 # This is actually a crucial step and needs to be used with care. We don't want any phase wrappings ! 
 '''Numpy to Tensorflow'''
 np_meas = matlab_val
-np_mean = np.mean(np_meas)
-np_meas = np_meas/np_mean
-
-print("Mean of the MEasurement is: "+str(np_mean))
+#np_mean = 1#np.mean(np_meas)
+#np_meas = np_meas/np_mean
+#print("Mean of the MEasurement is: "+str(np_mean))
 
 '''Define Cost-function'''
 # VERY VERY Important to add 0. and 1. - otherwise it gets converted to float!
@@ -179,7 +182,7 @@ tf_negsqrloss += lambda_neg*reg.Reg_NegSqr(muscat.TF_obj_absorption)
 # Correc the fwd model - not good here!
 tf_norm = tf.complex(tf_global_phase, tf_global_abs)
 tf_fwd_corrected = tf_fwd+tf_norm
-tf_fwd_corrected = (tf_fwd+1j*tf.cast(tf_global_phase, tf.complex64))/tf.cast(tf_global_abs, tf.complex64)
+#tf_fwd_corrected = (tf_fwd+1j*tf.cast(tf_global_phase, tf.complex64))/tf.cast(tf_global_abs, tf.complex64)
 
 
 '''Define Loss-function'''
@@ -194,7 +197,7 @@ tf_loss = tf_fidelity + tf_tvloss + tf_negsqrloss
 '''Define Optimizer'''
 tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
 tf_lossop_norm = tf_optimizer.minimize(tf_loss, var_list = [tf_global_abs, tf_global_phase])
-tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj])
+tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj, muscat.TF_obj_absorption])
 tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors])
 tf_lossop = tf_optimizer.minimize(tf_loss)
 
@@ -273,7 +276,7 @@ for iterx in range(iter_last,Niter):
             sess.run([muscat.TF_obj, muscat.TF_obj_absorption, tf_loss, tf_fidelity, tf_negsqrloss, tf_tvloss, tf_global_phase, tf_global_abs, tf_fwd_corrected], \
                      feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval}) #, muscat.TF_ATF_placeholder:myATF
     
-    if iterx>5:
+    if iterx>5000:
         for iternorm in range(0,1):
             # find the correct normalization parameters first 
             sess.run([tf_lossop_norm], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
