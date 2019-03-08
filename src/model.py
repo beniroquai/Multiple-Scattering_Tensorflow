@@ -72,7 +72,8 @@ class MuScatModel(object):
         self.lambdaM = self.lambda0/self.nEmbb; # wavelength in the medium
  
     #@define_scope
-    def computesys(self, obj=None, is_padding=False, is_tomo = False, dropout_prob=1, mysubsamplingIC=0, is_compute_psf=False):
+    def computesys(self, obj=None, is_padding=False, is_tomo = False, dropout_prob=1, mysubsamplingIC=0, is_compute_psf='corr'):
+        # is_compute_psf: 'corr', 'sep'
         """ This computes the FWD-graph of the Q-PHASE microscope;
         1.) Compute the physical dimensions
         2.) Compute the sampling for the waves
@@ -210,8 +211,8 @@ class MuScatModel(object):
             self.checkerboard = np.zeros((self.mysubsamplingIC,self.mysubsamplingIC))# ((1,0),(0,0))  # testing for sparse illumination?!
             self.checkerboard[0,0] = 1
             print('-------> ATTENTION: WE have a CHECKeRBOArD  MASK IN THE PUPIL PLANE!!!!')
-            self.checkerboard = np.matlib.repmat(self.checkerboard,self.Ic_map.shape[0]//self.mysubsamplingIC+1,self.Ic_map.shape[1]//self.mysubsamplingIC+1)
-            self.checkerboard = self.checkerboard[0:self.Ic_map.shape[0], 0:self.Ic_map.shape[1]]
+            #self.checkerboard = np.matlib.repmat(self.checkerboard,self.Ic_map.shape[0]//self.mysubsamplingIC+1,self.Ic_map.shape[1]//self.mysubsamplingIC+1)
+            #self.checkerboard = self.checkerboard[0:self.Ic_map.shape[0], 0:self.Ic_map.shape[1]]
             
        
             print('Create a new random disk')
@@ -266,15 +267,16 @@ class MuScatModel(object):
         self.kz=np.sqrt(self.kzsqr);
         self.kz[self.kzsqr < 0]=0;
         self.dphi = 2*np.pi*self.kz*self.dz;  # exp(1i*kz*dz) would be the propagator for one slice
- 
-        ## Get a list of vector coordinates corresponding to the pixels in the mask
-        xfreq= tf_helper.xx((self.mysize[1], self.mysize[2]),'freq');
-        yfreq= tf_helper.yy((self.mysize[1], self.mysize[2]),'freq');
+
         self.Nc=np.sum(self.Ic>0); 
         print('Number of Illumination Angles / Plane waves: '+str(self.Nc))
         
-        if not self.is_compute_psf:
+        if not self.is_compute_psf=='corr' or is_compute_psf=='sep':
         
+            ## Get a list of vector coordinates corresponding to the pixels in the mask
+            xfreq= tf_helper.xx((self.mysize[1], self.mysize[2]),'freq');
+            yfreq= tf_helper.yy((self.mysize[1], self.mysize[2]),'freq');
+
             # Calculate the computatonal grid/sampling
             self.kxcoord = np.reshape(xfreq[self.Ic>0],[1, 1, 1, self.Nc]);    # NA-positions in condenser aperture plane in x-direction
             self.kycoord = np.reshape(yfreq[self.Ic>0],[1, 1, 1, self.Nc]);    # NA-positions in condenser aperture plane in y-direction
@@ -305,7 +307,14 @@ class MuScatModel(object):
             
 
             self.myAllSlicePropagator_psf = 0*self.myAllSlicePropagator # dummy variable to make the algorithm happy
-        else:
+        
+        if is_compute_psf=='sep':
+            self.Alldphi_psf = -(np.reshape(np.arange(0, self.mysize[0], 1), [1, 1, self.mysize[0]])-self.Nz/2)*np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2)
+            self.myAllSlicePropagator_psf = np.transpose(np.exp(1j*self.Alldphi_psf) * (np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2) >0), [2, 0, 1]);  # Propagates a single end result backwards to all slices
+            #self.myAllSlicePropagator_psf = np.transpose(np.exp(1j*self.Alldphi_psf) * (np.repeat(self.dphi[:, :, np.newaxis], self.mysize[0], axis=2) >0), [2, 0, 1]);  # Propagates a single end result backwards to all slices
+            
+            
+        if (self.is_compute_psf=='corr'):
             self.Alldphi_psf = (np.reshape(np.arange(0, self.mysize[0], 1), [1, 1, self.mysize[0]])-self.Nz/2)*np.repeat(self.dphi[:, :, np.newaxis], self.mysize[0], axis=2)
             self.myAllSlicePropagator_psf = np.transpose(np.exp(1j*self.Alldphi_psf) * (np.repeat(self.dphi[:, :, np.newaxis], self.mysize[0], axis=2) >0), [2, 0, 1]);  # Propagates a single end result backwards to all slices
             self.myAllSlicePropagator = 0*self.myAllSlicePropagator_psf # dummy variable to make the algorithm happy
@@ -367,12 +376,12 @@ class MuScatModel(object):
         self.allSumAmp = 0
         
         # compute multiple scattering only in higher Born order        
-        if not self.is_compute_psf:
+        if not self.is_compute_psf=='corr' and not self.is_compute_psf=='sep':
             self.propslices()
         
         # in a final step limit this to the detection NA:
         self.TF_Po_aberr = tf.exp(1j*tf.cast(tf.reduce_sum(self.TF_zernikefactors_filtered*self.TF_Zernikes, axis=2), tf.complex64)) * self.TF_Po
-        if not self.is_compute_psf:
+        if not self.is_compute_psf=='corr' and not self.is_compute_psf=='sep':
             # The input field of the PSF calculation is the BFP of the objective lens
             self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop)*self.TF_Po_aberr)
             
@@ -380,30 +389,15 @@ class MuScatModel(object):
         if self.is_tomo:
             return self.computetomo()         
                 
-        if not self.is_compute_psf:
+        if not self.is_compute_psf=='corr' and not self.is_compute_psf=='sep':
             # now backpropagate the multiple scattered slice to a focus stack - i.e. convolve with PTF
             self.TF_allSumAmp = self.propangles(self.TF_A_prop)
         else:
-            # here we only want to gather the partially coherent transfer function PTF
-            # which is the correlation of the PTF_c and PTF_i 
-            # we compute it as the slice propagation of the pupil function
-            
-            # 1. + 2.) Define the input field as the BFP and effective pupil plane of the condenser 
-            # Compute the ASF for the Condenser and Imaging Pupil
-            self.TF_ASF_o = tf_helper.my_ift2d(self.TF_myAllSlicePropagator_psf * tf_helper.fftshift2d(self.TF_Po * self.TF_Po_aberr))
-            self.TF_ASF_c = tf_helper.my_ift2d(self.TF_myAllSlicePropagator_psf * self.TF_Ic)
-            
-            # 3.) correlation of the pupil function to get the APTF
-            self.TF_ATF = tf_helper.my_ift3d(self.TF_ASF_o*tf.conj(self.TF_ASF_c))
-            tf_global_phase = tf.angle(self.TF_ATF[self.mysize[0]//2,self.mysize[1]//2,self.mysize[2]//2])#tf.angle(self.TF_allAmp_3dft[0, self.mid3D[2], self.mid3D[1], self.mid3D[0]])
-            tf_global_phase = tf.cast(tf_global_phase, tf.complex64)
-            self.TF_ATF = self.TF_ATF * tf.exp(1j * tf_global_phase);  # normalize ATF
+            if self.is_compute_psf=='corr': 
+                self.TF_ASF, self.TF_ATF = self.computepsf()
+            elif self.is_compute_psf=='sep': #
+                self.TF_ASF, self.TF_ATF = self.computepsf_sepang()
 
-            # 4.) Comput the ATF and normalize it
-            self.TF_ASF = tf_helper.my_ft3d(self.TF_ATF)
-            self.TF_ASF = self.TF_ASF/tf.cast(tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(self.TF_ASF))), tf.complex64)
-            self.TF_ATF = tf_helper.my_ift3d(self.TF_ASF)#/tf.cast(np.sqrt(np.prod(self.mysize)), tf.complex64)
-            
             # ASsign dummy variable- not used
             self.TF_allSumAmp = None 
             
@@ -414,6 +408,52 @@ class MuScatModel(object):
              
         return self.TF_allSumAmp
 
+    
+    def computepsf_sepang(self):
+        # here we only want to gather the partially coherent transfer function PTF
+        # which is the correlation of the PTF_c and PTF_i 
+        # we compute it as the slice propagation of the pupil function
+        
+        # 1. + 2.) Define the input field as the BFP and effective pupil plane of the condenser 
+        # Compute the ASF for the Condenser and Imaging Pupil
+        
+        # in case we only want to compute the PSF, we don't need the input field
+        self.TF_myAllSlicePropagator = self.myAllSlicePropagator_psf
+        TF_A_prop =  tf_helper.my_ift2d(tf.ones_like(self.TF_A_prop)*tf_helper.ifftshift2d(self.TF_Po * self.TF_Po_aberr)) # propagate in real-space->fftshift!; tf_ones: need for broadcasting!
+        self.TF_allSumAmp = self.propangles(TF_A_prop)
+        
+        TF_ASF = self.TF_allSumAmp
+        TF_ASF = TF_ASF/tf.cast(tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(TF_ASF))), tf.complex64)
+        TF_ATF = tf_helper.my_ft3d(TF_ASF)#/tf.cast(tf.sqrt(1.*np.prod(self.mysize)), tf.complex64)
+        
+        tf_global_phase = tf.angle(TF_ATF[self.mysize[0]//2,self.mysize[1]//2,self.mysize[2]//2])#tf.angle(self.TF_allAmp_3dft[0, self.mid3D[2], self.mid3D[1], self.mid3D[0]])
+        tf_global_phase = tf.cast(tf_global_phase, tf.complex64)
+        TF_ATF = TF_ATF * tf.exp(1j * tf_global_phase);  # normalize ATF
+          
+        return TF_ASF, TF_ATF 
+
+
+    def computepsf(self):
+        # here we only want to gather the partially coherent transfer function PTF
+        # which is the correlation of the PTF_c and PTF_i 
+        # we compute it as the slice propagation of the pupil function
+        
+        # 1. + 2.) Define the input field as the BFP and effective pupil plane of the condenser 
+        # Compute the ASF for the Condenser and Imaging Pupil
+        self.TF_ASF_o = tf_helper.my_ift2d(self.TF_myAllSlicePropagator_psf * tf_helper.fftshift2d(self.TF_Po * self.TF_Po_aberr))
+        self.TF_ASF_c = tf_helper.my_ift2d(self.TF_myAllSlicePropagator_psf * self.TF_Ic)
+        
+        # 3.) correlation of the pupil function to get the APTF
+        TF_ATF = tf_helper.my_ift3d(self.TF_ASF_o*tf.conj(self.TF_ASF_c))
+        tf_global_phase = tf.angle(TF_ATF[self.mysize[0]//2,self.mysize[1]//2,self.mysize[2]//2])#tf.angle(self.TF_allAmp_3dft[0, self.mid3D[2], self.mid3D[1], self.mid3D[0]])
+        tf_global_phase = tf.cast(tf_global_phase, tf.complex64)
+        TF_ATF = TF_ATF * tf.exp(1j * tf_global_phase);  # normalize ATF
+        
+        # 4.) Comput the ATF and normalize it
+        TF_ASF = tf_helper.my_ft3d(TF_ATF)
+        TF_ASF = TF_ASF/tf.cast(tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(TF_ASF))), tf.complex64)
+        # self.TF_ATF = tf_helper.my_ift3d(self.TF_ASF)#/tf.cast(np.sqrt(np.prod(self.mysize)), tf.complex64)
+        return TF_ASF, TF_ATF 
 
     def computeconvolution(self, TF_ATF=None, myfac=1e-3, myabsnorm=1):
         # We want to compute the born-fwd model
@@ -430,7 +470,7 @@ class MuScatModel(object):
             TF_imag_3D = tf_reg.PreMonotonicPos(TF_imag_3D)
 
         TF_f = tf.complex(TF_real_3D, TF_imag_3D)
-        TF_V = -(2*np.pi/self.lambda0)**2*(TF_f**2-self.nEmbb**2)
+        TF_V = (2*np.pi/self.lambda0)**2*(TF_f**2-self.nEmbb**2)
 
         # We need to have a placeholder because the ATF is computed afterwards...
         if (TF_ATF is None):

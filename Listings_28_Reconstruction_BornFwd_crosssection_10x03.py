@@ -29,7 +29,7 @@ import src.tf_regularizers as reg
 mpl.rc('figure',  figsize=(8,6))
 mpl.rc('image', cmap='gray')
 #plt.switch_backend('agg')
-np.set_printoptions(threshold=np.nan)
+#np.set_printoptions(threshold=np.nan)
 
 
 #%%
@@ -63,7 +63,7 @@ lambda_neg = 10000
 Niter = 3000
 Ndisplay = 10
 Noptpsf = 1
-Nsave = 100 # write info to disk
+Nsave = 20 # write info to disk
 # data files for parameters and measuremets 
 matlab_val_file = './Data/cells/cross_section_10x0.3_hologram_full.tif_allAmp.mat'
 matlab_par_file = './Data/cells/cross_section_10x0.3_hologram_full.tif_myParameter.mat'
@@ -96,7 +96,7 @@ else:
 #matlab_val = np.flip(matlab_val[:,0:300,0:300],0)
 roisize=50
 roicenter = np.array((215,201))
-matlab_val = np.flip(matlab_val[0:100,:,:],0)
+#matlab_val = np.flip(matlab_val[0:100,:,:],0)
 
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
@@ -123,7 +123,7 @@ muscat.zernikemask = zernikemask
 
 ''' Compute the systems model'''
 # Compute the System's properties (e.g. Pupil function/Illumination Source, K-vectors, etc.)¶
-muscat.computesys(obj=None, is_padding=is_padding, dropout_prob=my_dropout_prob, mysubsamplingIC=mysubsamplingIC, is_compute_psf=True)
+muscat.computesys(obj=None, is_padding=is_padding, dropout_prob=my_dropout_prob, mysubsamplingIC=mysubsamplingIC, is_compute_psf='corr')
 
 ''' Create Model Instance'''
 muscat.computemodel()

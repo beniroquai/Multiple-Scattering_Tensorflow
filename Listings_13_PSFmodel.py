@@ -68,10 +68,10 @@ print('do we need to flip the data?! -> Observe FFT!!')
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
 muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(matlab_pars['Ny'].value))
-zernikefactors = np.array((0,0,0,0,0,0,-.1,2,0.01,0.01,.10)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
+zernikefactors = 0*np.array((0,0,0,0,0,0,-.1,2,0.01,0.01,.10)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
 muscat.shiftIcX = 0 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-muscat.shiftIcY = 1 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+muscat.shiftIcY = 0 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 dn = .1 #(1.437-1.3326)#/np.pi
 muscat.NAc = .42
 
@@ -80,7 +80,7 @@ muscat.NAc = .42
 #muscat.dy = .2; muscat.dx = muscat.dy#muscat.lambda0/4
 #muscat.dx = 0.1560#muscat.lambda0/4
 #muscat.Nx = 50; muscat.Ny = 50; muscat.Nz = 50
-muscat.Nx = 40; muscat.Ny = 40; muscat.Nz = 100
+muscat.Nx = 32; muscat.Ny = 32; muscat.Nz = 70
 #muscat.dz = muscat.lambdaM/4
 #muscat.Nz = 36
 
@@ -91,7 +91,7 @@ muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny
 mydiameter = 5
 if(1):
     obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)#)dn)
-    obj_absorption = 0*tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .0, nEmbb = muscat.nEmbb)
+    obj_absorption = 0*tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .1, nEmbb = muscat.nEmbb)
 elif(0):
     obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='twosphere', diameter = mydiameter/8, dn = dn)#)dn)
     obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='twosphere', diameter = mydiameter/8, dn = .01)
@@ -113,7 +113,7 @@ else:
     # load a phantom
     # obj = np.load('./Data/PHANTOM/phantom_64_64_64.npy')*dn
     obj = np.load('./Data/PHANTOM/phantom_50_50_50.npy')*dn+ muscat.nEmbb
-    obj_absorption = obj*0
+    obj_absorption = obj
         
 
 obj = obj+1j*obj_absorption
@@ -126,13 +126,14 @@ muscat.zernikefactors = zernikefactors
 muscat.zernikemask = muscat.zernikefactors*0
 #muscat.zernikefactors = np.array((-0.05195263 ,-0.3599817 , -0.08740465,  0.3556992  , 2.9515843 , -1.9670948 ,-0.38435063 , 0.45611984 , 3.68658  )) 
 ''' Compute the systems model'''
-muscat.computesys(obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf=True)
+muscat.computesys(obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='corr')
 
 ''' Create Model Instance'''
 muscat.computemodel()
    
 ''' Define Fwd operator'''
-myres = muscat.computeconvolution(None, myfac = 5e-4, myabsnorm = 1/.00018)
+myfac = 0
+myres = muscat.computeconvolution(None, myfac = myfac, myabsnorm = 1)
 
 #%% Display the results
 ''' Evaluate the model '''
@@ -174,7 +175,8 @@ plt.subplot(236), plt.imshow(np.abs(((myASF))**.2)[:,:,myfwd.shape[2]//2]), plt.
 
 myfwd_old = myfwd 
 #%%
-
+myfac = 1e2
+myfwd = (myfwd_old - 1j*myfac)/myfac
 plt.figure()    
 plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
 plt.subplot(232), plt.title('ABS YZ'),plt.imshow(np.abs(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
