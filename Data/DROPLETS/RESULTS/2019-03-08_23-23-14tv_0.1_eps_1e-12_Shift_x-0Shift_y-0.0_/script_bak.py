@@ -53,12 +53,12 @@ my_learningrate = 1e-1  # learning rate
 NreduceLR = 100 # when should we reduce the Learningrate? 
 
 lambda_tv = ((1e-1))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
-eps_tv = ((1e-8))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+eps_tv = ((1e-12))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10000
 Niter = 1000
 
-Noptpsf = 0
+Noptpsf = 1
 Nsave = 100 # write info to disk
 Ndisplay = Nsave
 # data files for parameters and measuremets 
@@ -89,8 +89,8 @@ if(0):
 NAc = .4
 shiftIcY = 0*.8 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 shiftIcX = 0*1 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-zernikefactors = 0*np.array((0,1,1,0,0,0,-.01,-.5001,0.01,0.01,.010))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
-#zernikefactors = 0*np.array(( 0., 0.001, 0.01, 0, 0, 0., -3.4e-03,  2.2e-03, 2.5e+00, 2.5e+00, -1.0e+00))
+zernikefactors = np.array((0,0,0,0,0,0,-.01,-.5001,0.01,0.01,.010))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
+zernikefactors = 0*np.array(( 0., 0.001, 0.01, 0, 0, 0., -3.4e-03,  2.2e-03, 2.5e+00, 2.5e+00, -1.0e+00))
 
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
 

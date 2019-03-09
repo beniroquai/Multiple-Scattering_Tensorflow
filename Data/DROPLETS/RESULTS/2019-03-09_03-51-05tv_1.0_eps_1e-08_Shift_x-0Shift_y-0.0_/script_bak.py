@@ -52,7 +52,7 @@ NspikeLR = 25000 # try to get the system out of some local minima
 my_learningrate = 1e-1  # learning rate
 NreduceLR = 100 # when should we reduce the Learningrate? 
 
-lambda_tv = ((1e-1))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+lambda_tv = ((1e-0))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 eps_tv = ((1e-8))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10000
@@ -62,8 +62,8 @@ Noptpsf = 0
 Nsave = 100 # write info to disk
 Ndisplay = Nsave
 # data files for parameters and measuremets 
-matlab_val_file = './Data/cells/Cell_20x_100a_150-250.tif_allAmp.mat'
-matlab_par_file = './Data/cells/Cell_20x_100a_150-250.tif_myParameter.mat'
+matlab_val_file = './Data/cells/Beads_40x_100a_100-250.tif_allAmp.mat'
+matlab_par_file = './Data/cells/Beads_40x_100a_100-250.tif_myParameter.mat'
 matlab_par_name = 'myParameter' 
 matlab_val_name = 'allAmpSimu' 
  
@@ -197,7 +197,7 @@ tf_loss = tf_fidelity + tf_tvloss + tf_negsqrloss
 '''Define Optimizer'''
 tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
 tf_lossop_norm = tf_optimizer.minimize(tf_loss, var_list = [tf_global_abs, tf_global_phase])
-tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj, muscat.TF_obj_absorption])
+tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj]) #  muscat.TF_obj_absorption
 tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors])
 tf_lossop = tf_optimizer.minimize(tf_loss)
 
