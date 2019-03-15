@@ -56,7 +56,7 @@ lambda_tv = ((1e-0))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 eps_tv = ((1e-8))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10000
-Niter = 1000
+Niter = 1
 
 Noptpsf = 0
 Nsave = 100 # write info to disk
@@ -197,7 +197,7 @@ tf_loss = tf_fidelity + tf_tvloss + tf_negsqrloss
 '''Define Optimizer'''
 tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
 tf_lossop_norm = tf_optimizer.minimize(tf_loss, var_list = [tf_global_abs, tf_global_phase])
-tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj]) #  muscat.TF_obj_absorption
+tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj]) # 
 tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors])
 tf_lossop = tf_optimizer.minimize(tf_loss)
 
@@ -226,7 +226,17 @@ plt.subplot(232), plt.imshow(np.abs(((myATF))**.2)[myATF.shape[0]//2,:,:]), plt.
 plt.subplot(233), plt.imshow(np.abs(((myATF))**.2)[:,:,myATF.shape[2]//2]), plt.colorbar()#, plt.show()    
 plt.subplot(234), plt.imshow(np.abs(((myASF))**.2)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
 plt.subplot(235), plt.imshow(np.abs(((myASF))**.2)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
-plt.subplot(236), plt.imshow(np.abs(((myASF))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar()#, plt.show()    
+plt.subplot(236), plt.imshow(np.abs(((myASF))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar(), plt.show()    
+
+
+#%%
+plt.subplot(234), plt.imshow(np.imag(((myASF))**.2)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(235), plt.imshow(np.imag(((myASF))**.2)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+plt.subplot(236), plt.imshow(np.imag(((myASF))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar()#, plt.show()    
+plt.subplot(231), plt.imshow(np.real(((myASF))**.2)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(232), plt.imshow(np.real(((myASF))**.2)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+plt.subplot(233), plt.imshow(np.real(((myASF))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar(), plt.show()    
+
 
 #%%
     

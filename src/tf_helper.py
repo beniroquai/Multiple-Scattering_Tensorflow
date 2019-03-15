@@ -158,7 +158,7 @@ def ifftshift3d(tensor):
 
 
 # I would recommend to use this
-def my_ft2d(tensor):
+def my_ft2d(tensor, scaling=1.):
     """
     fftshift(fft(ifftshift(a)))
     
@@ -167,9 +167,9 @@ def my_ft2d(tensor):
     
     Uses standard normalization of fft unlike dip_image.
     """
-    return fftshift2d(tf.fft2d(ifftshift2d(tensor)))
+    return fftshift(tf.fft2d(ifftshift(tensor,2)),2)/scaling
 
-def my_ift2d(tensor):
+def my_ift2d(tensor, scaling=1.):
     """
     fftshift(ifft(ifftshift(a)))
     
@@ -178,9 +178,9 @@ def my_ift2d(tensor):
     
     Uses standard normalization of ifft unlike dip_image.
     """
-    return fftshift2d(tf.ifft2d(ifftshift2d(tensor)))
+    return fftshift(tf.ifft2d(ifftshift(tensor)))*scaling
 
-def my_ft3d(tensor):
+def my_ft3d(tensor, scaling=1.):
     """
     fftshift(fft(ifftshift(a)))
     
@@ -189,9 +189,9 @@ def my_ft3d(tensor):
     
     Uses standard normalization of fft unlike dip_image.
     """
-    return fftshift3d(tf.fft3d(ifftshift3d(tensor)))
+    return fftshift(tf.fft3d(ifftshift(tensor)))/scaling
 
-def my_ift3d(tensor):
+def my_ift3d(tensor, scaling=1.):
     """
     fftshift(ifft(ifftshift(a)))
     
@@ -200,9 +200,62 @@ def my_ift3d(tensor):
     
     Uses standard normalization of fft unlike dip_image.
     """
-    return fftshift3d(tf.ifft3d(ifftshift3d(tensor)))
+    return fftshift(tf.ifft3d(ifftshift(tensor)))*scaling
 
+def fftshift(tfin):
+    '''
+    shifts the coordinate space before an FFT.
 
+    performs an fftshift operation, cyclicly wrapping around by a shift vector corresponding to the middle.
+    The middle will end up at the zero coordinate pixel.
+
+    Parameters
+    ----------
+    tfin : tensorflow array to be shifted
+
+    Returns
+    -------
+    shifted tensorflow array
+    
+    '''
+    with tf.name_scope('preFFTShift'):
+        return tf.manip.roll(tfin,shift=-MidPos(tfin),axis=tf.range(0,tf.size(tf.shape(tfin))))  # makes a copy which is shifted
+
+def ifftshift(tfin):
+    '''
+    shifts the coordinate space after an FFT.
+
+    performs an fftshift operation, cyclicly wrapping around by a shift vector corresponding to the middle.
+    The middle will end up at the zero coordinate pixel.
+
+    Parameters
+    ----------
+    tfin : tensorflow array to be shifted
+
+    Returns
+    -------
+    shifted tensorflow array
+    
+    '''
+    with tf.name_scope('postFFTShift'):
+        return tf.manip.roll(tfin,shift=MidPos(tfin),axis=tf.range(0,tf.size(tf.shape(tfin))))  # makes a copy which is shifted
+
+def MidPos(tfin):
+    '''
+    helper function to get the mid-point in integer coordinates of tensorflow arrays.
+
+    It calculates the floor of the integer division of the shape vector. This is useful to get the zero coordinate in Fourier space
+
+    Parameters
+    ----------
+    tfin : tensorflow array to be convolved with the PSF
+
+    Returns
+    -------
+    vector to mid point 
+    
+    '''
+    return tf.floordiv(tf.shape(tfin),2)
 
 
 ###### CHRISTIANS STUFF

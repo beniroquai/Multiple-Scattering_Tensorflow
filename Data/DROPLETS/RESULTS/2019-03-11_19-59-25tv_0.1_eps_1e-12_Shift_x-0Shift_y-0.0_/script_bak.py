@@ -25,7 +25,7 @@ import src.data as data
 import src.tf_regularizers as reg
 
 # Optionally, tweak styles.
-mpl.rc('figure',  figsize=(9, 6))
+mpl.rc('figure',  figsize=(6, 4))
 mpl.rc('image', cmap='gray')
 #plt.switch_backend('agg')
 #np.set_printoptions(threshold=np.nan)
@@ -52,25 +52,25 @@ NspikeLR = 25000 # try to get the system out of some local minima
 my_learningrate = 1e-1  # learning rate
 NreduceLR = 100 # when should we reduce the Learningrate? 
 
-lambda_tv = ((1e-0))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
-eps_tv = ((1e-8))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+lambda_tv = ((1e-1))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+eps_tv = ((1e-12))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10000
-Niter = 1000
+Niter = 100
 
-Noptpsf = 0
-Nsave = 100 # write info to disk
+Noptpsf = 1
+Nsave = 10 # write info to disk
 Ndisplay = Nsave
 # data files for parameters and measuremets 
-matlab_val_file = './Data/cells/Cell_20x_100a_150-250.tif_allAmp.mat'
-matlab_par_file = './Data/cells/Cell_20x_100a_150-250.tif_myParameter.mat'
+matlab_val_file = './Data/cells/S0019-2a_zstack_dz0-02um_751planes_40x_every8thslice.tif_allAmp.mat'
+matlab_par_file = './Data/cells/S0019-2a_zstack_dz0-02um_751planes_40x_every8thslice.tif_myParameter.mat'
 matlab_par_name = 'myParameter' 
 matlab_val_name = 'allAmpSimu' 
  
 # need to figure out why this holds somehow true - at least produces reasonable results
 dn = .1
-myfac = dn*1e-3
-myabsnorm = myfac
+myfac = 0*1e2# 0*dn*1e-3
+myabsnorm = 1#myfac
 
 np_global_phase = 0.
 np_global_abs = 0.
@@ -89,8 +89,8 @@ if(0):
 NAc = .4
 shiftIcY = 0*.8 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 shiftIcX = 0*1 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-zernikefactors = 0*np.array((0,1,1,0,0,0,-.01,-.5001,0.01,0.01,.010))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
-#zernikefactors = 0*np.array(( 0., 0.001, 0.01, 0, 0, 0., -3.4e-03,  2.2e-03, 2.5e+00, 2.5e+00, -1.0e+00))
+zernikefactors = np.array((0,0,0,0,0,0,-.01,-.5001,0.01,0.01,.010))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
+zernikefactors = 0*np.array(( 0., 0.001, 0.01, 0, 0, 0., -3.4e-03,  2.2e-03, 2.5e+00, 2.5e+00, -1.0e+00))
 
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
 
@@ -142,7 +142,7 @@ sess.run(tf.global_variables_initializer())
 myATF = sess.run(muscat.TF_ATF)
 myASF = sess.run(muscat.TF_ASF) 
 ''' Define Fwd operator'''
-tf_fwd = muscat.computeconvolution(muscat.TF_ATF, myfac=myfac, myabsnorm = myabsnorm)
+tf_fwd = muscat.computeconvolution(muscat.TF_ASF, myfac=myfac, myabsnorm = myabsnorm)
 
 #%%
 ''' Compute a first guess based on the experimental phase '''
@@ -197,7 +197,7 @@ tf_loss = tf_fidelity + tf_tvloss + tf_negsqrloss
 '''Define Optimizer'''
 tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
 tf_lossop_norm = tf_optimizer.minimize(tf_loss, var_list = [tf_global_abs, tf_global_phase])
-tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj, muscat.TF_obj_absorption])
+tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj])#, muscat.TF_obj_absorption])
 tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors])
 tf_lossop = tf_optimizer.minimize(tf_loss)
 
@@ -313,9 +313,9 @@ for iterx in range(iter_last,Niter):
     # Alternate between pure object optimization and aberration recovery
     if (iterx>10) & (Noptpsf>0):
         for iterpsf in range(Noptpsf):
-           sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval, muscat.TF_ATF_placeholder:myATF})
+           sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
         for iterobj in range(Noptpsf):
-           sess.run([tf_lossop_obj], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval, muscat.TF_ATF_placeholder:myATF})
+           sess.run([tf_lossop_obj], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
     else:   
         sess.run([tf_lossop_obj], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
 

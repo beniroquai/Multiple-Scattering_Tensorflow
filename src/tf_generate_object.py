@@ -106,7 +106,7 @@ def generateObject(mysize = [100, 100, 100], obj_dim = [0.1, 0.1, 0.1], obj_type
         obj = mysample + nEmbb
         #plt.imshow(mysample[:,:,16])
 
-    return obj
+    return np.float32(obj)
 
 
             
