@@ -197,7 +197,8 @@ class MuScatModel(object):
             myIntensityFactor = 70
             self.Ic_map = np.cos((myIntensityFactor *tf_helper.xx((self.Nx, self.Ny), mode='freq')**2+myIntensityFactor *tf_helper.yy((self.Nx, self.Ny), mode='freq')**2))**2
             print('We are taking the cosine illuminatino shape!')
-        elif(0):
+           
+        elif(1):
             print('We are taking the gaussian illuminatino shape!')
             myIntensityFactor = 0.01
             self.Ic_map = np.exp(-tf_helper.rr((self.Nx, self.Ny),mode='freq')**2/myIntensityFactor)
@@ -223,7 +224,7 @@ class MuScatModel(object):
         
         self.Ic = self.Ic * self.Ic_map  # weight the intensity in the condenser aperture, unlikely to be uniform
         # print('--------> ATTENTION! - We are not weighing the Intensity int the illu-pupil!')
- 
+        plt.imshow(self.Ic), plt.colorbar(), plt.show()
  
         # Shift the pupil in X-direction (optical missalignment)
         if hasattr(self, 'shiftIcX'):
@@ -309,13 +310,13 @@ class MuScatModel(object):
             self.myAllSlicePropagator_psf = 0*self.myAllSlicePropagator # dummy variable to make the algorithm happy
         
         if is_compute_psf=='sep':
-            self.Alldphi_psf = (np.reshape(np.arange(0, self.mysize[0], 1), [1, 1, self.mysize[0]])-self.Nz/2)*np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2)
+            self.Alldphi_psf = -(np.reshape(np.arange(0, self.mysize[0], 1), [1, 1, self.mysize[0]])-self.Nz/2)*np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2)
             self.myAllSlicePropagator_psf = np.transpose(np.exp(1j*self.Alldphi_psf) * (np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2) >0), [2, 0, 1]);  # Propagates a single end result backwards to all slices
             #self.myAllSlicePropagator_psf = np.transpose(np.exp(1j*self.Alldphi_psf) * (np.repeat(self.dphi[:, :, np.newaxis], self.mysize[0], axis=2) >0), [2, 0, 1]);  # Propagates a single end result backwards to all slices
             
             
         if (self.is_compute_psf=='corr'):
-            self.Alldphi_psf = (np.reshape(np.arange(0, self.mysize[0], 1), [1, 1, self.mysize[0]])-self.Nz/2)*np.repeat(self.dphi[:, :, np.newaxis], self.mysize[0], axis=2)
+            self.Alldphi_psf = -(np.reshape(np.arange(0, self.mysize[0], 1), [1, 1, self.mysize[0]])-self.Nz/2)*np.repeat(self.dphi[:, :, np.newaxis], self.mysize[0], axis=2)
             self.myAllSlicePropagator_psf = np.transpose(np.exp(1j*self.Alldphi_psf) * (np.repeat(self.dphi[:, :, np.newaxis], self.mysize[0], axis=2) >0), [2, 0, 1]);  # Propagates a single end result backwards to all slices
             self.myAllSlicePropagator = 0*self.myAllSlicePropagator_psf # dummy variable to make the algorithm happy
             self.A_prop = 0*self.Alldphi_psf # dummy variable to make the algorithm happy
@@ -459,32 +460,32 @@ class MuScatModel(object):
         # here we only want to gather the partially coherent transfer function PTF
         # which is the correlation of the PTF_c and PTF_i 
         # we compute it as the slice propagation of the pupil function
-        
+        myfftfac = np.prod(self.mysize)
         # 1. + 2.) Define the input field as the BFP and effective pupil plane of the condenser 
         # Compute the ASF for the Condenser and Imaging Pupil
-        TF_ASF_po = tf_helper.my_ift2d(self.TF_myAllSlicePropagator_psf * tf_helper.fftshift2d(self.TF_Po ))#* self.TF_Po_aberr))
-        TF_ASF_ic = tf_helper.my_ift2d(self.TF_myAllSlicePropagator_psf * self.TF_Ic)
+        TF_ASF_po = tf_helper.my_ift2d(self.TF_myAllSlicePropagator_psf * tf_helper.fftshift2d(self.TF_Po_aberr),myfftfac)#* self.TF_Po_aberr))
+        TF_ASF_ic = tf_helper.my_ift2d(self.TF_myAllSlicePropagator_psf * self.TF_Ic,myfftfac)
         #TF_ASF_po = TF_ASF_po/tf.complex(np.float32(np.sqrt(np.prod(self.mysize))),0.); # not necerssary for TF!
         #TF_ASF_ic = TF_ASF_ic/tf.complex(np.float32(np.sqrt(np.prod(self.mysize))),0.); # not necerssary for TF!
         
         # normalize ATF to their maximum maginitude 
-        TF_ATF_po = tf_helper.my_ft3d(TF_ASF_po)
+        TF_ATF_po = tf_helper.my_ft3d(TF_ASF_po,myfftfac)
         TF_ATF_po = TF_ATF_po/tf.complex(tf.reduce_max(tf.abs(TF_ATF_po)),0.)
-        TF_ATF_ic = tf_helper.my_ft3d(TF_ASF_ic) 
+        TF_ATF_ic = tf_helper.my_ft3d(TF_ASF_ic,myfftfac) 
         TF_ATF_ic = TF_ATF_ic/tf.complex(tf.reduce_max(tf.abs(TF_ATF_ic)),0.)
 
-        sess = tf.Session();         sess.run(tf.global_variables_initializer())
-        sess.run(TF_ATF_po)
+        #sess = tf.Session();         sess.run(tf.global_variables_initializer())
+        #sess.run(TF_ATF_po)
         #myV = sess.run(self.TF_V)
         #plt.imshow(np.abs(sess.run(tf_helper.my_ft3d(self.TF_V)))[:,16,:]), plt.colorbar(), plt.show()
         #plt.imshow(np.angle(sess.run(tf_helper.my_ft3d(self.TF_V)))[:,16,:]), plt.colorbar(), plt.show()        
         
         # 3.) correlation of the pupil function to get the APTF
-        TF_ASF = tf_helper.my_ft3d(TF_ATF_po)*tf.conj(tf_helper.my_ft3d(TF_ATF_ic))
-        TF_ASF = TF_ASF/tf.complex(np.float32(np.sqrt(np.prod(self.mysize))),0.); # not necerssary for TF!
-        TF_ATF = tf_helper.my_ft3d(TF_ASF)
-        TF_ATF = TF_ATF/tf.complex(np.float32(np.sqrt(np.prod(self.mysize))),0.); # not necerssary for TF!
-        myTF_ATF = sess.run(TF_ATF)
+        TF_ASF = tf_helper.my_ift3d(TF_ATF_po,myfftfac)*tf.conj(tf_helper.my_ift3d(TF_ATF_ic,myfftfac))
+        #TF_ASF = TF_ASF/tf.complex(np.float32(np.sqrt(np.prod(self.mysize))),0.); # not necerssary for TF!
+        TF_ATF = tf_helper.my_ft3d(TF_ASF,myfftfac)
+        #TF_ATF = TF_ATF/tf.complex(np.float32(np.sqrt(np.prod(self.mysize))),0.); # not necerssary for TF!
+        #myTF_ATF = sess.run(TF_ATF)
         
         #plt.imshow(np.sum(np.abs(myTF_ATF),0)), plt.colorbar(), plt.show()
         #plt.imshow(np.angle(sess.run(tf_helper.my_ft3d(self.TF_V)))[:,16,:]), plt.colorbar(), plt.show()        
@@ -497,8 +498,9 @@ class MuScatModel(object):
         normfactor = np.sum(normfactor)
         print(normfactor)
         # %If normafactor == 0, we are imaging with dark-field system.
-        TF_ATF = TF_ATF/tf.complex(np.float32(normfactor*self.lambda0*4.*np.pi),0.)
-        TF_ASF = tf_helper.my_ift3d(TF_ATF)
+        #TF_ATF = TF_ATF/tf.complex(np.float32(normfactor*self.lambda0*4.*np.pi),0.)
+        TF_ATF = TF_ATF/tf.complex(np.float32(normfactor),0.)
+        TF_ASF = tf_helper.my_ift3d(TF_ATF,myfftfac)
         #myasf = myasf/sqrt(sum(abssqr(myasf))); % not necerssary for TF!
 
         return TF_ASF, TF_ATF 
@@ -508,18 +510,11 @@ class MuScatModel(object):
         # TF_ATF - is the tensorflow node holding the ATF - alternatively use numpy arry!
         print('Computing the fwd model in born approximation')
 
-        mysample = (tf_helper.rr(self.obj.shape)<1)*.1
-        mysample = 1.33+mysample + 0j
-        k02 = (2*np.pi/.65)**2
-        myV = (k02*(mysample**2-1.33**2))
-        if(1):
-            # compute the scattering potential according to 1st Born
-            self.TF_nr = tf.complex(self.TF_obj, self.TF_obj_absorption)
-            self.TF_no = tf.cast(self.nEmbb+0j, tf.complex64)
-            #k02 = (2*np.pi/self.lambda0)**2
-            self.TF_V = k02*(self.TF_nr**2-self.TF_no**2)
-        #self.TF_V = tf.cast(myV,tf.complex64)
-        
+        # compute the scattering potential according to 1st Born
+        self.TF_nr = tf.complex(self.TF_obj, self.TF_obj_absorption)
+        self.TF_no = tf.cast(self.nEmbb+0j, tf.complex64)
+        k02 = (2*np.pi/self.lambda0)**2
+        self.TF_V = k02*(self.TF_nr**2-self.TF_no**2)
         
         # We need to have a placeholder because the ATF is computed afterwards...
         if (TF_ASF is None):

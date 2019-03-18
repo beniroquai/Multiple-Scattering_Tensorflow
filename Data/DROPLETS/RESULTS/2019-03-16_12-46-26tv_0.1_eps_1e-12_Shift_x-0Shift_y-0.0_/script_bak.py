@@ -25,7 +25,7 @@ import src.data as data
 import src.tf_regularizers as reg
 
 # Optionally, tweak styles.
-mpl.rc('figure',  figsize=(9, 6))
+mpl.rc('figure',  figsize=(6, 4))
 mpl.rc('image', cmap='gray')
 #plt.switch_backend('agg')
 #np.set_printoptions(threshold=np.nan)
@@ -59,7 +59,7 @@ lambda_neg = 10000
 Niter = 1000
 
 Noptpsf = 1
-Nsave = 50 # write info to disk
+Nsave = 100 # write info to disk
 Ndisplay = Nsave
 # data files for parameters and measuremets 
 matlab_val_file = './Data/cells/S0019-2a_zstack_dz0-02um_751planes_40x_every8thslice.tif_allAmp.mat'
@@ -67,29 +67,24 @@ matlab_par_file = './Data/cells/S0019-2a_zstack_dz0-02um_751planes_40x_every8ths
 matlab_par_name = 'myParameter' 
 matlab_val_name = 'allAmpSimu' 
 
-
+# data files for parameters and measuremets 
+matlab_val_file = './Data/cells/Cell_20x_100a_150-250.tif_allAmp.mat'
+matlab_par_file = './Data/cells/Cell_20x_100a_150-250.tif_myParameter.mat'
+matlab_par_name = 'myParameter' 
+matlab_val_name = 'allAmpSimu' 
  
 if(1):
-    # 10mum bead
     # data files for parameters and measuremets 
     matlab_val_file = './Data/cells/Beads_40x_100a_100-250.tif_allAmp.mat'
     matlab_par_file = './Data/cells/Beads_40x_100a_100-250.tif_myParameter.mat'
     matlab_par_name = 'myParameter' 
     matlab_val_name = 'allAmpSimu' 
-    mybackgroundval = -.95j  
 elif(0):
     # data files for parameters and measuremets 
     matlab_val_file = './Data/cells/cross_section_10x0.3_hologram_full.tif_allAmp.mat'
     matlab_par_file = './Data/cells/cross_section_10x0.3_hologram_full.tif_myParameter.mat'
     matlab_par_name = 'myParameter' 
-    matlab_val_name = 'allAmpSimu'
-elif(1):
-    # data files for parameters and measuremets 
-    matlab_val_file = './Data/cells/Cell_20x_100a_150-250.tif_allAmp.mat'
-    matlab_par_file = './Data/cells/Cell_20x_100a_150-250.tif_myParameter.mat'
-    matlab_par_name = 'myParameter' 
-    matlab_val_name = 'allAmpSimu'   
-    mybackgroundval = -.85j    
+    matlab_val_name = 'allAmpSimu'      
  
 # need to figure out why this holds somehow true - at least produces reasonable results
 dn = .1
@@ -99,8 +94,18 @@ myabsnorm = 1e5#myfac
 np_global_phase = 0.
 np_global_abs = 0.
 
+
+if(0):
+    matlab_val_file = './Data/DROPLETS/RESULTS/allAmp_simu.npy'
+    matlab_par_file = './Data/DROPLETS/S14a_multiple/Parameter.mat'; matname='myParameter'
+    myabsnorm=.00018
+    myfac =  1e-3
+    np_global_phase = 0.
+    np_global_abs = 5.
+
+
 ''' microscope parameters '''
-NAc = .4
+NAc = .3
 shiftIcY = 0*.8 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 shiftIcX = 0*1 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 zernikefactors = np.array((0,0,0,0,0,0,-.01,-.5001,0.01,0.01,.010))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
@@ -123,7 +128,6 @@ else:
 
 if(np.mod(matlab_val.shape[0],2)==1):
     matlab_val = matlab_val[0:matlab_val.shape[0]-1,:,:]
-matlab_val = matlab_val + mybackgroundval
 #roisize=50
 #roicenter = np.array((215,201))
 #matlab_val = np.flip(matlab_val[0:100,roicenter[0]-roisize:roicenter[0]+roisize,roicenter[1]-roisize:roicenter[1]+roisize],0)
@@ -164,11 +168,15 @@ tf_fwd = muscat.computeconvolution(muscat.TF_ASF, myfac=myfac, myabsnorm = myabs
 
 #%%
 ''' Compute a first guess based on the experimental phase '''
-init_guess =  np.zeros(matlab_val.shape)+muscat.nEmbb# np.angle(matlab_val)## 
+init_guess =  np.ones(matlab_val.shape)# np.angle(matlab_val)## 
 #init_guess = init_guess-np.min(init_guess)
-#init_guess = dn*init_guess/np.max(init_guess)+muscat.nEmbb#*dn+1j*.01*np.ones(init_guess.shape)
+init_guess = dn*init_guess/np.max(init_guess)+muscat.nEmbb#*dn+1j*.01*np.ones(init_guess.shape)
 
-
+if(0):
+    mydiameter = 5
+    obj = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = dn)#)dn)
+    obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .01)
+    init_guess = muscat.nEmbb+obj+1j*obj_absorption*0
 #%%
 '''# Estimate the Phase difference between Measurement and Simulation'''
 # This is actually a crucial step and needs to be used with care. We don't want any phase wrappings ! 
@@ -211,7 +219,7 @@ tf_loss = tf_fidelity + tf_tvloss + tf_negsqrloss
 '''Define Optimizer'''
 tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
 tf_lossop_norm = tf_optimizer.minimize(tf_loss, var_list = [tf_global_abs, tf_global_phase])
-tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj])#, muscat.TF_obj_absorption])
+tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj, muscat.TF_obj_absorption])
 tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors])
 tf_lossop = tf_optimizer.minimize(tf_loss)
 
@@ -220,8 +228,8 @@ sess = tf.Session()
 sess.run(tf.global_variables_initializer())
 
 # Assign the initial guess to the object inside the fwd-model
-sess.run(tf.assign(muscat.TF_obj, np.real(init_guess))); # assign abs of measurement as initial guess of 
-sess.run(tf.assign(muscat.TF_obj_absorption, np.imag(init_guess))); # assign abs of measurement as initial guess of 
+#sess.run(tf.assign(muscat.TF_obj, np.real(init_guess))); # assign abs of measurement as initial guess of 
+#sess.run(tf.assign(muscat.TF_obj_absorption, np.imag(init_guess))); # assign abs of measurement as initial guess of 
 
 ''' Compute the ATF '''
 if(1):
