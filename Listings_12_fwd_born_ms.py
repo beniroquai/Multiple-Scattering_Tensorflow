@@ -52,7 +52,10 @@ mysubsamplingIC=0
 
 
 
-psf_modell = 'corr'#'corr' # None # 'sep'
+psf_modell =  'corr' # 1st Born
+#psf_modell =  'sep' # 1st Born
+psf_modell =  None # MultiSlice
+
 
 tf.reset_default_graph()
 
@@ -69,11 +72,11 @@ zernikefactors = np.array((0,0,0,0,0,0,0,0,0.0,0.0,0.0)) # 7: ComaX, 8: ComaY, 1
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
 muscat.shiftIcX = 0 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 muscat.shiftIcY = 0 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-muscat.NAc = .1
+muscat.NAc = .3
 muscat.NAo = .95
 
 
-dn = .105 #(1.437-1.3326)#/np.pi
+dn = .01 #(1.437-1.3326)#/np.pi
 myfac = 1 #- 1e-6
 
 
@@ -155,6 +158,7 @@ if psf_modell == None:
     print(end - start)
 
     
+    
 else:
     muscat.computesys(obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf=psf_modell)
 
@@ -184,7 +188,7 @@ plt.figure()
 
 
 #%%
-if(0):
+if(1):
     plt.figure()    
     plt.subplot(231), plt.title('real XZ'), plt.imshow(np.real(((myASF)))[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
     plt.subplot(233), plt.title('real XZ'), plt.imshow(np.real(((myASF)))[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    

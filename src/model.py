@@ -198,7 +198,7 @@ class MuScatModel(object):
             self.Ic_map = np.cos((myIntensityFactor *tf_helper.xx((self.Nx, self.Ny), mode='freq')**2+myIntensityFactor *tf_helper.yy((self.Nx, self.Ny), mode='freq')**2))**2
             print('We are taking the cosine illuminatino shape!')
            
-        elif(1):
+        elif(0):
             print('We are taking the gaussian illuminatino shape!')
             myIntensityFactor = 0.03
             self.Ic_map = np.exp(-tf_helper.rr((self.Nx, self.Ny),mode='freq')**2/myIntensityFactor)
@@ -455,6 +455,99 @@ class MuScatModel(object):
         #TF_ATF = tf_helper.my_ift3d(TF_ASF)#/tf.cast(np.sqrt(np.prod(self.mysize)), tf.complex64)
         return TF_ASF, TF_ATF 
 
+    #sess = tf.Session();         sess.run(tf.global_variables_initializer())
+    #sess.run(TF_ATF_po)
+    #myV = sess.run(self.TF_V)
+    #plt.imshow(np.abs(sess.run(tf_helper.my_ft3d(self.TF_V)))[:,16,:]), plt.colorbar(), plt.show()
+    #plt.imshow(np.angle(sess.run(tf_helper.my_ft3d(self.TF_V)))[:,16,:]), plt.colorbar(), plt.show()        
+
+    def px_freq_step(self, im=(256, 256), pxs=62.5):
+        """
+            returns the frequency step in of one pixel in the fourier space for a given image as a list for the different coordinates
+            The unit is 1/[unit pxs]
+    
+            pixelsize can be a number or a tupel:
+                if number: pixelsize will be used for all dimensions
+                if tupel: individual pixelsize for individual dimension, but: coord list and pixelsize list have to have the same dimension
+            im: image or Tuple
+            pxs: pixelsize
+        """
+
+        if isinstance(im, np.ndarray):
+            im = im.shape
+
+        if type(im) == list:
+            im = tuple(im)
+
+        import numbers
+        if isinstance(pxs, numbers.Number):
+            pxs = [pxs for i in im]
+        if type(pxs) == tuple or isinstance(pxs, np.ndarray):
+            pxs = list(pxs)
+        if type(pxs) != list:
+            print('Wrong data type for pixelsize!!!')
+            return
+
+        return ([1 / (p * s) for p, s in zip(pxs, im)])
+    
+
+    def computepsf_RH(self, NA):
+        #    def simLens(im, psf_params = PSF_PARAMS):
+        '''
+        Compute the focal plane field (fourier transform of the electrical field in the plane (at position PSF_PARAMS.off_focal_dist)
+        
+        The following influences will be included:
+            1.)     Mode of plane field generation (from sinc or circle)
+            2.)     Aplanatic factor
+            3.)     Potential aberrations (set by set_aberration_map)
+            4.)     Vectorial effects
+        
+        returns image of shape (3,y_im,x_im) where x_im and y_im are the xy dimensions of the input image. In the third dimension are the field components (0: Ex, 1: Ey, 2: Ez)
+        '''
+        
+        # setting up parameters:
+
+        wl = self.lambda0
+        n = self.nEmmb
+        shape = self.mysize
+        pxs = (self.dz, self.dx, self.dy)
+        ft_pxs = self.px_freq_step(im=shape, pxs=pxs)
+
+        r = tf_helper.rr(shape, scale=ft_pxs) * wl / NA  # [:2]
+        aperture = np.fft.ifftshift(self.Po) #(r<=1)*1.0           # aperture transmission
+        r = (r<=1)*r;                   # normalized aperture coordinate
+        s = NA / n;
+        cos_alpha = np.sqrt(1-(s*r)**2);   # angle map cos
+        sin_alpha = s*r;                   # angle map sin
+        
+        # Make base field
+        plane = aperture*1j;
+                
+        # Apply z-offset:
+        plane *= np.exp(-2j*n*np.pi/wl * cos_alpha * self.Nz/2);
+        
+        # expand to 4 Dims, the 4th will contain the electric fields
+        plane = plane.cat([plane,plane],-4);
+        plane.dim_description = {'d3': ['Ex','Ey','Ez']}
+        
+        #Apply vectorized distortions
+        polx, poly = __setPol__(im, psf_params= psf_params);
+        if psf_params.vectorized:
+            theta = phiphi(shape);
+            E_radial     = np.cos(theta)*polx-np.sin(theta)*poly;
+            E_tangential = np.sin(theta)*polx+np.cos(theta)*poly;
+            E_z = E_radial*sin_alpha;
+            E_radial *=cos_alpha;
+            plane[0]*= np.cos(theta)*E_radial+np.sin(theta)*E_tangential;
+            plane[1]*=-np.sin(theta)*E_radial+np.cos(theta)*E_tangential;
+            plane[2]*= E_z;
+        else:
+            plane[0]*=polx;
+            plane[1]*=poly;
+            plane[2]*=0;
+        return plane # *aperture  # hard edge aperture at ?
+        
+
 
     def computepsf(self):
         # here we only want to gather the partially coherent transfer function PTF
@@ -463,46 +556,46 @@ class MuScatModel(object):
         myfftfac = np.prod(self.mysize)
         # 1. + 2.) Define the input field as the BFP and effective pupil plane of the condenser 
         # Compute the ASF for the Condenser and Imaging Pupil
-        TF_ASF_po = tf_helper.my_ift2d(self.TF_myAllSlicePropagator_psf * tf_helper.fftshift2d(self.TF_Po_aberr),myfftfac)#* self.TF_Po_aberr))
+        TF_ASF_po = tf_helper.my_ift2d(self.TF_myAllSlicePropagator_psf * tf_helper.fftshift2d(self.TF_Po_aberr*1j),myfftfac)#* self.TF_Po_aberr))
+        TF_ATF_po = TF_ASF_po/tf.complex(tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(TF_ASF_po))),0.)
         TF_ASF_ic = tf_helper.my_ift2d(self.TF_myAllSlicePropagator_psf * self.TF_Ic,myfftfac)
-        #TF_ASF_po = TF_ASF_po/tf.complex(np.float32(np.sqrt(np.prod(self.mysize))),0.); # not necerssary for TF!
-        #TF_ASF_ic = TF_ASF_ic/tf.complex(np.float32(np.sqrt(np.prod(self.mysize))),0.); # not necerssary for TF!
+        TF_ASF_ic = TF_ASF_ic/tf.complex(tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(TF_ASF_ic))),0.)
         
         # normalize ATF to their maximum maginitude 
         TF_ATF_po = tf_helper.my_ft3d(TF_ASF_po,myfftfac)
-        TF_ATF_po = TF_ATF_po/tf.complex(tf.reduce_max(tf.abs(TF_ATF_po)),0.)
-        TF_ATF_ic = tf_helper.my_ft3d(TF_ASF_ic,myfftfac) 
-        TF_ATF_ic = TF_ATF_ic/tf.complex(tf.reduce_max(tf.abs(TF_ATF_ic)),0.)
+        #TF_ATF_po = TF_ATF_po/tf.complex(tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(TF_ATF_po))),0.)
+        TF_ATF_ic = tf_helper.my_ft3d(TF_ASF_ic,myfftfac)
+        #TF_ATF_ic = TF_ATF_ic/tf.complex(tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(TF_ATF_ic))),0.)
 
-        #sess = tf.Session();         sess.run(tf.global_variables_initializer())
-        #sess.run(TF_ATF_po)
-        #myV = sess.run(self.TF_V)
-        #plt.imshow(np.abs(sess.run(tf_helper.my_ft3d(self.TF_V)))[:,16,:]), plt.colorbar(), plt.show()
-        #plt.imshow(np.angle(sess.run(tf_helper.my_ft3d(self.TF_V)))[:,16,:]), plt.colorbar(), plt.show()        
         
         # 3.) correlation of the pupil function to get the APTF
         TF_ASF = tf_helper.my_ift3d(TF_ATF_po,myfftfac)*tf.conj(tf_helper.my_ift3d(TF_ATF_ic,myfftfac))
-        #TF_ASF = TF_ASF/tf.complex(np.float32(np.sqrt(np.prod(self.mysize))),0.); # not necerssary for TF!
+        #normfac = tf.complex(tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(TF_ASF), axis=(1,2))),0.)
+        #normfac = tf.expand_dims(tf.expand_dims(normfac,1),1)
+        #TF_ASF = TF_ASF/normfac
+        
         TF_ATF = tf_helper.my_ft3d(TF_ASF,myfftfac)
+        #normfactor = np.abs(np.fft.ifftshift(self.Po)**2)*np.abs(self.Ic); 
+        #normfactor = (tf.reduce_sum((TF_ASF),axis=(0,1,2)))
+        #normfactor = tf.expand_dims(tf.expand_dims(tf.complex(normfactor, 0.),1),1)
+        #normfactor = tf.complex(normfactor, 0.)
+        #TF_ASF = TF_ASF/normfactor
+        
+        
+        #TF_ASF = TF_ASF/tf.complex(np.float32(np.sqrt(np.prod(self.mysize))),0.); # not necerssary for TF!
+        #TF_ATF = tf_helper.my_ft3d(TF_ASF,myfftfac)
         #TF_ATF = TF_ATF/tf.complex(np.float32(np.sqrt(np.prod(self.mysize))),0.); # not necerssary for TF!
-        #myTF_ATF = sess.run(TF_ATF)
-        
-        #plt.imshow(np.sum(np.abs(myTF_ATF),0)), plt.colorbar(), plt.show()
-        #plt.imshow(np.angle(sess.run(tf_helper.my_ft3d(self.TF_V)))[:,16,:]), plt.colorbar(), plt.show()        
-        
-        #
         
         # Following is the normalization according to Martin's book. We do not use it, because the
         # following leads to divide by zero for dark-field system.
-        normfactor = np.abs(np.fft.ifftshift(self.Po)**2)*np.abs(self.Ic); 
+        normfactor = tf_helper.abssqr(np.fft.ifftshift(self.Po))*np.abs(self.Ic); 
         normfactor = np.sum(normfactor)
         print(normfactor)
         # %If normafactor == 0, we are imaging with dark-field system.
         #TF_ATF = TF_ATF/tf.complex(np.float32(normfactor*self.lambda0*4.*np.pi),0.)
-        TF_ATF = TF_ATF/tf.complex(np.float32(normfactor),0.)
-        TF_ASF = tf_helper.my_ift3d(TF_ATF,myfftfac)
-        #myasf = myasf/sqrt(sum(abssqr(myasf))); % not necerssary for TF!
-
+        #TF_ATF = TF_ATF/tf.complex(np.float32(normfactor),0.)
+        #TF_ASF = tf_helper.my_ift3d(TF_ATF,myfftfac)
+        
         return TF_ASF, TF_ATF 
 
     def computeconvolution(self, TF_ASF=None, myfac=1., myabsnorm=1):
@@ -538,7 +631,7 @@ class MuScatModel(object):
         print('ATTENTION: WEIRD MAGIC NUMBER for background field!!')
         
         #return (tf.squeeze(TF_res)-1e-4j)/1e-4#tf.squeeze((TF_res-(0+1j*(1e-4)))/(1e-4))
-        return tf.squeeze(TF_res-1j*myfac)/myfac 
+        return tf.squeeze(TF_res-1j*myfac+1)/myfac 
            
         
     def propslices(self):
