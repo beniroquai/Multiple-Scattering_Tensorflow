@@ -135,7 +135,7 @@ if(np.mod(matlab_val.shape[0],2)==1):
 matlab_val = matlab_val + mybackgroundval
 #roisize=50
 #roicenter = np.array((215,201))
-#matlab_val = np.flip(matlab_val,0 )#[0:100,roicenter[0]-roisize:roicenter[0]+roisize,roicenter[1]-roisize:roicenter[1]+roisize],0)
+matlab_val = np.flip(matlab_val,0 )#[0:100,roicenter[0]-roisize:roicenter[0]+roisize,roicenter[1]-roisize:roicenter[1]+roisize],0)
 
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)

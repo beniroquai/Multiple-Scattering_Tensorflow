@@ -18,7 +18,7 @@ import scipy.misc
 from src import tf_helper as tf_helper
 
 
-def generateObject(mysize = [100, 100, 100], obj_dim = [0.1, 0.1, 0.1], obj_type ='sphere', diameter = 1, dn = 0.1, nEmbb=0):
+def generateObject(mysize = [100, 100, 100], obj_dim = ((1.5, .75, .75)), obj_type ='sphere', diameter = 1, dn = 0.1, nEmbb=0):
     ''' Function to generate a 3D RI distribution to give an artificial sample for testing the FWD system
     INPUTS:
         obj_shape - Nx, Ny, Nz e.g. [100, 100, 100]
@@ -39,8 +39,15 @@ def generateObject(mysize = [100, 100, 100], obj_dim = [0.1, 0.1, 0.1], obj_type
     if(obj_type=='sphere'):
         # one spherical object inside a volume
         obj = np.zeros(mysize)+nEmbb
-        mysphere = (tf_helper.rr((mysize[0], mysize[1], mysize[2]), mode='center', scale=[1.5, .75, .75])<diameter)
+        mysphere = (tf_helper.rr((mysize[0], mysize[1], mysize[2]), mode='center')*obj_dim<diameter)
         obj[mysphere] = dn+nEmbb
+    if(obj_type=='hollowsphere'):
+        # one spherical object inside a volume
+        obj = np.zeros(mysize)+nEmbb
+        mysphere_outer = (tf_helper.rr((mysize[0], mysize[1], mysize[2]), mode='center')*obj_dim<diameter)
+        mysphere_inner = (tf_helper.rr((mysize[0], mysize[1], mysize[2]), mode='center')*obj_dim>(diameter-2))
+        mysphere = mysphere_outer*mysphere_inner
+        obj[mysphere] = dn+nEmbb        
         
     elif(obj_type == 'twosphere'):
         # two spherical objects inside a volume
@@ -51,7 +58,7 @@ def generateObject(mysize = [100, 100, 100], obj_dim = [0.1, 0.1, 0.1], obj_type
         sphere2 = np.roll(sphere,-7,0);      
         mysphere = sphere1 + sphere2 
         obj = np.zeros(mysize)+nEmbb
-        obj[mysphere] = dn+nEmbb
+        obj[mysphere>0] = dn+nEmbb
 
 
     elif(obj_type == 'eightsphere'):

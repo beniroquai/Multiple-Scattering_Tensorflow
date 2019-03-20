@@ -49,69 +49,40 @@ NspikeLR = 25000 # try to get the system out of some local minima
 
 '''Define Optimization Parameters'''
 # these are hyperparameters
-my_learningrate = 1e-1  # learning rate
-NreduceLR = 500 # when should we reduce the Learningrate? 
+my_learningrate = 1e-2  # learning rate
+NreduceLR = 2000 # when should we reduce the Learningrate? 
 
-lambda_tv = ((1e-2))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
-eps_tv = ((1e-12))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+lambda_tv = 1e-1##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+eps_tv = ((1e-15))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+
 # these are fixed parameters
 lambda_neg = 10000
-Niter = 1200
+Niter = 400
 
-Noptpsf = 1
-Nsave = 100 # write info to disk
+Noptpsf = 0
+Nsave =50 # write info to disk
 Ndisplay = Nsave
 
 
- 
-if(0):
-    # 10mum bead
-    # data files for parameters and measuremets 
-    matlab_val_file = './Data/cells/Beads_40x_100a_100-250.tif_allAmp.mat'
-    matlab_par_file = './Data/cells/Beads_40x_100a_100-250.tif_myParameter.mat'
-    matlab_par_name = 'myParameter' 
-    matlab_val_name = 'allAmpSimu' 
-    mybackgroundval = -.95j  
-elif(1):
-    # data files for parameters and measuremets 
-    matlab_val_file = './Data/cells/cross_section_10x0.3_hologram_full.tif_allAmp.mat'
-    matlab_par_file = './Data/cells/cross_section_10x0.3_hologram_full.tif_myParameter.mat'
-    matlab_par_name = 'myParameter' 
-    matlab_val_name = 'allAmpSimu'
-    mybackgroundval = -1j
-elif(0):
-    # data files for parameters and measuremets 
-    matlab_val_file = './Data/cells/Cell_20x_100a_150-250.tif_allAmp.mat'
-    matlab_par_file = './Data/cells/Cell_20x_100a_150-250.tif_myParameter.mat'
-    matlab_par_name = 'myParameter' 
-    matlab_val_name = 'allAmpSimu'   
-    mybackgroundval = -.85j  
-elif(0):
-    # data files for parameters and measuremets 
-    matlab_val_file = './Data/cells/S0019-2a_zstack_dz0-02um_751planes_40x_every8thslice.tif_allAmp.mat'
-    matlab_par_file = './Data/cells/S0019-2a_zstack_dz0-02um_751planes_40x_every8thslice.tif_myParameter.mat'
-    matlab_par_name = 'myParameter' 
-    matlab_val_name = 'allAmpSimu'
-else:
-    matlab_par_file = './Data/DROPLETS/S19_multiple/Parameter.mat'; matlab_par_name='myParameter'
-    matlab_val_file = './Data/DROPLETS/RESULTS/allAmp_simu.npy'
-    mybackgroundval = -1j
+# where is the data stored?
+matlab_par_file = './Data/DROPLETS/S19_multiple/Parameter.mat'; matname='myParameter'
+matlab_val_file = './Data/DROPLETS/RESULTS/allAmp_simu.npy'
+mybackgroundval = 0
 
- 
 # need to figure out why this holds somehow true - at least produces reasonable results
-dn = .051
+dn = .05
 myfac = 1e0# 0*dn*1e-3
 myabsnorm = 1e5#myfac
 
 np_global_phase = 0.
-np_global_abs = 0.
+np_global_abs = 1.
 
 ''' microscope parameters '''
-NAc = .52
+NAc = .4
 shiftIcY = 0*.8 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 shiftIcX = 0*1 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 zernikefactors = np.array((0,0,0,0,0,0,-.01,-.5001,0.01,0.01,.010))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
-zernikefactors = np.array(( 0.001, 0.001, 0.01, 0, 0, 0., -3.4e-03,  2.2e-03, 0.001, .001, -1.0e+00))
+zernikefactors = 0*np.array(( 0.001, 0.001, 0.01, 0, 0, 0., -3.4e-03,  2.2e-03, 0.001, .001, -1.0e+00))
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
 
 '''START CODE'''
@@ -133,9 +104,6 @@ if(np.mod(matlab_val.shape[0],2)==1):
     
     
 matlab_val = matlab_val + mybackgroundval
-#roisize=50
-#roicenter = np.array((215,201))
-#matlab_val = np.flip(matlab_val,0 )#[0:100,roicenter[0]-roisize:roicenter[0]+roisize,roicenter[1]-roisize:roicenter[1]+roisize],0)
 
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
@@ -145,7 +113,6 @@ muscat.shiftIcY=shiftIcY
 muscat.shiftIcX=shiftIcX
 muscat.dn = dn
 muscat.NAc = NAc
-#muscat.dz = muscat.lambda0/2
 
 ''' Adjust some parameters to fit it in the memory '''
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
@@ -160,23 +127,22 @@ mydiameter = 10
 obj_real = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)#)dn)
 obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .0, nEmbb = 0)
 obj = obj_real + 1j*obj_absorption
-muscat.computesys(obj=obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='corr')
+muscat.computesys(obj=obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf=None)
 
 ''' Create Model Instance'''
 muscat.computemodel()
    
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
-myATF = sess.run(muscat.TF_ATF)
-myASF = sess.run(muscat.TF_ASF) 
 ''' Define Fwd operator'''
-tf_fwd = muscat.computeconvolution(muscat.TF_ASF, myfac=myfac, myabsnorm = myabsnorm)
+tf_fwd = muscat.computemodel(is_forcepos=False)
+
 
 #%%
 ''' Compute a first guess based on the experimental phase '''
-init_guess =  np.zeros(matlab_val.shape)+muscat.nEmbb# np.angle(matlab_val)## 
-#init_guess = init_guess-np.min(init_guess)
-#init_guess = dn*init_guess/np.max(init_guess)+muscat.nEmbb#*dn+1j*.01*np.ones(init_guess.shape)
+init_guess =  np.angle(matlab_val)## np.zeros(matlab_val.shape)+muscat.nEmbb
+init_guess = init_guess-np.min(init_guess)
+init_guess = dn*init_guess/np.max(init_guess)#+muscat.nEmbb#*dn+1j*.01*np.ones(init_guess.shape)
 
 
 #%%
@@ -184,7 +150,7 @@ init_guess =  np.zeros(matlab_val.shape)+muscat.nEmbb# np.angle(matlab_val)##
 # This is actually a crucial step and needs to be used with care. We don't want any phase wrappings ! 
 '''Numpy to Tensorflow'''
 np_meas = matlab_val
-#np_mean = 1#np.mean(np_meas)
+np_mean = np.mean(np_meas)
 #np_meas = np_meas/np_mean
 #print("Mean of the MEasurement is: "+str(np_mean))
 
@@ -204,9 +170,11 @@ tf_negsqrloss = lambda_neg*reg.Reg_NegSqr(muscat.TF_obj)
 tf_negsqrloss += lambda_neg*reg.Reg_NegSqr(muscat.TF_obj_absorption)
 
 # Correc the fwd model - not good here!
-tf_norm = tf.complex(tf_global_phase, tf_global_abs)
-tf_fwd_corrected = tf_fwd+tf_norm
-#tf_fwd_corrected = (tf_fwd+1j*tf.cast(tf_global_phase, tf.complex64))/tf.cast(tf_global_abs, tf.complex64)
+if(0):
+    tf_norm = tf.complex(tf_global_phase, tf_global_abs)
+    tf_fwd_corrected = tf_fwd+tf_norm
+else:
+    tf_fwd_corrected = (tf_fwd*tf.exp(1j*tf.cast(tf_global_phase, tf.complex64)))/tf.cast(tf_global_abs, tf.complex64)
 
 
 '''Define Loss-function'''
@@ -221,7 +189,7 @@ tf_loss = tf_fidelity + tf_tvloss + tf_negsqrloss
 '''Define Optimizer'''
 tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
 tf_lossop_norm = tf_optimizer.minimize(tf_loss, var_list = [tf_global_abs, tf_global_phase])
-tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj, muscat.TF_obj_absorption])
+tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj, tf_global_abs, tf_global_phase])#, muscat.TF_obj_absorption])
 tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors])
 tf_lossop = tf_optimizer.minimize(tf_loss)
 
@@ -233,24 +201,7 @@ sess.run(tf.global_variables_initializer())
 sess.run(tf.assign(muscat.TF_obj, np.real(init_guess))); # assign abs of measurement as initial guess of 
 sess.run(tf.assign(muscat.TF_obj_absorption, np.imag(init_guess))); # assign abs of measurement as initial guess of 
 
-''' Compute the ATF '''
-if(1):
-    print('We are precomputing the PSF')
-    myATF = sess.run(muscat.TF_ATF)
-    myASF = sess.run(muscat.TF_ASF)    
-    #%%
-    #np.save('myATF.npy', myATF)
-    #%%
-else:
-    myATF = np.load('myATF.npy')
-#%%
-plt.figure()    
-plt.subplot(231), plt.imshow(np.abs(((myATF))**.2)[:,myATF.shape[1]//2,:]), plt.colorbar()#, plt.show()
-plt.subplot(232), plt.imshow(np.abs(((myATF))**.2)[myATF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
-plt.subplot(233), plt.imshow(np.abs(((myATF))**.2)[:,:,myATF.shape[2]//2]), plt.colorbar()#, plt.show()    
-plt.subplot(234), plt.imshow(np.abs(((myASF))**.2)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
-plt.subplot(235), plt.imshow(np.abs(((myASF))**.2)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
-plt.subplot(236), plt.imshow(np.abs(((myASF))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar()#, plt.show()    
+
 
 #%%
     
@@ -298,7 +249,7 @@ for iterx in range(iter_last,Niter):
     if(iterx==0 or not np.mod(iterx, Ndisplay)):
         my_res, my_res_absortpion, my_loss, my_fidelity, my_negloss, my_tvloss, myglobalphase, myglobalabs, myfwd =  \
             sess.run([muscat.TF_obj, muscat.TF_obj_absorption, tf_loss, tf_fidelity, tf_negsqrloss, tf_tvloss, tf_global_phase, tf_global_abs, tf_fwd_corrected], \
-                     feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval}) #, muscat.TF_ATF_placeholder:myATF
+                     feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval}) #, muscat.TF_ _placeholder:myATF
     
     if iterx>5000:
         for iternorm in range(0,1):

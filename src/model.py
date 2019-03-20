@@ -200,7 +200,7 @@ class MuScatModel(object):
            
         elif(1):
             print('We are taking the gaussian illuminatino shape!')
-            myIntensityFactor = 0.01
+            myIntensityFactor = 0.03
             self.Ic_map = np.exp(-tf_helper.rr((self.Nx, self.Ny),mode='freq')**2/myIntensityFactor)
         else:
             print('We are not weighing our illumination!')
@@ -712,7 +712,17 @@ class MuScatModel(object):
         plt.subplot(234), plt.title('Imag XZ'),plt.imshow(np.imag(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
         plt.subplot(235), plt.title('Imag XZ'),plt.imshow(np.imag(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
         plt.subplot(236), plt.title('Imag XY'),plt.imshow(np.imag(myfwd)[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
-        plt.savefig(savepath+'/res_myfwd'+figsuffix+'.png'), plt.show()
+        plt.savefig(savepath+'/res_myfwd_realimag'+figsuffix+'.png'), plt.show()
+
+        plt.figure()    
+        plt.subplot(231), plt.title('ABS XZ'),plt.imshow(np.abs(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(232), plt.title('ABS YZ'),plt.imshow(np.abs(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(233), plt.title('ABS XY'),plt.imshow(np.abs(myfwd)[myfwd.shape[0]//2 ,:,:]), plt.colorbar()# plt.show()
+        #myfwd=myfwd*np.exp(1j*2)
+        plt.subplot(234), plt.title('Angle XZ'),plt.imshow(np.angle(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(235), plt.title('Angle YZ'),plt.imshow(np.angle(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
+        plt.subplot(236), plt.title('Angle XY'),plt.imshow(np.angle(myfwd)[myfwd.shape[0]//2 ,:,:]), plt.colorbar(), plt.show()
+        plt.savefig(savepath+'/res_myfwd_ampphase'+figsuffix+'.png'), plt.show()
      
         # This is the measurment
         plt.figure()

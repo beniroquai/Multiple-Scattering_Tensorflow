@@ -1,0 +1,10 @@
+
+# Parameters for optimization control
+is_padding: False 
+is_display: True
+is_optimization: 1 
+is_measurement: True
+is_absorption: False
+mysubsamplingIC: 0
+NspikeLR: 25000 # try to get the system out of some local minima
+

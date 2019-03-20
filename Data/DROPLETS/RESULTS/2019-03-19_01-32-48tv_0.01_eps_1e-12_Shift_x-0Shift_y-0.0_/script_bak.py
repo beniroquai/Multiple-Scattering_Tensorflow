@@ -50,7 +50,7 @@ NspikeLR = 25000 # try to get the system out of some local minima
 '''Define Optimization Parameters'''
 # these are hyperparameters
 my_learningrate = 1e-1  # learning rate
-NreduceLR = 500 # when should we reduce the Learningrate? 
+NreduceLR = 1000 # when should we reduce the Learningrate? 
 
 lambda_tv = ((1e-2))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 eps_tv = ((1e-12))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
@@ -59,7 +59,7 @@ lambda_neg = 10000
 Niter = 1200
 
 Noptpsf = 1
-Nsave = 100 # write info to disk
+Nsave = 50 # write info to disk
 Ndisplay = Nsave
 
 
@@ -72,14 +72,14 @@ if(0):
     matlab_par_name = 'myParameter' 
     matlab_val_name = 'allAmpSimu' 
     mybackgroundval = -.95j  
-elif(1):
+elif(0):
     # data files for parameters and measuremets 
     matlab_val_file = './Data/cells/cross_section_10x0.3_hologram_full.tif_allAmp.mat'
     matlab_par_file = './Data/cells/cross_section_10x0.3_hologram_full.tif_myParameter.mat'
     matlab_par_name = 'myParameter' 
     matlab_val_name = 'allAmpSimu'
     mybackgroundval = -1j
-elif(0):
+elif(1):
     # data files for parameters and measuremets 
     matlab_val_file = './Data/cells/Cell_20x_100a_150-250.tif_allAmp.mat'
     matlab_par_file = './Data/cells/Cell_20x_100a_150-250.tif_myParameter.mat'
@@ -111,7 +111,7 @@ NAc = .52
 shiftIcY = 0*.8 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 shiftIcX = 0*1 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 zernikefactors = np.array((0,0,0,0,0,0,-.01,-.5001,0.01,0.01,.010))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
-zernikefactors = np.array(( 0.001, 0.001, 0.01, 0, 0, 0., -3.4e-03,  2.2e-03, 0.001, .001, -1.0e+00))
+zernikefactors = 0*np.array(( 0.001, 0.001, 0.01, 0, 0, 0., -3.4e-03,  2.2e-03, 0.001, .001, -1.0e+00))
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
 
 '''START CODE'''
@@ -135,7 +135,7 @@ if(np.mod(matlab_val.shape[0],2)==1):
 matlab_val = matlab_val + mybackgroundval
 #roisize=50
 #roicenter = np.array((215,201))
-#matlab_val = np.flip(matlab_val,0 )#[0:100,roicenter[0]-roisize:roicenter[0]+roisize,roicenter[1]-roisize:roicenter[1]+roisize],0)
+matlab_val = np.flip(matlab_val,0 )#[0:100,roicenter[0]-roisize:roicenter[0]+roisize,roicenter[1]-roisize:roicenter[1]+roisize],0)
 
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
@@ -221,7 +221,7 @@ tf_loss = tf_fidelity + tf_tvloss + tf_negsqrloss
 '''Define Optimizer'''
 tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
 tf_lossop_norm = tf_optimizer.minimize(tf_loss, var_list = [tf_global_abs, tf_global_phase])
-tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj, muscat.TF_obj_absorption])
+tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj])#, muscat.TF_obj_absorption])
 tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors])
 tf_lossop = tf_optimizer.minimize(tf_loss)
 
