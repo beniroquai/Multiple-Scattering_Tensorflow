@@ -56,9 +56,9 @@ lambda_tv = ((1e-2))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 eps_tv = ((1e-12))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10000
-Niter = 200
+Niter = 100
 
-Noptpsf = 0
+Noptpsf = 1
 Nsave = 10 # write info to disk
 Ndisplay = Nsave
 
@@ -72,7 +72,7 @@ if(0):
     matlab_par_name = 'myParameter' 
     matlab_val_name = 'allAmpSimu' 
     mybackgroundval = -.95j  
-elif(0):
+elif(1):
     # data files for parameters and measuremets 
     matlab_val_file = './Data/cells/cross_section_10x0.3_hologram_full.tif_allAmp.mat'
     matlab_par_file = './Data/cells/cross_section_10x0.3_hologram_full.tif_myParameter.mat'
@@ -107,7 +107,7 @@ np_global_phase = 0.
 np_global_abs = 0.
 
 ''' microscope parameters '''
-NAc = .32
+NAc = .52
 shiftIcY = 0*.8 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 shiftIcX = 0*1 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 zernikefactors = np.array((0,0,0,0,0,0,-.01,-.5001,0.01,0.01,.010))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
@@ -221,7 +221,7 @@ tf_loss = tf_fidelity + tf_tvloss + tf_negsqrloss
 '''Define Optimizer'''
 tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
 tf_lossop_norm = tf_optimizer.minimize(tf_loss, var_list = [tf_global_abs, tf_global_phase])
-tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj, muscat.TF_obj_absorption, tf_global_abs, tf_global_phase])
+tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj, muscat.TF_obj_absorption])
 tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors])
 tf_lossop = tf_optimizer.minimize(tf_loss)
 

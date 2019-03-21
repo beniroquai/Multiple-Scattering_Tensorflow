@@ -54,7 +54,7 @@ mysubsamplingIC=0
 
 psf_modell =  'corr' # 1st Born
 #psf_modell =  'sep' # 1st Born
-psf_modell =  None # MultiSlice
+#psf_modell =  None # MultiSlice
 
 
 tf.reset_default_graph()
@@ -72,12 +72,12 @@ zernikefactors = np.array((0,0,0,0,0,0,0,0,0.0,0.0,0.0)) # 7: ComaX, 8: ComaY, 1
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
 muscat.shiftIcX = 0 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 muscat.shiftIcY = 0 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-muscat.NAc = .3
+muscat.NAc = .01
 muscat.NAo = .95
 
 
 dn = .01 #(1.437-1.3326)#/np.pi
-myfac = 1 #- 1e-6
+myfac = 1e-0 #- 1e-6
 
 
 #muscat.NAo = .95
@@ -98,16 +98,16 @@ matasf = data.import_realdata_h5(filename = mymatfile, matname='myasf', is_compl
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
 
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
-mydiameter = 5
-if(1):
+mydiameter = 1
+if(0):
     obj_real= tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)#)dn)
     obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = .0, nEmbb = 0.0)
-elif(1):
+elif(0):
     obj_real = tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='hollowsphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)#)dn)
     obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .0)
-elif(0):
-    obj_real= tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='twosphere', diameter = mydiameter/8, dn = dn)#)dn)
-    obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='twosphere', diameter = mydiameter/8, dn = .0)
+elif(1):
+    obj_real= tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='twosphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)
+    obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='twosphere', diameter = mydiameter, dn = .0)
 elif(0):
     obj_real= tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='foursphere', diameter = mydiameter/8, dn = dn)#)dn)
     obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='foursphere', diameter = mydiameter/8, dn = .00)
@@ -188,7 +188,7 @@ plt.figure()
 
 
 #%%
-if(1):
+if(psf_modell is not None):
     plt.figure()    
     plt.subplot(231), plt.title('real XZ'), plt.imshow(np.real(((myASF)))[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
     plt.subplot(233), plt.title('real XZ'), plt.imshow(np.real(((myASF)))[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
