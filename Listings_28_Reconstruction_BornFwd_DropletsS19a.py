@@ -79,7 +79,7 @@ elif(0):
     matlab_par_name = 'myParameter' 
     matlab_val_name = 'allAmpSimu'
     mybackgroundval = -1j
-elif(0):
+elif(1):
     # data files for parameters and measuremets 
     matlab_val_file = './Data/cells/Cell_20x_100a_150-250.tif_allAmp.mat'
     matlab_par_file = './Data/cells/Cell_20x_100a_150-250.tif_myParameter.mat'
