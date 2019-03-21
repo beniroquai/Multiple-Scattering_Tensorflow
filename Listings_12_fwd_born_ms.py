@@ -72,11 +72,11 @@ zernikefactors = np.array((0,0,0,0,0,0,0,0,0.0,0.0,0.0)) # 7: ComaX, 8: ComaY, 1
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
 muscat.shiftIcX = 0 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 muscat.shiftIcY = 0 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-muscat.NAc = .01
+muscat.NAc = .51
 muscat.NAo = .95
 
 
-dn = .01 #(1.437-1.3326)#/np.pi
+dn = .1 #(1.437-1.3326)#/np.pi
 myfac = 1e-0 #- 1e-6
 
 
@@ -84,7 +84,7 @@ myfac = 1e-0 #- 1e-6
 #muscat.dz = 0.1625*2#muscat.lambda0/4
 #muscat.dy = .2; muscat.dx = muscat.dy#muscat.lambda0/4
 #muscat.dx = 0.1560#muscat.lambda0/4
-#muscat.Nx = 50; muscat.Ny = 50; muscat.Nz = 50
+muscat.Nx = 50; muscat.Ny = 50; muscat.Nz = 50
 #muscat.Nx = 64; muscat.Ny = 64; muscat.Nz = 70
 #muscat.dz = muscat.lambda0/4
 #muscat.Nz = 36

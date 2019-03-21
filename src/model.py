@@ -556,14 +556,14 @@ class MuScatModel(object):
         TF_ASF_po = tf_helper.my_ift2d(self.TF_myAllSlicePropagator_psf * tf_helper.fftshift2d(self.TF_Po_aberr*1j),myfftfac)#* self.TF_Po_aberr))
         TF_ASF_ic = tf_helper.my_ift2d(self.TF_myAllSlicePropagator_psf * self.TF_Ic,myfftfac * 1j)
         # does not make any sense, but this way at least roughly same values compared to BPM appear
-        TF_ASF_ic = TF_ASF_ic/tf.complex(tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(TF_ASF_ic))),0.) 
+        #TF_ASF_ic = TF_ASF_ic/tf.complex(tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(TF_ASF_ic))),0.) 
 
         # 3.) correlation of the pupil function to get the APTF
         TF_ASF = TF_ASF_ic*tf.conj(TF_ASF_po)#tf_helper.my_ift3d(TF_ATF_po,myfftfac)*tf.conj(tf_helper.my_ift3d(TF_ATF_ic,myfftfac))
 
         # I wish I could use this here - but not a good idea!
-        #normfac = tf.reduce_sum(TF_ASF)
-        #TF_ASF = TF_ASF/normfac
+        normfac = tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(TF_ASF)))
+        TF_ASF = TF_ASF/tf.complex(normfac,0.)
         #TF_ASF = tf.complex(TF_ASF,0.)
         
         # 4.) precompute ATF - just im case

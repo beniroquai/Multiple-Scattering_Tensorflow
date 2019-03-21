@@ -52,14 +52,14 @@ NspikeLR = 25000 # try to get the system out of some local minima
 my_learningrate = 1e-1  # learning rate
 NreduceLR = 500 # when should we reduce the Learningrate? 
 
-lambda_tv = ((100e-2))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
-eps_tv = ((1e-15))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+lambda_tv = ((1e-2))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+eps_tv = ((1e-12))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10000
-Niter = 300
+Niter = 200
 
-Noptpsf = 1
-Nsave = 25 # write info to disk
+Noptpsf = 0
+Nsave = 10 # write info to disk
 Ndisplay = Nsave
 
 
@@ -111,7 +111,7 @@ NAc = .32
 shiftIcY = 0*.8 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 shiftIcX = 0*1 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 zernikefactors = np.array((0,0,0,0,0,0,-.01,-.5001,0.01,0.01,.010))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
-zernikefactors = np.array(( 0.001, 0.001, 0.01, 0, 0, 0., -3.4e-03,  2.2e-03, 0.001, .001, -1.0e-3))
+zernikefactors = np.array(( 0.001, 0.001, 0.01, 0, 0, 0., -3.4e-03,  2.2e-03, 0.001, .001, -1.0e+00))
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
 
 '''START CODE'''
