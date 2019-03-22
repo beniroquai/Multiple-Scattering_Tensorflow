@@ -52,14 +52,14 @@ NspikeLR = 25000 # try to get the system out of some local minima
 my_learningrate = 1e-1  # learning rate
 NreduceLR = 500 # when should we reduce the Learningrate? 
 
-lambda_tv = ((1e-3))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+lambda_tv = ((1e-2))##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 eps_tv = ((1e-15))##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 # these are fixed parameters
 lambda_neg = 10000
-Niter = 200
+Niter = 500
 
 Noptpsf = 1
-Nsave = 25 # write info to disk
+Nsave = 50 # write info to disk
 Ndisplay = Nsave
 
 
@@ -205,7 +205,7 @@ tf_negsqrloss += lambda_neg*reg.Reg_NegSqr(muscat.TF_obj_absorption)
 
 # Correc the fwd model - not good here!
 tf_norm = tf.complex(tf_global_phase, tf_global_abs)
-tf_fwd_corrected = tf_fwd
+tf_fwd_corrected = tf_fwd+tf_norm
 #tf_fwd_corrected = (tf_fwd+1j*tf.cast(tf_global_phase, tf.complex64))/tf.cast(tf_global_abs, tf.complex64)
 
 
@@ -215,13 +215,13 @@ if(0):
     tf_fidelity = tf.reduce_mean((tf.abs(muscat.tf_meas - tf_fwd_corrected))) # allow a global phase parameter to avoid unwrapping effects
 else:
     print('-------> ATTENTION: Losstype is L2')
-    tf_fidelity = tf.reduce_mean(tf_helper.tf_abssqr((muscat.tf_meas+tf_norm) - tf_fwd_corrected)) # allow a global phase parameter to avoid unwrapping effects
+    tf_fidelity = tf.reduce_mean(tf_helper.tf_abssqr(muscat.tf_meas - tf_fwd_corrected)) # allow a global phase parameter to avoid unwrapping effects
 tf_loss = tf_fidelity + tf_tvloss + tf_negsqrloss 
 
 '''Define Optimizer'''
 tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
 tf_lossop_norm = tf_optimizer.minimize(tf_loss, var_list = [tf_global_abs, tf_global_phase])
-tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj])#, tf_global_abs, tf_global_phase]) #muscat.TF_obj_absorption, , 
+tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj, tf_global_abs, tf_global_phase]) #muscat.TF_obj_absorption, , 
 tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors])
 tf_lossop = tf_optimizer.minimize(tf_loss)
 

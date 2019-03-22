@@ -351,16 +351,20 @@ class MuScatModel(object):
              
          
         # for now orientate the dimensions as (alpha_illu, x, y, z) - because tensorflow takes the first dimension as batch size
-        with tf.name_scope('Variable_assignment'):
-            self.TF_A_input = tf.constant(self.A_prop, dtype=tf.complex64)
-            self.TF_RefrEffect = tf.constant(self.RefrEffect, dtype=tf.complex64)
-            self.TF_myprop = tf.constant(np.squeeze(self.myprop), dtype=tf.complex64)
+        with tf.name_scope('Variable_assignment_general'):
             self.TF_Ic = tf.cast(tf.constant(self.Ic), tf.complex64)
             self.TF_Po = tf.cast(tf.constant(self.Po), tf.complex64)
-            self.TF_Zernikes = tf.constant(self.myzernikes, dtype=tf.float32)
-            self.TF_myAllSlicePropagator = tf.constant(self.myAllSlicePropagator, dtype=tf.complex64)
-            self.TF_myAllSlicePropagator_psf = tf.constant(self.myAllSlicePropagator_psf, dtype=tf.complex64)
-           
+            self.TF_Zernikes = tf.convert_to_tensor(self.myzernikes, np.float32)
+            self.TF_dphi = tf.cast(tf.constant(self.dphi), tf.complex64)
+            
+            #tf.constant(self.myzernikes, dtype=tf.float32) # TODO: HERE A CONVERSION IS HAPPENING complex to float?!
+            # TODO: The following operation takes super long - WHY?
+            self.TF_myAllSlicePropagator_psf =  tf.cast(tf.complex(np.real(self.myAllSlicePropagator_psf),np.imag(self.myAllSlicePropagator_psf)), dtype=np.complex64)
+            
+            #TF_Alldphi_psf = -(tf.reshape(tf.range(0, self.mysize[0], 1), [1, 1, self.mysize[0]])-self.Nz/2)*self.TF_dphi#[:, :, np.newaxis], self.mysize[0], axis=2)
+            #self.TF_myAllSlicePropagator_psf = tf.transpose(tf.exp(-1j*TF_Alldphi_psf) #* (np.repeat(self.dphi[:, :, np.newaxis], self.mysize[0], axis=2) >0), [2, 0, 1]);  # Propagates a single end result backwards to all slices
+            
+                    
             # Only update those Factors which are really necesarry (e.g. Defocus is not very likely!)
             self.TF_zernikefactors = tf.Variable(self.zernikefactors, dtype = tf.float32, name='var_zernikes')
             #indexes = tf.constant([[4], [5], [6], [7], [8], [9]])
@@ -370,17 +374,23 @@ class MuScatModel(object):
             # Build tensor with "filtered" gradient
             part_X = tf.scatter_nd(indexes, updates, tf.shape(self.TF_zernikefactors))
             self.TF_zernikefactors_filtered = part_X + tf.stop_gradient(-part_X + self.TF_zernikefactors)
-            
-        # TODO: Introduce the averraged RI along Z - MWeigert
-        self.TF_A_prop = tf.squeeze(self.TF_A_input);
-        self.U_z_list = []
-        
-
+          
+        if self.is_compute_psf is None:
+            with tf.name_scope('Variable_assignment_BPM'):
+                self.TF_myAllSlicePropagator = tf.constant(self.myAllSlicePropagator, dtype=tf.complex64)
+                self.TF_myprop = tf.constant(np.squeeze(self.myprop), dtype=tf.complex64)
+                self.TF_A_input = tf.constant(self.A_prop, dtype=tf.complex64)
+                self.TF_RefrEffect = tf.constant(self.RefrEffect, dtype=tf.complex64)
+   
+                # TODO: Introduce the averraged RI along Z - MWeigert
+                self.TF_A_prop = tf.squeeze(self.TF_A_input);
+                self.U_z_list = []
+                
         # Initiliaze memory
         self.allSumAmp = 0
         
         # compute multiple scattering only in higher Born order        
-        if not self.is_compute_psf=='corr' and not self.is_compute_psf=='sep':
+        if self.is_compute_psf is None:
             self.propslices()
         
         # in a final step limit this to the detection NA:
@@ -525,7 +535,7 @@ class MuScatModel(object):
         self.TF_nr = tf.complex(self.TF_obj, self.TF_obj_absorption)
         self.TF_no = tf.cast(self.nEmbb+0j, tf.complex64)
         k02 = (2*np.pi*self.nEmbb/self.lambda0)**2
-        self.TF_V = (k02/(4*np.pi*self.Nc))*(self.TF_nr**2-self.TF_no**2)
+        self.TF_V = (k02/(4*np.pi))*(self.TF_nr**2-self.TF_no**2)
         
         # We need to have a placeholder because the ATF is computed afterwards...
         if (TF_ASF is None):
@@ -539,7 +549,12 @@ class MuScatModel(object):
         #return tf.squeeze(TF_res+(myfac-1j*myfac))/np.sqrt(2)
         return tf.squeeze(TF_res-1j)#self.TF_myfac)/tf.complex(tf.abs(self.TF_myfac), 0.)
            
-        
+    
+    def computedeconv(self, ain, alpha = 5e-2):
+        # thinkonov regularized deconvolution 
+        return tf_helper.my_ift3d((tf.conj(self.TF_ATF)*tf_helper.my_ft3d(ain))/(tf.complex(tf.abs(self.TF_ATF)**2+alpha,0.)))
+    
+    
     def propslices(self):
             # only consider object scattering if we want to use it
         

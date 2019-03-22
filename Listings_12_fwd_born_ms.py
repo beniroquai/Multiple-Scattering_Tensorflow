@@ -70,15 +70,13 @@ muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
 muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(matlab_pars['Ny'].value))
 zernikefactors = np.array((0,0,0,0,0,0,0,0,0.0,0.0,0.0)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
-muscat.shiftIcX = 0 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-muscat.shiftIcY = 0 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+muscat.shiftIcX = 2 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+muscat.shiftIcY = 2 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 muscat.NAc = .2#051
 muscat.NAo = .95
-muscat.Nz = 10
 
 
-
-dn =  .001 #(1.437-1.3326)#/np.pi
+dn =  .1 #(1.437-1.3326)#/np.pi
 myfac = 1.#45.#1e1  #- 1e-6
 
 
@@ -86,7 +84,7 @@ myfac = 1.#45.#1e1  #- 1e-6
 #muscat.dz = 0.1625*2#muscat.lambda0/4
 #muscat.dy = .2; muscat.dx = muscat.dy#muscat.lambda0/4
 #muscat.dx = 0.1560#muscat.lambda0/4
-#muscat.Nx = 50; muscat.Ny = 50; muscat.Nz = 50
+muscat.Nx = 50; muscat.Ny = 50; muscat.Nz = 50
 #muscat.Nx = 64; muscat.Ny = 64; muscat.Nz = 70
 #muscat.dz = muscat.lambda0/4
 #muscat.Nz = 36
@@ -100,7 +98,7 @@ matasf = data.import_realdata_h5(filename = mymatfile, matname='myasf', is_compl
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
 
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
-mydiameter = 1
+mydiameter = 5
 if(1):
     obj_real= tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)#)dn)
     obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = .0, nEmbb = 0.0)
@@ -113,7 +111,7 @@ elif(0):
 elif(0):
     obj_real= tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='foursphere', diameter = mydiameter/8, dn = dn)#)dn)
     obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='foursphere', diameter = mydiameter/8, dn = .00)
-elif(0):
+elif():
     obj_real= tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='eightsphere', diameter = mydiameter/8, dn = dn)#)dn)
     obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='eightsphere', diameter = mydiameter/8, dn = .01)
 elif(0):
@@ -185,9 +183,9 @@ else:
     print(end - start)
 
 #%% display the results
-centerslice = myfwd.shape[0]//2
+centerslice = myfwd.shape[0]//2-4
 
-if(muscat.Nz==1):
+if(muscat.Nz==1 and False ):
     plt.figure()
     plt.subplot(221), plt.title('real XY'),plt.imshow(np.real(np.squeeze(myfwd))), plt.colorbar()#, plt.show()
     plt.subplot(222), plt.title('imag XY'),plt.imshow(np.imag(np.squeeze(myfwd))), plt.colorbar()#, plt.show()
@@ -203,17 +201,17 @@ if(muscat.Nz==1):
 else:#(psf_modell is not None):
     plt.figure()    
     plt.subplot(231), plt.title('real XZ'), plt.imshow(np.real(((myASF)))[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
-    plt.subplot(233), plt.title('real XZ'), plt.imshow(np.real(((myASF)))[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+    plt.subplot(233), plt.title('real XZ'), plt.imshow(np.real(((myASF)))[centerslice,:,:]), plt.colorbar()#, plt.show()    
     plt.subplot(232), plt.title('real XZ'), plt.imshow(np.real(((myASF)))[:,:,myASF.shape[2]//2]), plt.colorbar()#
     plt.subplot(234), plt.title('imag XZ'), plt.imshow(np.imag(((myASF)))[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
-    plt.subplot(236), plt.title('imag XZ'), plt.imshow(np.imag(((myASF)))[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+    plt.subplot(236), plt.title('imag XZ'), plt.imshow(np.imag(((myASF)))[centerslice,:,:]), plt.colorbar()#, plt.show()    
     plt.subplot(235), plt.title('imag XZ'), plt.imshow(np.imag(((myASF)))[:,:,myASF.shape[2]//2]), plt.colorbar(), plt.show()    
     
     plt.subplot(231), plt.title('real XZ'), plt.imshow(np.real(((myATF))**.2)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
-    plt.subplot(233), plt.title('real XZ'), plt.imshow(np.real(((myATF))**.2)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+    plt.subplot(233), plt.title('real XZ'), plt.imshow(np.real(((myATF))**.2)[centerslice,:,:]), plt.colorbar()#, plt.show()    
     plt.subplot(232), plt.title('real XZ'), plt.imshow(np.real(((myATF))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar()#
     plt.subplot(234), plt.title('imag XZ'), plt.imshow(np.imag(((myATF))**.2)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
-    plt.subplot(236), plt.title('imag XZ'), plt.imshow(np.imag(((myATF))**.2)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+    plt.subplot(236), plt.title('imag XZ'), plt.imshow(np.imag(((myATF))**.2)[centerslice,:,:]), plt.colorbar()#, plt.show()    
     plt.subplot(235), plt.title('imag XZ'), plt.imshow(np.imag(((myATF))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar(), plt.show()    
 
 
@@ -221,13 +219,13 @@ else:#(psf_modell is not None):
     
     plt.subplot(231), plt.title('real XZ'),plt.imshow(np.real(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
     plt.subplot(232), plt.title('real YZ'),plt.imshow(np.real(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-    plt.subplot(233), plt.title('real XY'),plt.imshow(np.real(myfwd)[myfwd.shape[0]//2,:,:]), plt.colorbar()# plt.show()
+    plt.subplot(233), plt.title('real XY'),plt.imshow(np.real(myfwd)[centerslice,:,:]), plt.colorbar()# plt.show()
     plt.subplot(234), plt.title('imag XZ'),plt.imshow(np.imag(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
     plt.subplot(235), plt.title('imag YZ'),plt.imshow(np.imag(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-    plt.subplot(236), plt.title('imag XY'),plt.imshow(np.imag(myfwd)[myfwd.shape[0]//2,:,:]), plt.colorbar(), plt.show()
+    plt.subplot(236), plt.title('imag XY'),plt.imshow(np.imag(myfwd)[centerslice,:,:]), plt.colorbar(), plt.show()
     plt.subplot(231), plt.title('abs XZ'),plt.imshow(np.abs(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
     plt.subplot(232), plt.title('abs YZ'),plt.imshow(np.abs(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-    plt.subplot(233), plt.title('abs XY'),plt.imshow(np.abs(myfwd)[myfwd.shape[0]//2,:,:]), plt.colorbar()# plt.show()
+    plt.subplot(233), plt.title('abs XY'),plt.imshow(np.abs(myfwd)[centerslice,:,:]), plt.colorbar()# plt.show()
     plt.subplot(234), plt.title('angle XZ'),plt.imshow(np.angle(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
     plt.subplot(235), plt.title('angle YZ'),plt.imshow(np.angle(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-    plt.subplot(236), plt.title('angle XY'),plt.imshow(np.angle(myfwd)[myfwd.shape[0]//2,:,:]), plt.colorbar(), plt.show()
+    plt.subplot(236), plt.title('angle XY'),plt.imshow(np.angle(myfwd)[centerslice,:,:]), plt.colorbar(), plt.show()

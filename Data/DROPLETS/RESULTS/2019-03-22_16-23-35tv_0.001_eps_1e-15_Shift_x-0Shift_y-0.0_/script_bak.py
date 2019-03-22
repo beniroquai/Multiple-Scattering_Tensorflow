@@ -205,7 +205,7 @@ tf_negsqrloss += lambda_neg*reg.Reg_NegSqr(muscat.TF_obj_absorption)
 
 # Correc the fwd model - not good here!
 tf_norm = tf.complex(tf_global_phase, tf_global_abs)
-tf_fwd_corrected = tf_fwd
+tf_fwd_corrected = tf_fwd+tf_norm
 #tf_fwd_corrected = (tf_fwd+1j*tf.cast(tf_global_phase, tf.complex64))/tf.cast(tf_global_abs, tf.complex64)
 
 
@@ -215,7 +215,7 @@ if(0):
     tf_fidelity = tf.reduce_mean((tf.abs(muscat.tf_meas - tf_fwd_corrected))) # allow a global phase parameter to avoid unwrapping effects
 else:
     print('-------> ATTENTION: Losstype is L2')
-    tf_fidelity = tf.reduce_mean(tf_helper.tf_abssqr((muscat.tf_meas+tf_norm) - tf_fwd_corrected)) # allow a global phase parameter to avoid unwrapping effects
+    tf_fidelity = tf.reduce_mean(tf_helper.tf_abssqr(muscat.tf_meas - tf_fwd_corrected)) # allow a global phase parameter to avoid unwrapping effects
 tf_loss = tf_fidelity + tf_tvloss + tf_negsqrloss 
 
 '''Define Optimizer'''
