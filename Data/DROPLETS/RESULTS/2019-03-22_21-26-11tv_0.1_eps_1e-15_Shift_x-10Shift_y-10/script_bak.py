@@ -44,7 +44,7 @@ my_learningrate = 1e-1  # learning rate
 NreduceLR = 500 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
-mylambdatv = 1e-0 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+mylambdatv = 1e-1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 myepstvval = 1e-15##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Positivity Constraint
@@ -52,7 +52,7 @@ lambda_neg = 10000
 
 # Displaying/Saving
 Niter = 200
-Nsave = 50 # write info to disk
+Nsave = 25 # write info to disk
 Ndisplay = Nsave
 
 # Control Flow 
@@ -62,7 +62,7 @@ is_padding = False
 is_optimization = 1 
 is_absorption = False
 
-is_recomputemodel = False # TODO: Make it automatic! 
+is_recomputemodel = True # TODO: Make it automatic! 
 
 
 

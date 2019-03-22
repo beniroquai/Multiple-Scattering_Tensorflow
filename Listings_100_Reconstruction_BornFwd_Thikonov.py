@@ -106,7 +106,7 @@ muscat.shiftIcY=experiments.shiftIcY
 muscat.shiftIcX=experiments.shiftIcX
 muscat.dn = dn
 muscat.NAc = NAc
-muscat.dz = 2#muscat.lambda0/2
+muscat.dz = muscat.lambda0/2
 
 ''' Adjust some parameters to fit it in the memory '''
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
