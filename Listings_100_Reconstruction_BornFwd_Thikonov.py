@@ -26,7 +26,7 @@ import src.experiments as experiments
 
 
 # Optionally, tweak styles.
-mpl.rc('figure',  figsize=(12, 9))
+mpl.rc('figure',  figsize=(8, 6))
 mpl.rc('image', cmap='gray')
 #plt.switch_backend('agg')
 #np.set_printoptions(threshold=np.nan)
@@ -44,7 +44,7 @@ my_learningrate = 1e-1  # learning rate
 NreduceLR = 500 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
-mylambdatv = 1e-1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+mylambdatv = 1e-2 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 myepstvval = 1e-15##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Positivity Constraint
@@ -75,7 +75,7 @@ myfac = 1e0# 0*dn*1e-3
 myabsnorm = 1e5#myfac
 
 ''' microscope parameters '''
-NAc = .31
+NAc = .32
 zernikefactors = 0*np.array((0,0,0,0,0,0,-.01,-.5001,0.01,0.01,.010))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
 zernikemask = np.ones(zernikefactors.shape) #np.array(np.abs(zernikefactors)>0)*1# mask of factors that should be updated
 
@@ -96,7 +96,7 @@ else:
 # Make sure it's radix 2 along Z
 if(np.mod(matlab_val.shape[0],2)==1):
     matlab_val = matlab_val[0:matlab_val.shape[0]-1,:,:]
-matlab_val = matlab_val + experiments.mybackgroundval
+#matlab_val = matlab_val + experiments.mybackgroundval
 
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
@@ -130,6 +130,7 @@ muscat.computemodel()
 
 #%%
 print('Convert Data to TF constant')
+matlab_val = matlab_val+1j
 TF_meas = tf.complex(np.real(matlab_val),np.imag(matlab_val))
 TF_meas = tf.cast(TF_meas, tf.complex64)
 
@@ -152,27 +153,49 @@ plt.subplot(235), plt.imshow(np.abs(((myASF))**.2)[myASF.shape[0]//2,:,:]), plt.
 plt.subplot(236), plt.imshow(np.abs(((myASF))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar(), plt.show()    
 #%%
 print('Start Deconvolution')
-TF_myres = muscat.computedeconv(TF_meas, alpha = 5e-1)
-myres = sess.run(TF_myres)
-print('Start Displaying')
-#%
-plt.subplot(131),plt.imshow(np.real(matlab_val[:,myATF.shape[1]//2,:])),plt.colorbar()
-plt.subplot(132),plt.imshow(np.real(matlab_val[myATF.shape[0]//2,:,:])),plt.colorbar()
-plt.subplot(133),plt.imshow(np.real(matlab_val[:,:,myATF.shape[2]//2])),plt.colorbar(),plt.show()
+alpha_b = np.array((1,2,5,8))
+for i in range(5):
+    if i==0:
+        alpha_i = (1*10**(-i)*alpha_b)
+    else:
+        alpha_i = np.concatenate((1*10**(-i)*alpha_b,alpha_i))
 
-plt.subplot(131),plt.imshow(np.imag(matlab_val[:,myATF.shape[1]//2,:])),plt.colorbar()
-plt.subplot(132),plt.imshow(np.imag(matlab_val[myATF.shape[0]//2,:,:])),plt.colorbar()
-plt.subplot(133),plt.imshow(np.imag(matlab_val[:,:,myATF.shape[2]//2])),plt.colorbar(),plt.show()
+TF_myres = muscat.computedeconv(TF_meas, alpha = 1.)
+    
+for iteri in range(np.squeeze(alpha_i.shape)): 
+    myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:alpha_i[iteri]})
+    print('Start Displaying')
+    #%
+    print(alpha_i[iteri])
+    
+    plt.figure()
+    plt.subplot(231),plt.imshow(np.real(myres[:,myATF.shape[1]//2,:])),plt.colorbar()
+    plt.subplot(232),plt.imshow(np.real(myres[myATF.shape[0]//2,:,:])),plt.colorbar()
+    plt.subplot(233),plt.imshow(np.real(myres[:,:,myATF.shape[2]//2])),plt.colorbar()
+    
+    plt.subplot(234),plt.imshow(np.imag(myres[:,myATF.shape[1]//2,:])),plt.colorbar()
+    plt.subplot(235),plt.imshow(np.imag(myres[myATF.shape[0]//2,:,:])),plt.colorbar()
+    plt.subplot(236),plt.imshow(np.imag(myres[:,:,myATF.shape[2]//2])),plt.colorbar()
+    
+    plt.savefig('thikonov_reg_'+str(alpha_i[iteri])+'.png')
 
+plt.figure()
+plt.subplot(231),plt.title('real'),plt.imshow(np.real(matlab_val[:,myATF.shape[1]//2,:])),plt.colorbar()
+plt.subplot(232),plt.title('real'),plt.imshow(np.real(matlab_val[myATF.shape[0]//2,:,:])),plt.colorbar()
+plt.subplot(233),plt.title('real'),plt.imshow(np.real(matlab_val[:,:,myATF.shape[2]//2])),plt.colorbar()
 
-plt.subplot(131),plt.imshow(np.real(myres[:,myATF.shape[1]//2,:])),plt.colorbar()
-plt.subplot(132),plt.imshow(np.real(myres[myATF.shape[0]//2,:,:])),plt.colorbar()
-plt.subplot(133),plt.imshow(np.real(myres[:,:,myATF.shape[2]//2])),plt.colorbar(),plt.show()
+plt.subplot(234),plt.title('imag'),plt.imshow(np.imag(matlab_val[:,myATF.shape[1]//2,:])),plt.colorbar()
+plt.subplot(235),plt.title('imag'),plt.imshow(np.imag(matlab_val[myATF.shape[0]//2,:,:])),plt.colorbar()
+plt.subplot(236),plt.title('imag'),plt.imshow(np.imag(matlab_val[:,:,myATF.shape[2]//2])),plt.colorbar()
 
-plt.subplot(131),plt.imshow(np.imag(myres[:,myATF.shape[1]//2,:])),plt.colorbar()
-plt.subplot(132),plt.imshow(np.imag(myres[myATF.shape[0]//2,:,:])),plt.colorbar()
-plt.subplot(133),plt.imshow(np.imag(myres[:,:,myATF.shape[2]//2])),plt.colorbar(),plt.show()
+plt.savefig('GT_.png')
 
+#%%
+myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:.5})
+tosave = []
+tosave.append(np.real(myres))
+tosave.append(np.imag(myres))
+tosave = np.array(tosave)
 np.save('thikonovinvse.npy', myres)
-data.export_realdata_h5('./thikonov_deconv.h5', 'temp', np.concatenate((np.real(myres)),(np.imag(myres))))
+data.export_realdatastack_h5('./thikonov_deconv.h5', 'temp', tosave)
 

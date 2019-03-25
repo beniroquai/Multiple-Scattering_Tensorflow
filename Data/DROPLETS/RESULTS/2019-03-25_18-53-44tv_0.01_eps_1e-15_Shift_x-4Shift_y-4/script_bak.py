@@ -40,27 +40,27 @@ resultpath = 'Data/DROPLETS/RESULTS/'
 
 
 ''' Control-Parameters - Optimization '''
-my_learningrate = 1e-1  # learning rate
+my_learningrate = 1e-2  # learning rate
 NreduceLR = 500 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
-mylambdatv = 1e-1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+mylambdatv = 1e-2 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 myepstvval = 1e-15##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Positivity Constraint
 lambda_neg = 10000
 
 # Displaying/Saving
-Niter = 200
-Nsave = 25 # write info to disk
+Niter = 400
+Nsave = 50 # write info to disk
 Ndisplay = Nsave
 
 # Control Flow 
 is_norm = False 
 is_aberration = True
-is_padding = False 
-is_optimization = 1 
-is_absorption = False
+is_padding = False
+is_optimization = True
+is_absorption = True
 
 is_recomputemodel = True # TODO: Make it automatic! 
 
@@ -68,6 +68,7 @@ is_recomputemodel = True # TODO: Make it automatic!
 
 ''' MODELLING StARTS HERE'''
 if is_recomputemodel:
+    tf.reset_default_graph()
     # need to figure out why this holds somehow true - at least produces reasonable results
     mysubsamplingIC = 0    
     dn = .051
@@ -75,10 +76,10 @@ if is_recomputemodel:
     myabsnorm = 1e5#myfac
     
     ''' microscope parameters '''
-    NAc = .32
-    zernikefactors = np.array((0,0,0,0,0,0,-.01,-.5001,0.01,0.01,.010))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
+    NAc = .5
+    zernikefactors = np.array((0,0,0,0,0,0,-.01,-.001,0.01,0.01,.010))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
     zernikemask = np.ones(zernikefactors.shape) #np.array(np.abs(zernikefactors)>0)*1# mask of factors that should be updated
-    
+    zernikemask[0]=0 # we don't want the first one to be shifting the phase!!
     '''START CODE'''
     #tf.reset_default_graph() # just in case there was an open session
     
@@ -216,9 +217,8 @@ if is_recomputemodel:
 else:
     # Assign the initial guess to the object inside the fwd-model
     print('Assigning Variables')
-    init_guess = np.zeros(muscat.mysize)+muscat.nEmbb
-    sess.run(tf.assign(muscat.TF_obj, np.real(init_guess))); # assign abs of measurement as initial guess of 
-    sess.run(tf.assign(muscat.TF_obj_absorption, np.imag(init_guess))); # assign abs of measurement as initial guess of 
+    sess.run(tf.assign(muscat.TF_obj, np.real(obj_guess))); # assign abs of measurement as initial guess of 
+    sess.run(tf.assign(muscat.TF_obj_absorption, np.imag(obj_guess))); # assign abs of measurement as initial guess of 
     sess.run(tf.assign(muscat.TF_zernikefactors, muscat.zernikefactors*0))
     iter_last=0
 #%%
@@ -279,24 +279,6 @@ for iterx in range(iter_last,Niter):
         
 
     iter_last = iterx
-#%%        
-
-def computedeconv(ain, ATF, alpha = 1e-3):
-    # thinkonov regularized deconvolution 
-    return tf_helper.my_ift3d((tf.conj(ATF)*tf_helper.my_ft3d(ain))/(tf.complex(tf.abs(ATF)**2+alpha,0.)))
-
-TF_meas = tf.constant(np.real(matlab_val))
-TF_meas = tf.cast(TF_meas, tf.complex64)
-
-#%%
-TF_myres = computedeconv(TF_meas, muscat.TF_ATF, alpha = 1e-3)
-myres = sess.run(TF_myres)
-#%
-plt.subplot(131),plt.imshow(np.real(myres[:,128,:])),plt.colorbar()
-plt.subplot(132),plt.imshow(np.real(myres[50,:,:])),plt.colorbar()
-plt.subplot(133),plt.imshow(np.real(myres[:,:,128])),plt.colorbar(),plt.show()
-#%%
-
 
 ''' Save Figures and Parameters '''
 muscat.saveFigures_list(savepath, myfwdlist, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, result_phaselist, result_absorptionlist, 

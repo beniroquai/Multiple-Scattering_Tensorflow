@@ -40,11 +40,11 @@ resultpath = 'Data/DROPLETS/RESULTS/'
 
 
 ''' Control-Parameters - Optimization '''
-my_learningrate = 1e-1  # learning rate
+my_learningrate = 1e-2  # learning rate
 NreduceLR = 500 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
-mylambdatv = 1e-1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+mylambdatv = 1e-0 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 myepstvval = 1e-15##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Positivity Constraint
@@ -52,22 +52,23 @@ lambda_neg = 10000
 
 # Displaying/Saving
 Niter = 200
-Nsave = 25 # write info to disk
+Nsave = 50 # write info to disk
 Ndisplay = Nsave
 
 # Control Flow 
 is_norm = False 
 is_aberration = True
-is_padding = False 
-is_optimization = 1 
-is_absorption = False
+is_padding = False
+is_optimization = True
+is_absorption = True
 
-is_recomputemodel = False # TODO: Make it automatic! 
+is_recomputemodel = True # TODO: Make it automatic! 
 
 
 
 ''' MODELLING StARTS HERE'''
 if is_recomputemodel:
+    tf.reset_default_graph()
     # need to figure out why this holds somehow true - at least produces reasonable results
     mysubsamplingIC = 0    
     dn = .051
@@ -75,12 +76,10 @@ if is_recomputemodel:
     myabsnorm = 1e5#myfac
     
     ''' microscope parameters '''
-    NAc = .32
-    shiftIcY = 0*.8 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-    shiftIcX = 0*1 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-    zernikefactors = np.array((0,0,0,0,0,0,-.01,-.5001,0.01,0.01,.010))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
+    NAc = .5
+    zernikefactors = np.array((0,0,0,0,0,0,-.01,-.001,0.01,0.01,.010))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
     zernikemask = np.ones(zernikefactors.shape) #np.array(np.abs(zernikefactors)>0)*1# mask of factors that should be updated
-    
+    zernikemask[0]=0 # we don't want the first one to be shifting the phase!!
     '''START CODE'''
     #tf.reset_default_graph() # just in case there was an open session
     
@@ -104,8 +103,8 @@ if is_recomputemodel:
     muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
     # Correct some values - just for the puprose of fitting in the RAM
     muscat.Nx,muscat.Ny,muscat.Nz = matlab_val.shape[1], matlab_val.shape[2], matlab_val.shape[0]
-    muscat.shiftIcY=shiftIcY
-    muscat.shiftIcX=shiftIcX
+    muscat.shiftIcY=experiments.shiftIcY
+    muscat.shiftIcX=experiments.shiftIcX
     muscat.dn = dn
     muscat.NAc = NAc
     #muscat.dz = muscat.lambda0/2
@@ -119,6 +118,9 @@ if is_recomputemodel:
     
     ''' Compute a first guess based on the experimental phase '''
     obj_guess =  np.zeros(matlab_val.shape)+muscat.nEmbb# np.angle(matlab_val)## 
+    obj_guess = np.imag(np.load('thikonovinvse.npy'))
+    obj_guess = obj_guess-np.min(obj_guess); obj_guess = obj_guess/np.max(obj_guess)
+    obj_guess = obj_guess*dn+muscat.nEmbb
     
     ''' Compute the systems model'''
     # Compute the System's properties (e.g. Pupil function/Illumination Source, K-vectors, etc.)¶
@@ -166,7 +168,7 @@ if is_recomputemodel:
     tf_lossop_norm = tf_optimizer.minimize(tf_loss, var_list = [tf_glob_imag, tf_glob_real])
     tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj])
     tf_lossop_obj_absorption = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj_absorption])
-    tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors])
+    tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors, muscat.TF_shiftIcX, muscat.TF_shiftIcY])
     tf_lossop = tf_optimizer.minimize(tf_loss)
     
     ''' Initialize the model '''
@@ -196,7 +198,7 @@ if is_recomputemodel:
        
     '''Define some stuff related to infrastructure'''
     mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    savepath = basepath + resultpath + mytimestamp + 'tv_' + str(mylambdatv) + '_eps_' +str(myepstvval) + '_' +'Shift_x-'+str(shiftIcX)+'Shift_y-'+str(shiftIcY) + '_' 
+    savepath = basepath + resultpath + mytimestamp + 'tv_' + str(mylambdatv) + '_eps_' +str(myepstvval) + '_' +'Shift_x-'+str(experiments.shiftIcX)+'Shift_y-'+str(experiments.shiftIcY)
     
     # Create directory
     try: 
@@ -215,9 +217,8 @@ if is_recomputemodel:
 else:
     # Assign the initial guess to the object inside the fwd-model
     print('Assigning Variables')
-    init_guess = np.zeros(muscat.mysize)+muscat.nEmbb
-    sess.run(tf.assign(muscat.TF_obj, np.real(init_guess))); # assign abs of measurement as initial guess of 
-    sess.run(tf.assign(muscat.TF_obj_absorption, np.imag(init_guess))); # assign abs of measurement as initial guess of 
+    sess.run(tf.assign(muscat.TF_obj, np.real(obj_guess))); # assign abs of measurement as initial guess of 
+    sess.run(tf.assign(muscat.TF_obj_absorption, np.imag(obj_guess))); # assign abs of measurement as initial guess of 
     sess.run(tf.assign(muscat.TF_zernikefactors, muscat.zernikefactors*0))
     iter_last=0
 #%%
@@ -278,7 +279,7 @@ for iterx in range(iter_last,Niter):
         
 
     iter_last = iterx
-#%%        
+
 ''' Save Figures and Parameters '''
 muscat.saveFigures_list(savepath, myfwdlist, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, result_phaselist, result_absorptionlist, 
                               globalphaselist, globalabslist, np_meas, figsuffix='FINAL')

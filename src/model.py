@@ -201,7 +201,7 @@ class MuScatModel(object):
             self.Ic_map = np.cos((myIntensityFactor *tf_helper.xx((self.Nx, self.Ny), mode='freq')**2+myIntensityFactor *tf_helper.yy((self.Nx, self.Ny), mode='freq')**2))**2
             print('We are taking the cosine illuminatino shape!')
            
-        elif(0):
+        elif(1):
             print('We are taking the gaussian illuminatino shape!')
             myIntensityFactor = 0.03
             self.Ic_map = np.exp(-tf_helper.rr((self.Nx, self.Ny),mode='freq')**2/myIntensityFactor)
@@ -230,7 +230,7 @@ class MuScatModel(object):
 
  
         # Shift the pupil in X-direction (optical missalignment)
-        if hasattr(self, 'shiftIcX'):
+        if hasattr(self, 'shiftIcX') and self.is_compute_psf is None:
             if self.shiftIcX != None:
                 if(is_padding): self.shiftIcX=self.shiftIcX*2
                 print('Shifting the illumination in X by: ' + str(self.shiftIcX) + ' Pixel')
@@ -245,7 +245,7 @@ class MuScatModel(object):
                     self.Ic = np.abs(np.fft.ifft2(np.fft.fft2(self.Ic)*np.exp(1j*2*np.pi*self.shift_xx*self.shiftIcX))) 
 
         # Shift the pupil in Y-direction (optical missalignment)
-        if hasattr(self, 'shiftIcY'):
+        if hasattr(self, 'shiftIcY') and self.is_compute_psf is None:
             if self.shiftIcY != None:
                 if(is_padding): self.shiftIcY=self.shiftIcY*2
                 print('Shifting the illumination in Y by: ' + str(self.shiftIcY) + ' Pixel')
@@ -367,6 +367,10 @@ class MuScatModel(object):
                     
             # Only update those Factors which are really necesarry (e.g. Defocus is not very likely!)
             self.TF_zernikefactors = tf.Variable(self.zernikefactors, dtype = tf.float32, name='var_zernikes')
+            self.TF_shiftIcX = tf.Variable(self.shiftIcX, dtype=tf.float32, name='tf_shiftIcX')
+            self.TF_shiftIcY = tf.Variable(self.shiftIcY, dtype=tf.float32, name='tf_shiftIcY')        
+            
+
             #indexes = tf.constant([[4], [5], [6], [7], [8], [9]])
             indexes = tf.cast(tf.where(tf.constant(self.zernikemask)>0), tf.int32)
             updates = tf.gather_nd(self.TF_zernikefactors,indexes)
@@ -507,8 +511,14 @@ class MuScatModel(object):
 
         # 1. + 2.) Define the input field as the BFP and effective pupil plane of the condenser 
         # Compute the ASF for the Condenser and Imaging Pupil
-        TF_ASF_po = tf_helper.my_ift2d(self.TF_myAllSlicePropagator_psf * tf_helper.fftshift2d(self.TF_Po_aberr*1),myfftfac)#* self.TF_Po_aberr))
-        TF_ASF_ic = tf_helper.my_ift2d(self.TF_myAllSlicePropagator_psf * self.TF_Ic,myfftfac * 1)
+        TF_xx = tf_helper.xx((self.mysize[1],self.mysize[2]), mode='freq')
+        TF_yy = tf_helper.yy((self.mysize[1],self.mysize[2]), mode='freq')        
+        TF_icshift = tf.exp(1j*tf.cast(np.pi*(self.TF_shiftIcX*TF_xx+self.TF_shiftIcY*TF_yy), tf.complex64))
+        self.TF_Ic_shift = tf_helper.my_ift2d(tf_helper.my_ft2d(self.TF_Ic)*TF_icshift)
+
+        
+        TF_ASF_po = tf_helper.my_ift2d(self.TF_myAllSlicePropagator_psf * tf_helper.fftshift2d(self.TF_Po_aberr*1j))#* self.TF_Po_aberr))
+        TF_ASF_ic = tf_helper.my_ift2d(self.TF_myAllSlicePropagator_psf * self.TF_Ic_shift * 1j)#self.TF_Ic*1j)
         
         # does not make any sense, but this way at least roughly same values compared to BPM appear
         #TF_ASF_ic = TF_ASF_ic/tf.complex(tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(TF_ASF_ic))),0.) 
@@ -517,12 +527,11 @@ class MuScatModel(object):
         TF_ASF = TF_ASF_ic*tf.conj(TF_ASF_po) #tf_helper.my_ift3d(TF_ATF_po,myfftfac)*tf.conj(tf_helper.my_ift3d(TF_ATF_ic,myfftfac))
 
         # I wish I could use this here - but not a good idea!
-        #normfac = tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(TF_ASF[self.mysize[0]//2,:,:])))
         normfac = tf.sqrt(tf.reduce_sum(tf.abs(TF_ASF[self.mysize[0]//2,:,:])))
         TF_ASF = TF_ASF/tf.complex(normfac,0.) # TODO: norm Tensorflow?! 
 
         # 4.) precompute ATF - just im case
-        TF_ATF = tf_helper.my_ft3d(TF_ASF,myfftfac)
+        TF_ATF = tf_helper.my_ft3d(TF_ASF)
         #normfac = tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(TF_ATF[self.mysize[0]//2,:,:])))
         return TF_ASF, TF_ATF 
 
@@ -552,7 +561,8 @@ class MuScatModel(object):
     
     def computedeconv(self, ain, alpha = 5e-2):
         # thinkonov regularized deconvolution 
-        return tf_helper.my_ift3d((tf.conj(self.TF_ATF)*tf_helper.my_ft3d(ain))/(tf.complex(tf.abs(self.TF_ATF)**2+alpha,0.)))
+        self.TF_alpha = tf.placeholder_with_default(alpha, shape=[])
+        return tf_helper.my_ift3d((tf.conj(self.TF_ATF)*tf_helper.my_ft3d(ain))/(tf.complex(tf.abs(self.TF_ATF)**2+self.TF_alpha,0.)))
     
     
     def propslices(self):

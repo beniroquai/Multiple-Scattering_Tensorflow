@@ -70,22 +70,21 @@ muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
 muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(matlab_pars['Ny'].value))
 zernikefactors = np.array((0,0,0,0,0,0,0,0,0.0,0.0,0.0)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
-muscat.shiftIcX = 2 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+muscat.shiftIcX = .5 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 muscat.shiftIcY = 2 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-muscat.NAc = .2#051
+muscat.NAc = .5#051
 muscat.NAo = .95
 
 
-dn =  .1 #(1.437-1.3326)#/np.pi
-myfac = 1.#45.#1e1  #- 1e-6
+dn =  .01 #(1.437-1.3326)#/np.pi
 
 
 #muscat.NAo = .95
 #muscat.dz = 0.1625*2#muscat.lambda0/4
 #muscat.dy = .2; muscat.dx = muscat.dy#muscat.lambda0/4
 #muscat.dx = 0.1560#muscat.lambda0/4
-muscat.Nx = 50; muscat.Ny = 50; muscat.Nz = 50
-#muscat.Nx = 64; muscat.Ny = 64; muscat.Nz = 70
+#muscat.Nx = 50; muscat.Ny = 50; muscat.Nz = 50
+muscat.Nx = 128; muscat.Ny = 128; muscat.Nz = 70
 #muscat.dz = muscat.lambda0/4
 #muscat.Nz = 36
 
@@ -129,6 +128,7 @@ else:
     obj_absorption = obj_real*0
 
 obj = (obj_real + obj_absorption)
+obj = np.roll(obj, shift=5, axis=0)
 
 # introduce zernike factors here
 muscat.zernikefactors = zernikefactors
@@ -183,7 +183,7 @@ else:
     print(end - start)
 
 #%% display the results
-centerslice = myfwd.shape[0]//2-4
+centerslice = myfwd.shape[0]//2
 
 if(muscat.Nz==1 and False ):
     plt.figure()
@@ -229,3 +229,8 @@ else:#(psf_modell is not None):
     plt.subplot(234), plt.title('angle XZ'),plt.imshow(np.angle(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
     plt.subplot(235), plt.title('angle YZ'),plt.imshow(np.angle(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
     plt.subplot(236), plt.title('angle XY'),plt.imshow(np.angle(myfwd)[centerslice,:,:]), plt.colorbar(), plt.show()
+
+#%% save the results
+np.save(savepath+'allAmp_simu.npy', myfwd)
+#data.export_realdata_h5(filename = './Data/DROPLETS/allAmp_simu.mat', matname = 'allAmp_red', data=myfwd)
+#data.export_realdata_h5(filename = './Data/DROPLETS/mySample.mat', matname = 'mySample', data=np.real(muscat.obj))

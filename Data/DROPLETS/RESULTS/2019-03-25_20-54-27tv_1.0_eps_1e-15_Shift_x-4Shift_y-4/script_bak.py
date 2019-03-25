@@ -40,19 +40,19 @@ resultpath = 'Data/DROPLETS/RESULTS/'
 
 
 ''' Control-Parameters - Optimization '''
-my_learningrate = 1e-1  # learning rate
+my_learningrate = 1e-2  # learning rate
 NreduceLR = 500 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
-mylambdatv = 1e0 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+mylambdatv = 1e-0 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 myepstvval = 1e-15##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Positivity Constraint
 lambda_neg = 10000
 
 # Displaying/Saving
-Niter = 400
-Nsave = 100 # write info to disk
+Niter = 200
+Nsave = 50 # write info to disk
 Ndisplay = Nsave
 
 # Control Flow 
@@ -71,7 +71,7 @@ if is_recomputemodel:
     tf.reset_default_graph()
     # need to figure out why this holds somehow true - at least produces reasonable results
     mysubsamplingIC = 0    
-    dn = experiments.dn
+    dn = .051
     myfac = 1e0# 0*dn*1e-3
     myabsnorm = 1e5#myfac
     
@@ -118,7 +118,7 @@ if is_recomputemodel:
     
     ''' Compute a first guess based on the experimental phase '''
     obj_guess =  np.zeros(matlab_val.shape)+muscat.nEmbb# np.angle(matlab_val)## 
-    obj_guess = np.real(np.load('thikonovinvse.npy'))
+    obj_guess = np.imag(np.load('thikonovinvse.npy'))
     obj_guess = obj_guess-np.min(obj_guess); obj_guess = obj_guess/np.max(obj_guess)
     obj_guess = obj_guess*dn+muscat.nEmbb
     
@@ -168,7 +168,7 @@ if is_recomputemodel:
     tf_lossop_norm = tf_optimizer.minimize(tf_loss, var_list = [tf_glob_imag, tf_glob_real])
     tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj])
     tf_lossop_obj_absorption = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj_absorption])
-    tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors, muscat.TF_shiftIcX, muscat.TF_shiftIcY])
+    tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors])
     tf_lossop = tf_optimizer.minimize(tf_loss)
     
     ''' Initialize the model '''

@@ -6,9 +6,9 @@ Created on Fri Mar 22 11:39:44 2019
 @author: bene
 """
 
-#shiftIcY = 0*4 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-#shiftIcX = 0*4 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-
+shiftIcY = 0*4 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+shiftIcX = 0*4 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+dn = .051
 if(0):
     # 10mum bead
     # data files for parameters and measuremets 
@@ -26,6 +26,16 @@ elif(0):
     mybackgroundval = -1j
     shiftIcY = 4 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
     shiftIcX = 4 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+elif(0):
+    # data files for parameters and measuremets 
+    matlab_val_file = './Data/cells/SiO2_5um_20x0.5.cdf.tif_allAmp.mat'
+    matlab_par_file = './Data/cells/SiO2_5um_20x0.5.cdf.tif_myParameter.mat'
+    matlab_par_name = 'myParameter' 
+    matlab_val_name = 'allAmpSimu'
+    mybackgroundval = -1j
+    dn = 1.52-1.33
+    shiftIcY = 0 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    shiftIcX = 0 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 
 elif(1):
     # data files for parameters and measuremets 
@@ -46,4 +56,7 @@ elif(0):
 else:
     matlab_par_file = './Data/DROPLETS/S19_multiple/Parameter.mat'; matlab_par_name='myParameter'
     matlab_val_file = './Data/DROPLETS/RESULTS/allAmp_simu.npy'
-    mybackgroundval = -1j
+    mybackgroundval = 0
+
+
+
