@@ -44,15 +44,15 @@ my_learningrate = 1e-1  # learning rate
 NreduceLR = 500 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
-mylambdatv = 1e-0 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+mylambdatv = 1e0 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 myepstvval = 1e-15##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Positivity Constraint
 lambda_neg = 10000
 
 # Displaying/Saving
-Niter = 200
-Nsave = 25 # write info to disk
+Niter = 400
+Nsave = 100 # write info to disk
 Ndisplay = Nsave
 
 # Control Flow 
@@ -161,16 +161,15 @@ if is_recomputemodel:
     else:
         print('-------> Losstype is L2')
         tf_fidelity = tf.reduce_mean(tf_helper.tf_abssqr((muscat.tf_meas+tf_norm) - tf_fwd)) # allow a global phase parameter to avoid unwrapping effects
-    tf_loss = tf_fidelity + tf_negsqrloss 
+    tf_loss = tf_fidelity + tf_tvloss + tf_negsqrloss 
     
     '''Define Optimizer'''
     tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
     tf_lossop_norm = tf_optimizer.minimize(tf_loss, var_list = [tf_glob_imag, tf_glob_real])
-    #tf_lossop_tv = tf_optimizer.minimize(tf_tvloss, var_list = [muscat.TF_obj, muscat.TF_obj_absorption])
-    tf_lossop_obj = tf_optimizer.minimize(tf_loss+tf_tvloss, var_list = [muscat.TF_obj])
+    tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj])
     tf_lossop_obj_absorption = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj_absorption])
-    tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_shiftIcX, muscat.TF_shiftIcY])#, muscat.TF_zernikefactors])
-    tf_lossop = tf_optimizer.minimize(tf_loss) 
+    tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors, muscat.TF_shiftIcX, muscat.TF_shiftIcY])
+    tf_lossop = tf_optimizer.minimize(tf_loss)
     
     ''' Initialize the model '''
     sess = tf.Session()
@@ -225,8 +224,6 @@ else:
 #%%
 ''' Optimize the model '''
 print('Start optimizing')
-#import scipy.io
-#scipy.io.savemat('ExperimentAsfObj.mat', dict(asf=np.array(myASF), obj=np.array(matlab_val)))
 
 for iterx in range(iter_last,Niter):
     
@@ -270,7 +267,6 @@ for iterx in range(iter_last,Niter):
             
     # Alternate between pure object optimization and aberration recovery
     sess.run([tf_lossop_obj], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
-    #sess.run([tf_lossop_tv], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
 
     if is_absorption:
         sess.run([tf_lossop_obj_absorption], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})

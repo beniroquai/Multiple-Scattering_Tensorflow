@@ -9,6 +9,7 @@ Created on Fri Mar 22 11:39:44 2019
 shiftIcY = 0*4 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 shiftIcX = 0*4 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 dn = .051
+NAc = .32
 if(0):
     # 10mum bead
     # data files for parameters and measuremets 
@@ -36,7 +37,16 @@ elif(0):
     dn = 1.52-1.33
     shiftIcY = 0 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
     shiftIcX = 0 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-
+elif(1):
+    # data files for parameters and measuremets 
+    matlab_val_file = './Data/cells/Cell_20x_100a_120-270.tif_allAmp.mat'
+    matlab_par_file = './Data/cells/Cell_20x_100a_120-270.tif_myParameter.mat'
+    matlab_par_name = 'myParameter' 
+    matlab_val_name = 'allAmpSimu'   
+    mybackgroundval = -.85j  
+    shiftIcY = 25 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    shiftIcX = 25 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    NAc = .32
 elif(1):
     # data files for parameters and measuremets 
     matlab_val_file = './Data/cells/Cell_20x_100a_150-250.tif_allAmp.mat'
@@ -44,8 +54,8 @@ elif(1):
     matlab_par_name = 'myParameter' 
     matlab_val_name = 'allAmpSimu'   
     mybackgroundval = -.85j  
-    shiftIcY = 10 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-    shiftIcX = 10 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    shiftIcY = 8 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    shiftIcX = 6 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 
 elif(0):
     # data files for parameters and measuremets 

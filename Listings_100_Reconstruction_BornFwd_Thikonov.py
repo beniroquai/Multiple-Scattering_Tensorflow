@@ -14,7 +14,6 @@ import tensorflow as tf
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import os
 from datetime import datetime
 
 # load own functions
@@ -75,7 +74,6 @@ myfac = 1e0# 0*dn*1e-3
 myabsnorm = 1e5#myfac
 
 ''' microscope parameters '''
-NAc = .32
 zernikefactors = 0*np.array((0,0,0,0,0,0,-.01,-.5001,0.01,0.01,.010))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
 zernikemask = np.ones(zernikefactors.shape) #np.array(np.abs(zernikefactors)>0)*1# mask of factors that should be updated
 
@@ -96,7 +94,7 @@ else:
 # Make sure it's radix 2 along Z
 if(np.mod(matlab_val.shape[0],2)==1):
     matlab_val = matlab_val[0:matlab_val.shape[0]-1,:,:]
-#matlab_val = matlab_val + experiments.mybackgroundval
+#matlab_val = (matlab_val) - .6j
 
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
@@ -105,8 +103,9 @@ muscat.Nx,muscat.Ny,muscat.Nz = matlab_val.shape[1], matlab_val.shape[2], matlab
 muscat.shiftIcY=experiments.shiftIcY
 muscat.shiftIcX=experiments.shiftIcX
 muscat.dn = dn
-muscat.NAc = NAc
-muscat.dz = muscat.lambda0/2
+muscat.NAc = experiments.NAc
+#muscat.dz = muscat.lambda0/2
+
 
 ''' Adjust some parameters to fit it in the memory '''
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
@@ -150,20 +149,22 @@ plt.subplot(232), plt.imshow(np.abs(((myATF))**.2)[myATF.shape[0]//2,:,:]), plt.
 plt.subplot(233), plt.imshow(np.abs(((myATF))**.2)[:,:,myATF.shape[2]//2]), plt.colorbar()#, plt.show()    
 plt.subplot(234), plt.imshow(np.abs(((myASF))**.2)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
 plt.subplot(235), plt.imshow(np.abs(((myASF))**.2)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
-plt.subplot(236), plt.imshow(np.abs(((myASF))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar(), plt.show()    
+plt.subplot(236), plt.imshow(np.abs(((myASF))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar()
+plt.savefig('ASF_ATF.png'), plt.show()    
 #%%
 print('Start Deconvolution')
 alpha_b = np.array((1,2,5,8))
-for i in range(5):
+for i in range(5):  
     if i==0:
         alpha_i = (1*10**(-i)*alpha_b)
     else:
         alpha_i = np.concatenate((1*10**(-i)*alpha_b,alpha_i))
 
+#alpha_i = np.array((1e-2,5e-2))
 TF_myres = muscat.computedeconv(TF_meas, alpha = 1.)
     
 for iteri in range(np.squeeze(alpha_i.shape)): 
-    myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:alpha_i[iteri]})
+    myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:30})
     print('Start Displaying')
     #%
     print(alpha_i[iteri])
@@ -177,7 +178,7 @@ for iteri in range(np.squeeze(alpha_i.shape)):
     plt.subplot(235),plt.imshow(np.imag(myres[myATF.shape[0]//2,:,:])),plt.colorbar()
     plt.subplot(236),plt.imshow(np.imag(myres[:,:,myATF.shape[2]//2])),plt.colorbar()
     
-    plt.savefig('thikonov_reg_'+str(alpha_i[iteri])+'.png')
+    plt.savefig('thikonov_reg_'+str(iteri)+'_'+str(alpha_i[iteri])+'.png')
 
 plt.figure()
 plt.subplot(231),plt.title('real'),plt.imshow(np.real(matlab_val[:,myATF.shape[1]//2,:])),plt.colorbar()
@@ -191,7 +192,7 @@ plt.subplot(236),plt.title('imag'),plt.imshow(np.imag(matlab_val[:,:,myATF.shape
 plt.savefig('GT_.png')
 
 #%%
-myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:.5})
+myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:30})
 tosave = []
 tosave.append(np.real(myres))
 tosave.append(np.imag(myres))

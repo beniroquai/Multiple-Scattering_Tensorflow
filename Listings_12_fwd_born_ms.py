@@ -68,15 +68,15 @@ matlab_pars = data.import_parameters_mat(filename = matlab_par_file, matname=mat
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
 muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(matlab_pars['Ny'].value))
-zernikefactors = np.array((0,0,0,0,0,0,0,0,0.0,0.0,0.0)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
+zernikefactors = 0*np.array((0,0,0,0,1,0,5,0,0.0,0.1,0.0)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
-muscat.shiftIcX = .5 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-muscat.shiftIcY = 2 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-muscat.NAc = .5#051
+muscat.shiftIcX = -5 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+muscat.shiftIcY = 0 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+muscat.NAc = .3#051
 muscat.NAo = .95
 
 
-dn =  .01 #(1.437-1.3326)#/np.pi
+dn =  .001 #(1.437-1.3326)#/np.pi
 
 
 #muscat.NAo = .95
@@ -84,7 +84,7 @@ dn =  .01 #(1.437-1.3326)#/np.pi
 #muscat.dy = .2; muscat.dx = muscat.dy#muscat.lambda0/4
 #muscat.dx = 0.1560#muscat.lambda0/4
 #muscat.Nx = 50; muscat.Ny = 50; muscat.Nz = 50
-muscat.Nx = 128; muscat.Ny = 128; muscat.Nz = 70
+#muscat.Nx = 128; muscat.Ny = 128; muscat.Nz = 70
 #muscat.dz = muscat.lambda0/4
 #muscat.Nz = 36
 

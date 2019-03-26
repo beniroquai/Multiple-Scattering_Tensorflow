@@ -51,8 +51,8 @@ myepstvval = 1e-15##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 lambda_neg = 10000
 
 # Displaying/Saving
-Niter = 200
-Nsave = 25 # write info to disk
+Niter = 400
+Nsave = 50 # write info to disk
 Ndisplay = Nsave
 
 # Control Flow 
