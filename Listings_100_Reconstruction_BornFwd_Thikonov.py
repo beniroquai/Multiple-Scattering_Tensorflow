@@ -164,7 +164,7 @@ for i in range(5):
 TF_myres = muscat.computedeconv(TF_meas, alpha = 1.)
     
 for iteri in range(np.squeeze(alpha_i.shape)): 
-    myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:30})
+    myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:alpha_i[iteri]})
     print('Start Displaying')
     #%
     print(alpha_i[iteri])
@@ -192,7 +192,7 @@ plt.subplot(236),plt.title('imag'),plt.imshow(np.imag(matlab_val[:,:,myATF.shape
 plt.savefig('GT_.png')
 
 #%%
-myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:30})
+myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:8})
 tosave = []
 tosave.append(np.real(myres))
 tosave.append(np.imag(myres))

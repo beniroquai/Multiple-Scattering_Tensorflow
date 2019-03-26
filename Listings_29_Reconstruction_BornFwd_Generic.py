@@ -44,7 +44,7 @@ my_learningrate = 1e-1  # learning rate
 NreduceLR = 500 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
-mylambdatv = 1e-0 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+mylambdatv = 1e1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 myepstvval = 1e-15##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Positivity Constraint
@@ -73,11 +73,9 @@ if is_recomputemodel:
     mysubsamplingIC = 0    
     dn = experiments.dn
     myfac = 1e0# 0*dn*1e-3
-    myabsnorm = 1e5#myfac
     
     ''' microscope parameters '''
-    NAc = .5
-    zernikefactors = np.array((0,0,0,0,0,0,-.01,-.001,0.01,0.01,.010))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
+    zernikefactors = 0*np.array((0,0,0,0,0,0,-.01,-.001,0.01,0.01,.010))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
     zernikemask = np.ones(zernikefactors.shape) #np.array(np.abs(zernikefactors)>0)*1# mask of factors that should be updated
     zernikemask[0]=0 # we don't want the first one to be shifting the phase!!
     '''START CODE'''
@@ -105,8 +103,8 @@ if is_recomputemodel:
     muscat.Nx,muscat.Ny,muscat.Nz = matlab_val.shape[1], matlab_val.shape[2], matlab_val.shape[0]
     muscat.shiftIcY=experiments.shiftIcY
     muscat.shiftIcX=experiments.shiftIcX
-    muscat.dn = dn
-    muscat.NAc = NAc
+    muscat.dn = experiments.dn
+    muscat.NAc = experiments.NAc
     #muscat.dz = muscat.lambda0/2
     
     ''' Adjust some parameters to fit it in the memory '''
@@ -118,8 +116,9 @@ if is_recomputemodel:
     
     ''' Compute a first guess based on the experimental phase '''
     obj_guess =  np.zeros(matlab_val.shape)+muscat.nEmbb# np.angle(matlab_val)## 
-    obj_guess = np.real(np.load('thikonovinvse.npy'))
-    obj_guess = obj_guess-np.min(obj_guess); obj_guess = obj_guess/np.max(obj_guess)
+    obj_guess = np.load('thikonovinvse.npy')
+    #obj_guess = obj_guess-np.min(obj_guess); obj_guess = obj_guess/np.max(obj_guess)
+    obj_guess = obj_guess-(np.min(np.real(obj_guess))+1j*np.min(np.imag(obj_guess)))
     obj_guess = obj_guess*dn+muscat.nEmbb
     
     ''' Compute the systems model'''
