@@ -163,7 +163,7 @@ for i in range(5):
 #alpha_i = np.array((1e-2,5e-2))
 TF_myres = muscat.computedeconv(TF_meas, alpha = 1.)
     
-if(0):
+if(1):
     for iteri in range(np.squeeze(alpha_i.shape)): 
         myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:alpha_i[iteri]})
         print('Start Displaying')

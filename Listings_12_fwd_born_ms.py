@@ -54,7 +54,7 @@ mysubsamplingIC=0
 
 psf_modell =  'corr' # 1st Born
 #psf_modell =  'sep' # 1st Born
-#psf_modell =  None # MultiSlice
+psf_modell =  None # MultiSlice
 
 
 #tf.reset_default_graph()
@@ -72,9 +72,8 @@ zernikefactors = 0*np.array((0,0,0,0,1,0,5,0,0.0,0.1,0.0)) # 7: ComaX, 8: ComaY,
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
 muscat.shiftIcX = -0 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 muscat.shiftIcY = 0 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-muscat.NAc = .3#051
+muscat.NAc = .5#051
 muscat.NAo = .95
-
 
 dn =  .001 #(1.437-1.3326)#/np.pi
 
@@ -166,7 +165,7 @@ else:
     muscat.computemodel()
        
     ''' Define Fwd operator'''
-    tf_fwd = muscat.computeconvolution(None)
+    tf_fwd = muscat.computeconvolution(TF_ASF=None, is_padding=True)
 
     ''' Evaluate the model '''
     sess = tf.Session()#config=tf.ConfigProto(log_device_placement=True))
@@ -184,6 +183,9 @@ else:
 
 #%% display the results
 centerslice = myfwd.shape[0]//2
+
+#sess.run(muscat.normfac)
+
 
 if(muscat.Nz==1 and False ):
     plt.figure()

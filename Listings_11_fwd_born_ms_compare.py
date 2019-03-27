@@ -52,10 +52,6 @@ mysubsamplingIC=0
 
 
 
-psf_modell =  'corr' # 1st Born
-#psf_modell =  'sep' # 1st Born
-#psf_modell =  None # MultiSlice
-
 
 #tf.reset_default_graph()
 
@@ -72,11 +68,11 @@ zernikefactors = 0*np.array((0,0,0,0,1,0,5,0,0.0,0.1,0.0)) # 7: ComaX, 8: ComaY,
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
 muscat.shiftIcX = -0 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 muscat.shiftIcY = 0 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-muscat.NAc = .3#051
+muscat.NAc = .2#051
 muscat.NAo = .95
 
 
-dn =  .001 #(1.437-1.3326)#/np.pi
+dn =  .01 #(1.437-1.3326)#/np.pi
 
 
 #muscat.NAo = .95
@@ -98,13 +94,13 @@ muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny
 
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
 mydiameter = 1
-if(1):
+if(0):
     obj_real= tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)#)dn)
     obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = .0, nEmbb = 0.0)
-elif(1):
+elif(0):
     obj_real = tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='hollowsphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)#)dn)
     obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .0)
-elif(0):
+elif(1):
     obj_real= tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='twosphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)
     obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='twosphere', diameter = mydiameter, dn = .0)
 elif(0):
@@ -128,20 +124,20 @@ else:
     obj_absorption = obj_real*0
 
 obj = (obj_real + obj_absorption)
-obj = np.roll(obj, shift=5, axis=0)
+obj = np.roll(obj, shift=0, axis=0)
 
 # introduce zernike factors here
 muscat.zernikefactors = zernikefactors
 #muscat.zernikefactors = np.array((0,0,0,0,0,0,.1,-1,0,0,-2)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
 muscat.zernikemask = zernikefactors*0
 
-''' 1. ) Compute the systems model in Born approximation'''
+''' 1. ) Compute the systems model in BPM approximation'''
 #muscat.A_input = muscat.A_input*np.exp(1j*np.random.rand(muscat.A_input.shape[3])*2*np.pi)
-obj_born = obj - muscat.nEmbb
-muscat.computesys(obj_born, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf=None)
+obj_bpm = obj - muscat.nEmbb
+muscat.computesys(obj_bpm, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf=None, is_dampic=False)
 
 #muscat.A_input = muscat.A_input*np.exp(1j*np.random.rand(muscat.A_input.shape[3])*2*np.pi)
-tf_fwd = muscat.computemodel()
+tf_fwd_bpm = muscat.computemodel()
 plt.imshow(muscat.Ic)
 
 
@@ -152,20 +148,18 @@ sess.run(tf.global_variables_initializer())
 
 #%% run model and measure memory/time
 start = time.time()
-myfwd_born = sess.run(tf_fwd)#, options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE, output_partition_graphs=True), run_metadata=run_metadata)
+myfwd_bpm = sess.run(tf_fwd_bpm)#, options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE, output_partition_graphs=True), run_metadata=run_metadata)
 end = time.time()
 print(end - start)
-
-    
     
 ''' 2. ) Compute the systems model in BPM approximation'''
-muscat.computesys(obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf=psf_modell)
+muscat.computesys(obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='corr')
 
 ''' Create Model Instance'''
 muscat.computemodel()
    
 ''' Define Fwd operator'''
-tf_fwd = muscat.computeconvolution(None, is_padding=True)
+tf_fwd_born = muscat.computeconvolution(None, is_padding=True)
 
 ''' Evaluate the model '''
 sess = tf.Session()#config=tf.ConfigProto(log_device_placement=True))
@@ -177,12 +171,12 @@ myASF = sess.run(muscat.TF_ASF)
 
 #%% run model and measure memory/time
 start = time.time()
-myfwd_bpm = sess.run(tf_fwd, feed_dict={muscat.TF_ASF_placeholder:myASF,  muscat.TF_obj:np.real(obj), muscat.TF_obj_absorption:np.imag(obj)})#, options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE, output_partition_graphs=True), run_metadata=run_metadata)
+myfwd_born = sess.run(tf_fwd_born, feed_dict={muscat.TF_ASF_placeholder:myASF,  muscat.TF_obj:np.real(obj), muscat.TF_obj_absorption:np.imag(obj)})#, options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE, output_partition_graphs=True), run_metadata=run_metadata)
 end = time.time()
 print(end - start)
 
 #%% display the results
-myfwd_dif = myfwd_born - myfwd_bpm
+myfwd_dif =  myfwd_bpm - myfwd_born 
 centerslice = myfwd_dif.shape[0]//2
 
 plt.figure()    

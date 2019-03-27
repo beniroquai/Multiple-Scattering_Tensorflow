@@ -130,7 +130,7 @@ if is_recomputemodel:
     muscat.computemodel()
     
     ''' Define Fwd operator'''
-    tf_fwd = muscat.computeconvolution(muscat.TF_ASF, is_padding=False)
+    tf_fwd = muscat.computeconvolution(muscat.TF_ASF, is_padding=True)
     
     
     #%%

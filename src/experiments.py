@@ -25,9 +25,9 @@ elif(1):
     matlab_par_name = 'myParameter' 
     matlab_val_name = 'allAmpSimu'
     mybackgroundval = -1j
-    shiftIcY = 20 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-    shiftIcX = 20 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-    NAc = .2
+    shiftIcY = -5# 20 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    shiftIcX = 5# 20 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    NAc = .32
 elif(0):
     # data files for parameters and measuremets 
     matlab_val_file = './Data/cells/cross_section_10x0.3_hologram_full.tiffull_allAmp.mat'

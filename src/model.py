@@ -75,7 +75,7 @@ class MuScatModel(object):
         self.lambdaM = self.lambda0/self.nEmbb; # wavelength in the medium
  
     #@define_scope
-    def computesys(self, obj=None, is_padding=False, is_tomo = False, dropout_prob=1, mysubsamplingIC=0, is_compute_psf='corr'):
+    def computesys(self, obj=None, is_padding=False, is_tomo = False, dropout_prob=1, mysubsamplingIC=0, is_compute_psf='corr', is_dampic=True):
         # is_compute_psf: 'corr', 'sep'
         """ This computes the FWD-graph of the Q-PHASE microscope;
         1.) Compute the physical dimensions
@@ -92,6 +92,7 @@ class MuScatModel(object):
         self.mysubsamplingIC = mysubsamplingIC
         self.dropout_prob = dropout_prob
         self.is_compute_psf = is_compute_psf
+        self.is_dampic = is_dampic # want to damp the intensity at the edges of the illumination?
         
         if(is_padding):
             print('--------->WARNING: Padding is not yet working correctly!!!!!!!!')
@@ -201,7 +202,7 @@ class MuScatModel(object):
             self.Ic_map = np.cos((myIntensityFactor *tf_helper.xx((self.Nx, self.Ny), mode='freq')**2+myIntensityFactor *tf_helper.yy((self.Nx, self.Ny), mode='freq')**2))**2
             print('We are taking the cosine illuminatino shape!')
            
-        elif(0):
+        if(self.is_dampic):
             print('We are taking the gaussian illuminatino shape!')
             myIntensityFactor = 0.03
             self.Ic_map = np.exp(-tf_helper.rr((self.Nx, self.Ny),mode='freq')**2/myIntensityFactor)
@@ -361,9 +362,6 @@ class MuScatModel(object):
             # TODO: The following operation takes super long - WHY?
             self.TF_myAllSlicePropagator_psf =  tf.cast(tf.complex(np.real(self.myAllSlicePropagator_psf),np.imag(self.myAllSlicePropagator_psf)), dtype=np.complex64)
             
-            #TF_Alldphi_psf = -(tf.reshape(tf.range(0, self.mysize[0], 1), [1, 1, self.mysize[0]])-self.Nz/2)*self.TF_dphi#[:, :, np.newaxis], self.mysize[0], axis=2)
-            #self.TF_myAllSlicePropagator_psf = tf.transpose(tf.exp(-1j*TF_Alldphi_psf) #* (np.repeat(self.dphi[:, :, np.newaxis], self.mysize[0], axis=2) >0), [2, 0, 1]);  # Propagates a single end result backwards to all slices
-            
                     
             # Only update those Factors which are really necesarry (e.g. Defocus is not very likely!)
             self.TF_zernikefactors = tf.Variable(self.zernikefactors, dtype = tf.float32, name='var_zernikes')
@@ -424,7 +422,7 @@ class MuScatModel(object):
         # negate padding        
         if self.is_padding:
             self.TF_allSumAmp = self.TF_allSumAmp[:,self.Nx//2-self.Nx//4:self.Nx//2+self.Nx//4, self.Ny//2-self.Ny//4:self.Ny//2+self.Ny//4]
-             
+        
         return self.TF_allSumAmp
 
 
@@ -453,54 +451,6 @@ class MuScatModel(object):
         return TF_ASF, TF_ATF 
 
 
-    def computepsf_old(self):
-        # here we only want to gather the partially coherent transfer function PTF
-        # which is the correlation of the PTF_c and PTF_i 
-        # we compute it as the slice propagation of the pupil function
-        myfftfac = np.prod(self.mysize)
-        # 1. + 2.) Define the input field as the BFP and effective pupil plane of the condenser 
-        # Compute the ASF for the Condenser and Imaging Pupil
-        TF_ASF_po = tf_helper.my_ift2d(self.TF_myAllSlicePropagator_psf * tf_helper.fftshift2d(self.TF_Po_aberr),myfftfac)#* self.TF_Po_aberr))
-        TF_ASF_ic = tf_helper.my_ift2d(self.TF_myAllSlicePropagator_psf * self.TF_Ic,myfftfac)
-        #TF_ASF_po = TF_ASF_po/tf.complex(np.float32(np.sqrt(np.prod(self.mysize))),0.); # not necerssary for TF!
-        #TF_ASF_ic = TF_ASF_ic/tf.complex(np.float32(np.sqrt(np.prod(self.mysize))),0.); # not necerssary for TF!
-        
-        # normalize ATF to their maximum maginitude 
-        TF_ATF_po = tf_helper.my_ft3d(TF_ASF_po,myfftfac)
-        TF_ATF_po = TF_ATF_po/tf.complex(tf.reduce_max(tf.abs(TF_ATF_po)),0.)
-        TF_ATF_ic = tf_helper.my_ft3d(TF_ASF_ic,myfftfac) 
-        TF_ATF_ic = TF_ATF_ic/tf.complex(tf.reduce_max(tf.abs(TF_ATF_ic)),0.)
-
-        #sess = tf.Session();         sess.run(tf.global_variables_initializer())
-        #sess.run(TF_ATF_po)
-        #myV = sess.run(self.TF_V)
-        #plt.imshow(np.abs(sess.run(tf_helper.my_ft3d(self.TF_V)))[:,16,:]), plt.colorbar(), plt.show()
-        #plt.imshow(np.angle(sess.run(tf_helper.my_ft3d(self.TF_V)))[:,16,:]), plt.colorbar(), plt.show()        
-        
-        # 3.) correlation of the pupil function to get the APTF
-        TF_ASF = tf_helper.my_ift3d(TF_ATF_po,myfftfac)*tf.conj(tf_helper.my_ift3d(TF_ATF_ic,myfftfac))
-        #TF_ASF = TF_ASF/tf.complex(np.float32(np.sqrt(np.prod(self.mysize))),0.); # not necerssary for TF!
-        TF_ATF = tf_helper.my_ft3d(TF_ASF,myfftfac)
-        #TF_ATF = TF_ATF/tf.complex(np.float32(np.sqrt(np.prod(self.mysize))),0.); # not necerssary for TF!
-        #myTF_ATF = sess.run(TF_ATF)
-        
-        #plt.imshow(np.sum(np.abs(myTF_ATF),0)), plt.colorbar(), plt.show()
-        #plt.imshow(np.angle(sess.run(tf_helper.my_ft3d(self.TF_V)))[:,16,:]), plt.colorbar(), plt.show()        
-        
-        #
-        
-        # Following is the normalization according to Martin's book. We do not use it, because the
-        # following leads to divide by zero for dark-field system.
-        normfactor = np.abs(np.fft.ifftshift(self.Po)**2)*np.abs(self.Ic); 
-        normfactor = np.sum(normfactor)
-        print(normfactor)
-        # %If normafactor == 0, we are imaging with dark-field system.
-        #TF_ATF = TF_ATF/tf.complex(np.float32(normfactor*self.lambda0*4.*np.pi),0.)
-        TF_ATF = TF_ATF/tf.complex(np.float32(normfactor),0.)
-        TF_ASF = tf_helper.my_ift3d(TF_ATF,myfftfac)
-        #myasf = myasf/sqrt(sum(abssqr(myasf))); % not necerssary for TF!
-
-        return TF_ASF, TF_ATF 
 
     def computepsf(self):
 
@@ -527,8 +477,9 @@ class MuScatModel(object):
         TF_ASF = TF_ASF_ic*tf.conj(TF_ASF_po) #tf_helper.my_ift3d(TF_ATF_po,myfftfac)*tf.conj(tf_helper.my_ift3d(TF_ATF_ic,myfftfac))
 
         # I wish I could use this here - but not a good idea!
-        normfac = tf.sqrt(tf.reduce_sum(tf.abs(TF_ASF[self.mysize[0]//2,:,:])))
-        TF_ASF = TF_ASF/tf.complex(normfac,0.) # TODO: norm Tensorflow?! 
+        self.normfac = tf.sqrt(tf.reduce_sum(tf.abs(TF_ASF[self.mysize[0]//2,:,:])))
+        #self.normfac = 1.
+        TF_ASF = TF_ASF/tf.complex(self.normfac,0.) # TODO: norm Tensorflow?! 
 
         # 4.) precompute ATF - just im case
         TF_ATF = tf_helper.my_ft3d(TF_ASF)
@@ -669,7 +620,14 @@ class MuScatModel(object):
  
             # Normalize the image such that the values do not depend on the fineness of
             # the source grid.
-            TF_allSumAmp = TF_allSumAmp/tf.cast(np.sum(self.Ic), tf.complex64) # tf.cast(tf.reduce_max(tf.abs(self.TF_allSumAmp)), tf.complex64) # self.Nc #/
+            #TF_allSumAmp = TF_allSumAmp/tf.cast(np.sum(self.Ic), tf.complex64) # tf.cast(tf.reduce_max(tf.abs(self.TF_allSumAmp)), tf.complex64) # self.Nc #/
+
+            # Normalize along Z to account for energy conservation
+            TF_mynorm = tf.cast(tf.sqrt(tf_helper.tf_abssqr(tf.reduce_sum(TF_allSumAmp , axis=(1,2))))/np.prod(self.mysize[1:3]),tf.complex64)
+            TF_mynorm = tf.expand_dims(tf.expand_dims(TF_mynorm,1),1)
+            TF_allSumAmp = TF_allSumAmp/TF_mynorm;
+            print('BPM Normalization accounts for ENERGY conservation!!')
+
             # Following is the normalization according to Martin's book. It ensures
             # that a transparent specimen is imaged with unit intensity.
             # normfactor=abs(Po).^2.*abs(Ic); We do not use it, because it leads to
