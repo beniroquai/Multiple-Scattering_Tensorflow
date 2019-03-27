@@ -83,7 +83,7 @@ dn =  .001 #(1.437-1.3326)#/np.pi
 #muscat.dz = 0.1625*2#muscat.lambda0/4
 #muscat.dy = .2; muscat.dx = muscat.dy#muscat.lambda0/4
 #muscat.dx = 0.1560#muscat.lambda0/4
-#muscat.Nx = 50; muscat.Ny = 50; muscat.Nz = 50
+muscat.Nx = 32; muscat.Ny = 32; muscat.Nz = 64
 #muscat.Nx = 128; muscat.Ny = 128; muscat.Nz = 70
 #muscat.dz = muscat.lambda0/4
 #muscat.Nz = 36
@@ -97,8 +97,8 @@ matasf = data.import_realdata_h5(filename = mymatfile, matname='myasf', is_compl
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
 
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
-mydiameter = 5
-if(0):
+mydiameter = 1
+if(1):
     obj_real= tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)#)dn)
     obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = .0, nEmbb = 0.0)
 elif(1):
@@ -135,70 +135,72 @@ muscat.zernikefactors = zernikefactors
 #muscat.zernikefactors = np.array((0,0,0,0,0,0,.1,-1,0,0,-2)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
 muscat.zernikemask = zernikefactors*0
 
-''' Compute the systems model'''
-if psf_modell == None:
-    #muscat.A_input = muscat.A_input*np.exp(1j*np.random.rand(muscat.A_input.shape[3])*2*np.pi)
-    obj = obj - muscat.nEmbb
-    muscat.computesys(obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf=None)
-    
-    #muscat.A_input = muscat.A_input*np.exp(1j*np.random.rand(muscat.A_input.shape[3])*2*np.pi)
-    tf_fwd = muscat.computemodel()
-    plt.imshow(muscat.Ic)
-    
-    
-    #%% Display the results
-    ''' Evaluate the model '''
-    sess = tf.Session()#config=tf.ConfigProto(log_device_placement=True))
-    sess.run(tf.global_variables_initializer())
-    
-    #%% run model and measure memory/time
-    start = time.time()
-    myfwd = sess.run(tf_fwd)#, options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE, output_partition_graphs=True), run_metadata=run_metadata)
-    end = time.time()
-    print(end - start)
+''' 1. ) Compute the systems model in Born approximation'''
+#muscat.A_input = muscat.A_input*np.exp(1j*np.random.rand(muscat.A_input.shape[3])*2*np.pi)
+obj_born = obj - muscat.nEmbb
+muscat.computesys(obj_born, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf=None)
+
+#muscat.A_input = muscat.A_input*np.exp(1j*np.random.rand(muscat.A_input.shape[3])*2*np.pi)
+tf_fwd = muscat.computemodel()
+plt.imshow(muscat.Ic)
+
+
+#%% Display the results
+''' Evaluate the model '''
+sess = tf.Session()#config=tf.ConfigProto(log_device_placement=True))
+sess.run(tf.global_variables_initializer())
+
+#%% run model and measure memory/time
+start = time.time()
+myfwd_born = sess.run(tf_fwd)#, options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE, output_partition_graphs=True), run_metadata=run_metadata)
+end = time.time()
+print(end - start)
 
     
     
-else:
-    muscat.computesys(obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf=psf_modell)
+''' 2. ) Compute the systems model in BPM approximation'''
+muscat.computesys(obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf=psf_modell)
 
-    ''' Create Model Instance'''
-    muscat.computemodel()
-       
-    ''' Define Fwd operator'''
-    tf_fwd = muscat.computeconvolution(None)
+''' Create Model Instance'''
+muscat.computemodel()
+   
+''' Define Fwd operator'''
+tf_fwd = muscat.computeconvolution(None, is_padding=True)
 
-    ''' Evaluate the model '''
-    sess = tf.Session()#config=tf.ConfigProto(log_device_placement=True))
-    sess.run(tf.global_variables_initializer())
-    
-    ''' Compute the ATF '''
-    myATF = sess.run(muscat.TF_ATF)
-    myASF = sess.run(muscat.TF_ASF)
+''' Evaluate the model '''
+sess = tf.Session()#config=tf.ConfigProto(log_device_placement=True))
+sess.run(tf.global_variables_initializer())
 
-    #%% run model and measure memory/time
-    start = time.time()
-    myfwd = sess.run(tf_fwd, feed_dict={muscat.TF_ASF_placeholder:myASF,  muscat.TF_obj:np.real(obj), muscat.TF_obj_absorption:np.imag(obj)})#, options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE, output_partition_graphs=True), run_metadata=run_metadata)
-    end = time.time()
-    print(end - start)
+''' Compute the ATF '''
+myATF = sess.run(muscat.TF_ATF)
+myASF = sess.run(muscat.TF_ASF)
+
+#%% run model and measure memory/time
+start = time.time()
+myfwd_bpm = sess.run(tf_fwd, feed_dict={muscat.TF_ASF_placeholder:myASF,  muscat.TF_obj:np.real(obj), muscat.TF_obj_absorption:np.imag(obj)})#, options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE, output_partition_graphs=True), run_metadata=run_metadata)
+end = time.time()
+print(end - start)
 
 #%% display the results
-centerslice = myfwd.shape[0]//2
+myfwd_dif = myfwd_born - myfwd_bpm
+centerslice = myfwd_dif.shape[0]//2
 
-if(muscat.Nz==1 and False ):
-    plt.figure()
-    plt.subplot(221), plt.title('real XY'),plt.imshow(np.real(np.squeeze(myfwd))), plt.colorbar()#, plt.show()
-    plt.subplot(222), plt.title('imag XY'),plt.imshow(np.imag(np.squeeze(myfwd))), plt.colorbar()#, plt.show()
-    plt.subplot(223), plt.title('abs XY'),plt.imshow(np.abs(np.squeeze(myfwd))), plt.colorbar()#, plt.show()
-    plt.subplot(224), plt.title('phahse  XY'),plt.imshow(np.angle(np.squeeze(myfwd))), plt.colorbar(), plt.show()
-    
-    plt.subplot(121), plt.imshow(np.abs(np.fft.fftshift(np.fft.fft2(np.squeeze(myfwd))))**.1), plt.colorbar()
-    plt.subplot(122), plt.plot(np.abs(np.squeeze(myfwd)[muscat.mysize[1]//2,:])), plt.show()
+plt.figure()    
 
+plt.subplot(231), plt.title('real XZ'),plt.imshow(np.real(myfwd_dif)[:,myfwd_dif.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(232), plt.title('real YZ'),plt.imshow(np.real(myfwd_dif)[:,:,myfwd_dif.shape[2]//2]), plt.colorbar()#, plt.show()
+plt.subplot(233), plt.title('real XY'),plt.imshow(np.real(myfwd_dif)[centerslice,:,:]), plt.colorbar()# plt.show()
+plt.subplot(234), plt.title('imag XZ'),plt.imshow(np.imag(myfwd_dif)[:,myfwd_dif.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(235), plt.title('imag YZ'),plt.imshow(np.imag(myfwd_dif)[:,:,myfwd_dif.shape[2]//2]), plt.colorbar()#, plt.show()
+plt.subplot(236), plt.title('imag XY'),plt.imshow(np.imag(myfwd_dif)[centerslice,:,:]), plt.colorbar(), plt.show()
+plt.subplot(231), plt.title('abs XZ'),plt.imshow(np.abs(myfwd_dif)[:,myfwd_dif.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(232), plt.title('abs YZ'),plt.imshow(np.abs(myfwd_dif)[:,:,myfwd_dif.shape[2]//2]), plt.colorbar()#, plt.show()
+plt.subplot(233), plt.title('abs XY'),plt.imshow(np.abs(myfwd_dif)[centerslice,:,:]), plt.colorbar()# plt.show()
+plt.subplot(234), plt.title('angle XZ'),plt.imshow(np.angle(myfwd_dif)[:,myfwd_dif.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(235), plt.title('angle YZ'),plt.imshow(np.angle(myfwd_dif)[:,:,myfwd_dif.shape[2]//2]), plt.colorbar()#, plt.show()
+plt.subplot(236), plt.title('angle XY'),plt.imshow(np.angle(myfwd_dif)[centerslice,:,:]), plt.colorbar(), plt.show()
 
-
-
-else:#(psf_modell is not None):
+if False:
     plt.figure()    
     plt.subplot(231), plt.title('real XZ'), plt.imshow(np.real(((myASF)))[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
     plt.subplot(233), plt.title('real XZ'), plt.imshow(np.real(((myASF)))[centerslice,:,:]), plt.colorbar()#, plt.show()    
@@ -215,22 +217,8 @@ else:#(psf_modell is not None):
     plt.subplot(235), plt.title('imag XZ'), plt.imshow(np.imag(((myATF))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar(), plt.show()    
 
 
-    plt.figure()    
     
-    plt.subplot(231), plt.title('real XZ'),plt.imshow(np.real(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
-    plt.subplot(232), plt.title('real YZ'),plt.imshow(np.real(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-    plt.subplot(233), plt.title('real XY'),plt.imshow(np.real(myfwd)[centerslice,:,:]), plt.colorbar()# plt.show()
-    plt.subplot(234), plt.title('imag XZ'),plt.imshow(np.imag(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
-    plt.subplot(235), plt.title('imag YZ'),plt.imshow(np.imag(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-    plt.subplot(236), plt.title('imag XY'),plt.imshow(np.imag(myfwd)[centerslice,:,:]), plt.colorbar(), plt.show()
-    plt.subplot(231), plt.title('abs XZ'),plt.imshow(np.abs(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
-    plt.subplot(232), plt.title('abs YZ'),plt.imshow(np.abs(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-    plt.subplot(233), plt.title('abs XY'),plt.imshow(np.abs(myfwd)[centerslice,:,:]), plt.colorbar()# plt.show()
-    plt.subplot(234), plt.title('angle XZ'),plt.imshow(np.angle(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
-    plt.subplot(235), plt.title('angle YZ'),plt.imshow(np.angle(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-    plt.subplot(236), plt.title('angle XY'),plt.imshow(np.angle(myfwd)[centerslice,:,:]), plt.colorbar(), plt.show()
-
 #%% save the results
-np.save(savepath+'allAmp_simu.npy', myfwd)
-#data.export_realdata_h5(filename = './Data/DROPLETS/allAmp_simu.mat', matname = 'allAmp_red', data=myfwd)
+#np.save(savepath+'allAmp_simu.npy', myfwd_dif)
+#data.export_realdata_h5(filename = './Data/DROPLETS/allAmp_simu.mat', matname = 'allAmp_red', data=myfwd_dif)
 #data.export_realdata_h5(filename = './Data/DROPLETS/mySample.mat', matname = 'mySample', data=np.real(muscat.obj))

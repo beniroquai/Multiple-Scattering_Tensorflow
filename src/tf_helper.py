@@ -20,7 +20,10 @@ import numbers
 
 
 
-    
+defaultTFDataType="float32"
+defaultTFCpxDataType="complex64"
+
+
 
 def get_available_gpus():
     local_device_protos = device_lib.list_local_devices()
@@ -403,6 +406,135 @@ def phiphi(mysize=(256,256), offset = 0, angle_range = 1):
     phi[phi.shape[0]//2,phi.shape[1]//2]=0;
     np.seterr(divide='warn', invalid = 'warn');
     return(phi)    
+
+
+def totensor(img):
+    if istensor(img):
+        return img
+    if (not isinstance(0.0,numbers.Number)) and ((img.dtype==defaultTFDataType) or (img.dtype==defaultTFCpxDataType)):
+        img=tf.constant(img)
+    else:
+        if iscomplex(img):
+            img=tf.constant(img,defaultTFCpxDataType)
+        else:
+            img=tf.constant(img,defaultTFDataType)
+    return img
+
+def iscomplex(mytype):
+    mytype=str(datatype(mytype))
+    return (mytype == "complex64") or (mytype == "complex128") or (mytype == "complex64_ref") or (mytype == "complex128_ref") or (mytype=="<dtype: 'complex64'>") or (mytype=="<dtype: 'complex128'>")
+
+def datatype(tfin):
+    if istensor(tfin):
+        return tfin.dtype
+    else:
+        if isinstance(tfin,np.ndarray):
+            return tfin.dtype.name
+        return tfin # assuming this is already the type
+
+def istensor(tfin):
+    return isinstance(tfin,tf.Tensor)
+
+def shapevec(tfin):
+    """
+        returns the shape of a tensor as a numpy ndarray
+    """
+    if istensor(tfin):
+        return np.array(tfin.shape.as_list())
+    else:
+        return np.array(tfin.shape)
+
+def expanddimvec(shape,ndims,othersizes=None,trailing=False):
+    """
+        expands an nd image shape tuple to the necessary number of dimension by inserting leading dimensions
+        ----------
+        img: input image to expand
+        ndims: number of dimensions to expand to
+        trailing (default:False) : append trailing dimensions rather than dimensions at the front of the size vector
+        othersizes (defatul:None) : do not expand with ones, but rather use the provided sizes
+    """
+    if isinstance(shape,numbers.Number):
+        shape=(shape,)
+    else:
+        shape=tuple(shape)
+    missingdims=ndims-len(shape)
+    if missingdims > 0:
+        if othersizes is None:
+            if trailing:
+                return shape+(missingdims)*(1,)
+            else:
+                return (missingdims)*(1,)+shape
+        else:
+            if trailing:
+                return shape+tuple(othersizes[-missingdims::])
+            else:
+                return tuple(othersizes[0:missingdims])+shape
+    else:
+        return shape[-ndims:]
+
+
+def extract(tfin, newsize, mycenter=None, constant_values=0):
+    """
+    extracts (and pads) a subregion of a tf tensor.
+
+    Parameters
+    ----------
+    tfin : tensorflow array to pad
+    newsize: size of the array after extraction
+    mycenter (default=None): The center of the ROI to extract. If None is supplied, the center (Fourier-convention) of the old array is assumed
+
+    Returns
+    -------
+    resulting tensorflow array
+
+    """
+    tfin = totensor(tfin)
+    oldsize = shapevec(tfin)
+    newsize = np.array(expanddimvec(newsize, len(oldsize), othersizes=oldsize), dtype="int32")
+
+    if mycenter is None:
+        mycenter = oldsize // 2
+    else:
+        mycenter = np.array(mycenter)
+    spos = mycenter - newsize // 2  # start position in old array
+    epos = spos + newsize  # end position in old array
+    ExtractSPos = np.maximum(spos, 0)
+    ExtractSize = np.maximum(np.minimum(epos - ExtractSPos, oldsize - ExtractSPos), 0)
+    if any(ExtractSize <= 0):
+        raise ValueError("Trying to extract an empty region")
+    #    print("ExtractSPos",ExtractSPos)
+    #    print("ExtractSize",ExtractSize)
+    Extracted = tf.slice(tfin, ExtractSPos, ExtractSize)
+    padbefore = np.maximum(-spos, 0)
+    padafter = np.maximum(newsize - ExtractSize - padbefore, 0)
+    #    print(Extracted)
+    #    print(padbefore)
+    #    print(padafter)
+    return pad(Extracted, padbefore, padafter, constant_values=constant_values)
+
+def pad(tfin, padbefore, padafter, constant_values=0):
+    """
+    pads values outside the array
+
+    Allows to account for borders.
+
+    Parameters
+    ----------
+    tfin : tensorflow array to pad
+    padbefore : vector of pad sized before the array
+    padafter : vector of pad sized after the array
+    constant_values : value to pad in (default:0)
+
+    Returns
+    -------
+    resulting tensorflow array
+
+    """
+    with tf.name_scope('Pad'):
+        paddings=np.stack((padbefore,padafter),1)
+#        print(paddings)
+        return tf.pad(tfin, paddings,constant_values=constant_values)  # [0, 2]
+
     
     
 def DampEdge(im, width = None, rwidth=0.1, axes =None, func = None, method="damp", sigma=4.0):

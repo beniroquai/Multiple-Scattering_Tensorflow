@@ -168,7 +168,7 @@ if is_recomputemodel:
     #tf_lossop_tv = tf_optimizer.minimize(tf_tvloss, var_list = [muscat.TF_obj, muscat.TF_obj_absorption])
     tf_lossop_obj = tf_optimizer.minimize(tf_loss+tf_tvloss, var_list = [muscat.TF_obj])
     tf_lossop_obj_absorption = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj_absorption])
-    tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_shiftIcX, muscat.TF_shiftIcY])#, muscat.TF_zernikefactors])
+    tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_shiftIcX, muscat.TF_shiftIcY, muscat.TF_zernikefactors])
     tf_lossop = tf_optimizer.minimize(tf_loss) 
     
     ''' Initialize the model '''

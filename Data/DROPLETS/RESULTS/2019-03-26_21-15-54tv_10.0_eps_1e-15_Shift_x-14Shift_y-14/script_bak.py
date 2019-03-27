@@ -40,19 +40,19 @@ resultpath = 'Data/DROPLETS/RESULTS/'
 
 
 ''' Control-Parameters - Optimization '''
-my_learningrate = 1e-2  # learning rate
+my_learningrate = 1e-1  # learning rate
 NreduceLR = 500 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
-mylambdatv = 1e-2 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+mylambdatv = 1e1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 myepstvval = 1e-15##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Positivity Constraint
 lambda_neg = 10000
 
 # Displaying/Saving
-Niter = 400
-Nsave = 50 # write info to disk
+Niter = 200
+Nsave = 25 # write info to disk
 Ndisplay = Nsave
 
 # Control Flow 
@@ -71,13 +71,11 @@ if is_recomputemodel:
     tf.reset_default_graph()
     # need to figure out why this holds somehow true - at least produces reasonable results
     mysubsamplingIC = 0    
-    dn = .051
+    dn = experiments.dn
     myfac = 1e0# 0*dn*1e-3
-    myabsnorm = 1e5#myfac
     
     ''' microscope parameters '''
-    NAc = .5
-    zernikefactors = np.array((0,0,0,0,0,0,-.01,-.001,0.01,0.01,.010))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
+    zernikefactors = 0*np.array((0,0,0,0,0,0,-.01,-.001,0.01,0.01,.010))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
     zernikemask = np.ones(zernikefactors.shape) #np.array(np.abs(zernikefactors)>0)*1# mask of factors that should be updated
     zernikemask[0]=0 # we don't want the first one to be shifting the phase!!
     '''START CODE'''
@@ -105,8 +103,8 @@ if is_recomputemodel:
     muscat.Nx,muscat.Ny,muscat.Nz = matlab_val.shape[1], matlab_val.shape[2], matlab_val.shape[0]
     muscat.shiftIcY=experiments.shiftIcY
     muscat.shiftIcX=experiments.shiftIcX
-    muscat.dn = dn
-    muscat.NAc = NAc
+    muscat.dn = experiments.dn
+    muscat.NAc = experiments.NAc
     #muscat.dz = muscat.lambda0/2
     
     ''' Adjust some parameters to fit it in the memory '''
@@ -118,8 +116,9 @@ if is_recomputemodel:
     
     ''' Compute a first guess based on the experimental phase '''
     obj_guess =  np.zeros(matlab_val.shape)+muscat.nEmbb# np.angle(matlab_val)## 
-    obj_guess = np.imag(np.load('thikonovinvse.npy'))
-    obj_guess = obj_guess-np.min(obj_guess); obj_guess = obj_guess/np.max(obj_guess)
+    obj_guess = np.load('thikonovinvse.npy')
+    #obj_guess = obj_guess-np.min(obj_guess); obj_guess = obj_guess/np.max(obj_guess)
+    obj_guess = obj_guess-(np.min(np.real(obj_guess))+1j*np.min(np.imag(obj_guess)))
     obj_guess = obj_guess*dn+muscat.nEmbb
     
     ''' Compute the systems model'''
@@ -161,15 +160,16 @@ if is_recomputemodel:
     else:
         print('-------> Losstype is L2')
         tf_fidelity = tf.reduce_mean(tf_helper.tf_abssqr((muscat.tf_meas+tf_norm) - tf_fwd)) # allow a global phase parameter to avoid unwrapping effects
-    tf_loss = tf_fidelity + tf_tvloss + tf_negsqrloss 
+    tf_loss = tf_fidelity + tf_negsqrloss 
     
     '''Define Optimizer'''
     tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
     tf_lossop_norm = tf_optimizer.minimize(tf_loss, var_list = [tf_glob_imag, tf_glob_real])
-    tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj])
+    #tf_lossop_tv = tf_optimizer.minimize(tf_tvloss, var_list = [muscat.TF_obj, muscat.TF_obj_absorption])
+    tf_lossop_obj = tf_optimizer.minimize(tf_loss+tf_tvloss, var_list = [muscat.TF_obj])
     tf_lossop_obj_absorption = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj_absorption])
-    tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_zernikefactors])
-    tf_lossop = tf_optimizer.minimize(tf_loss)
+    tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_shiftIcX, muscat.TF_shiftIcY])#, muscat.TF_zernikefactors])
+    tf_lossop = tf_optimizer.minimize(tf_loss) 
     
     ''' Initialize the model '''
     sess = tf.Session()
@@ -224,6 +224,8 @@ else:
 #%%
 ''' Optimize the model '''
 print('Start optimizing')
+#import scipy.io
+#scipy.io.savemat('ExperimentAsfObj.mat', dict(asf=np.array(myASF), obj=np.array(matlab_val)))
 
 for iterx in range(iter_last,Niter):
     
@@ -267,6 +269,7 @@ for iterx in range(iter_last,Niter):
             
     # Alternate between pure object optimization and aberration recovery
     sess.run([tf_lossop_obj], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
+    #sess.run([tf_lossop_tv], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
 
     if is_absorption:
         sess.run([tf_lossop_obj_absorption], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})

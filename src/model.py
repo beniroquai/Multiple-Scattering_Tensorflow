@@ -201,7 +201,7 @@ class MuScatModel(object):
             self.Ic_map = np.cos((myIntensityFactor *tf_helper.xx((self.Nx, self.Ny), mode='freq')**2+myIntensityFactor *tf_helper.yy((self.Nx, self.Ny), mode='freq')**2))**2
             print('We are taking the cosine illuminatino shape!')
            
-        elif(1):
+        elif(0):
             print('We are taking the gaussian illuminatino shape!')
             myIntensityFactor = 0.03
             self.Ic_map = np.exp(-tf_helper.rr((self.Nx, self.Ny),mode='freq')**2/myIntensityFactor)
@@ -535,7 +535,7 @@ class MuScatModel(object):
         #normfac = tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(TF_ATF[self.mysize[0]//2,:,:])))
         return TF_ASF, TF_ATF 
 
-    def computeconvolution(self, TF_ASF=None):
+    def computeconvolution(self, TF_ASF=None, is_padding=False):
         # We want to compute the born-fwd model
         # TF_ATF - is the tensorflow node holding the ATF - alternatively use numpy arry!
         print('Computing the fwd model in born approximation')
@@ -553,7 +553,14 @@ class MuScatModel(object):
             self.TF_ASF_placeholder = tf.cast(TF_ASF, tf.complex64)
         
         # convolve object with ASF
-        TF_res = tf_helper.my_ift3d(tf_helper.my_ft3d(self.TF_V)*tf_helper.my_ft3d(self.TF_ASF_placeholder))
+        if is_padding:
+            # to avoid wrap-around artifacts
+            self.TF_V_tmp = tf_helper.extract(self.TF_V, self.mysize*2)
+            self.TF_ASF_placeholder_tmp = tf_helper.extract(self.TF_ASF_placeholder, self.mysize*2)
+            TF_res = tf_helper.my_ift3d(tf_helper.my_ft3d(self.TF_V_tmp)*tf_helper.my_ft3d(self.TF_ASF_placeholder_tmp))
+            TF_res = tf_helper.extract(TF_res, self.mysize)
+        else:
+            TF_res = tf_helper.my_ift3d(tf_helper.my_ft3d(self.TF_V)*tf_helper.my_ft3d(self.TF_ASF_placeholder))
         print('ATTENTION: WEIRD MAGIC NUMBER for background field!!')
         #return tf.squeeze(TF_res+(myfac-1j*myfac))/np.sqrt(2)
         return tf.squeeze(TF_res-1j)#self.TF_myfac)/tf.complex(tf.abs(self.TF_myfac), 0.)

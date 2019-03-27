@@ -163,36 +163,37 @@ for i in range(5):
 #alpha_i = np.array((1e-2,5e-2))
 TF_myres = muscat.computedeconv(TF_meas, alpha = 1.)
     
-for iteri in range(np.squeeze(alpha_i.shape)): 
-    myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:alpha_i[iteri]})
-    print('Start Displaying')
-    #%
-    print(alpha_i[iteri])
+if(0):
+    for iteri in range(np.squeeze(alpha_i.shape)): 
+        myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:alpha_i[iteri]})
+        print('Start Displaying')
+        #%
+        print(alpha_i[iteri])
+        
+        plt.figure()
+        plt.subplot(231),plt.imshow(np.real(myres[:,myATF.shape[1]//2,:])),plt.colorbar()
+        plt.subplot(232),plt.imshow(np.real(myres[myATF.shape[0]//2,:,:])),plt.colorbar()
+        plt.subplot(233),plt.imshow(np.real(myres[:,:,myATF.shape[2]//2])),plt.colorbar()
+        
+        plt.subplot(234),plt.imshow(np.imag(myres[:,myATF.shape[1]//2,:])),plt.colorbar()
+        plt.subplot(235),plt.imshow(np.imag(myres[myATF.shape[0]//2,:,:])),plt.colorbar()
+        plt.subplot(236),plt.imshow(np.imag(myres[:,:,myATF.shape[2]//2])),plt.colorbar()
+        
+        plt.savefig('thikonov_reg_'+str(iteri)+'_'+str(alpha_i[iteri])+'.png')
     
     plt.figure()
-    plt.subplot(231),plt.imshow(np.real(myres[:,myATF.shape[1]//2,:])),plt.colorbar()
-    plt.subplot(232),plt.imshow(np.real(myres[myATF.shape[0]//2,:,:])),plt.colorbar()
-    plt.subplot(233),plt.imshow(np.real(myres[:,:,myATF.shape[2]//2])),plt.colorbar()
+    plt.subplot(231),plt.title('real'),plt.imshow(np.real(matlab_val[:,myATF.shape[1]//2,:])),plt.colorbar()
+    plt.subplot(232),plt.title('real'),plt.imshow(np.real(matlab_val[myATF.shape[0]//2,:,:])),plt.colorbar()
+    plt.subplot(233),plt.title('real'),plt.imshow(np.real(matlab_val[:,:,myATF.shape[2]//2])),plt.colorbar()
     
-    plt.subplot(234),plt.imshow(np.imag(myres[:,myATF.shape[1]//2,:])),plt.colorbar()
-    plt.subplot(235),plt.imshow(np.imag(myres[myATF.shape[0]//2,:,:])),plt.colorbar()
-    plt.subplot(236),plt.imshow(np.imag(myres[:,:,myATF.shape[2]//2])),plt.colorbar()
+    plt.subplot(234),plt.title('imag'),plt.imshow(np.imag(matlab_val[:,myATF.shape[1]//2,:])),plt.colorbar()
+    plt.subplot(235),plt.title('imag'),plt.imshow(np.imag(matlab_val[myATF.shape[0]//2,:,:])),plt.colorbar()
+    plt.subplot(236),plt.title('imag'),plt.imshow(np.imag(matlab_val[:,:,myATF.shape[2]//2])),plt.colorbar()
     
-    plt.savefig('thikonov_reg_'+str(iteri)+'_'+str(alpha_i[iteri])+'.png')
-
-plt.figure()
-plt.subplot(231),plt.title('real'),plt.imshow(np.real(matlab_val[:,myATF.shape[1]//2,:])),plt.colorbar()
-plt.subplot(232),plt.title('real'),plt.imshow(np.real(matlab_val[myATF.shape[0]//2,:,:])),plt.colorbar()
-plt.subplot(233),plt.title('real'),plt.imshow(np.real(matlab_val[:,:,myATF.shape[2]//2])),plt.colorbar()
-
-plt.subplot(234),plt.title('imag'),plt.imshow(np.imag(matlab_val[:,myATF.shape[1]//2,:])),plt.colorbar()
-plt.subplot(235),plt.title('imag'),plt.imshow(np.imag(matlab_val[myATF.shape[0]//2,:,:])),plt.colorbar()
-plt.subplot(236),plt.title('imag'),plt.imshow(np.imag(matlab_val[:,:,myATF.shape[2]//2])),plt.colorbar()
-
-plt.savefig('GT_.png')
+    plt.savefig('GT_.png')
 
 #%%
-myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:8})
+myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:.08})
 tosave = []
 tosave.append(np.real(myres))
 tosave.append(np.imag(myres))
