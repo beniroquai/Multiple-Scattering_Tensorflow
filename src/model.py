@@ -9,9 +9,6 @@ This
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
-import scipy.io
-import scipy as scipy
-import scipy.misc
 import yaml
 from skimage.transform import warp, AffineTransform
 
@@ -22,6 +19,8 @@ from src import data as data
 from src import tf_regularizers as tf_reg
 from src import poisson_disk as pd
  
+is_debug = False 
+
 class MuScatModel(object):
     def __init__(self, my_mat_paras, is_optimization = False):
  
@@ -67,15 +66,12 @@ class MuScatModel(object):
         self.zernikefactors = np.zeros((1,self.nzernikes))
         self.zernikemask = np.zeros((1,self.nzernikes))
         # kamilov uses 420 z-planes with an overall size of 30µm; dx=72nm
-        
-        # synthetic plane wave 
-        self.TF_myfac = tf.Variable(1.-1.0*1j, name = 'tf_myfac', dtype = tf.complex64)
- 
+         
         # refractive index immersion and embedding
         self.lambdaM = self.lambda0/self.nEmbb; # wavelength in the medium
  
     #@define_scope
-    def computesys(self, obj=None, is_padding=False, is_tomo = False, dropout_prob=1, mysubsamplingIC=0, is_compute_psf='corr', is_dampic=True):
+    def computesys(self, obj=None, is_padding=False, is_tomo = False, mysubsamplingIC=0, is_compute_psf='corr', is_dampic=True):
         # is_compute_psf: 'corr', 'sep'
         """ This computes the FWD-graph of the Q-PHASE microscope;
         1.) Compute the physical dimensions
@@ -90,7 +86,6 @@ class MuScatModel(object):
         self.is_padding = is_padding
         self.is_tomo = is_tomo
         self.mysubsamplingIC = mysubsamplingIC
-        self.dropout_prob = dropout_prob
         self.is_compute_psf = is_compute_psf
         self.is_dampic = is_dampic # want to damp the intensity at the edges of the illumination?
         
@@ -114,12 +109,7 @@ class MuScatModel(object):
         else:
             self.obj = np.zeros(self.mysize)
             
-        # eventually add some dropout to the model?
-        if(self.dropout_prob<1):
-            self.tf_dropout_prob = tf.placeholder(tf.float32,[])
-        else:
-            self.tf_dropout_prob = tf.constant(self.dropout_prob)
- 
+
         # Decide whether we wan'T to optimize or simply execute the model
         if (self.is_optimization==1):
             #self.TF_obj = tf.Variable(np.real(self.obj), dtype=tf.float32, name='Object_Variable')
@@ -220,9 +210,9 @@ class MuScatModel(object):
             #self.checkerboard = self.checkerboard[0:self.Ic_map.shape[0], 0:self.Ic_map.shape[1]]
             
        
-            print('Create a new random disk')
+            print('Create a new random disk - This can take some time!')
             self.checkerboard = np.fft.fftshift(self.Po)*pd.get_poisson_disk(self.Ic.shape[0],self.Ic.shape[1],self.mysubsamplingIC)
-            #self.checkerboard = (np.fft.fftshift(self.Po)*np.random.rand(self.Ic.shape[0],self.Ic.shape[1])>.95)
+            print('Done!')
         else:
             self.checkerboard = np.ones(self.Ic.shape)
         
@@ -355,6 +345,8 @@ class MuScatModel(object):
         with tf.name_scope('Variable_assignment_general'):
             self.TF_Ic = tf.cast(tf.constant(self.Ic), tf.complex64)
             self.TF_Po = tf.cast(tf.constant(self.Po), tf.complex64)
+            if(is_debug): self.TF_Po = tf.Print(self.TF_Po, [], 'Casting TF_Ic')    
+            
             self.TF_Zernikes = tf.convert_to_tensor(self.myzernikes, np.float32)
             self.TF_dphi = tf.cast(tf.constant(self.dphi), tf.complex64)
             
@@ -377,12 +369,16 @@ class MuScatModel(object):
             part_X = tf.scatter_nd(indexes, updates, tf.shape(self.TF_zernikefactors))
             self.TF_zernikefactors_filtered = part_X + tf.stop_gradient(-part_X + self.TF_zernikefactors)
           
-        if self.is_compute_psf is None:
+        if self.is_compute_psf is 'BPM':
             with tf.name_scope('Variable_assignment_BPM'):
-                self.TF_myAllSlicePropagator = tf.constant(self.myAllSlicePropagator, dtype=tf.complex64)
-                self.TF_myprop = tf.constant(np.squeeze(self.myprop), dtype=tf.complex64)
-                self.TF_A_input = tf.constant(self.A_prop, dtype=tf.complex64)
+                self.TF_myAllSlicePropagator = tf.cast(tf.complex(np.real(self.myAllSlicePropagator), np.imag(self.myAllSlicePropagator)), tf.complex64)
+                self.TF_myprop = tf.cast(tf.complex(np.real(np.squeeze(self.myprop)),np.imag(np.squeeze(self.myprop))), dtype=tf.complex64)
+                self.TF_A_input =  tf.cast(tf.complex(np.real(self.A_prop),np.imag(self.A_prop)), dtype=tf.complex64)
                 self.TF_RefrEffect = tf.constant(self.RefrEffect, dtype=tf.complex64)
+                
+                if(is_debug): self.TF_A_input = tf.Print(self.TF_A_input, [], 'Casting TF_A_input')     
+
+     
    
                 # TODO: Introduce the averraged RI along Z - MWeigert
                 self.TF_A_prop = tf.squeeze(self.TF_A_input);
@@ -392,7 +388,7 @@ class MuScatModel(object):
         self.allSumAmp = 0
         
         # compute multiple scattering only in higher Born order        
-        if self.is_compute_psf is None:
+        if self.is_compute_psf is 'BPM':
             self.propslices()
         
         # in a final step limit this to the detection NA:
@@ -405,7 +401,7 @@ class MuScatModel(object):
         if self.is_tomo:
             return self.computetomo()         
                 
-        if self.is_compute_psf is None:
+        if self.is_compute_psf is 'BPM':
             # now backpropagate the multiple scattered slice to a focus stack - i.e. convolve with PTF
             self.TF_allSumAmp = self.propangles(self.TF_A_prop)
             self.TF_allSumAmp = self.TF_allSumAmp*tf.exp(tf.cast(-1j*np.pi/2, tf.complex64)) # align it with the born model
@@ -425,7 +421,45 @@ class MuScatModel(object):
         
         return self.TF_allSumAmp
 
+    
+    def compute_bpm(self, obj, is_padding=False, mysubsamplingIC=0):
+        # this funciton is a wrapper for the bpm forward model
+        
+        # We need to subtract the background as BPM assumes dn as per-slice refractive index
+        obj = obj - self.nEmbb
+        
+        # Compute System Function
+        self.computesys(obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BPM')
+    
+        # Compute Model
+        return self.computemodel()
 
+    
+    def compute_born(self, obj, is_padding=False, mysubsamplingIC=0, is_precompute_psf=True):
+        # This function is a wrapper to compute the Born fwd-model (convolution)
+        self.computesys(obj, is_padding=False, mysubsamplingIC=mysubsamplingIC, is_compute_psf='corr')
+        
+        # Create Model Instance
+        self.computemodel()
+        
+        # PreCompute the ATF
+        if is_precompute_psf:
+            # Start a temporary session
+            sess = tf.Session()#config=tf.ConfigProto(log_device_placement=True))
+            sess.run(tf.global_variables_initializer())
+
+            print('We are now precomputing the ASF')
+            self.myATF = sess.run(self.TF_ATF)
+            self.myASF = sess.run(self.TF_ASF)
+            TF_ASF = None
+        else:
+            # for optimizing the ASF during training
+            TF_ASF = self.TF_ASF
+
+        # Define Fwd operator
+        return self.computeconvolution(TF_ASF=TF_ASF, is_padding=is_padding)
+    
+        
     
     def computepsf_sepang(self):
         # here we only want to gather the partially coherent transfer function PTF
@@ -499,8 +533,13 @@ class MuScatModel(object):
         
         # We need to have a placeholder because the ATF is computed afterwards...
         if (TF_ASF is None):
+            # Here we allow sideloading from 3rd party sources
             self.TF_ASF_placeholder = tf.placeholder(dtype=tf.complex64, shape=self.mysize, name='TF_ASF_placeholder')
+        elif type(TF_ASF) is np.ndarray:
+            # Here we load a precomputed PSF (e.g. coming from numpy)
+            self.TF_ASF_placeholder = tf.cast(tf.constant(TF_ASF, name='TF_ASF_placeholder'), tf.complex64)
         else:
+            # Here we leave the ASF open to be optimized - it's a pass-through
             self.TF_ASF_placeholder = tf.cast(TF_ASF, tf.complex64)
         
         # convolve object with ASF
@@ -514,7 +553,7 @@ class MuScatModel(object):
             TF_res = tf_helper.my_ift3d(tf_helper.my_ft3d(self.TF_V)*tf_helper.my_ft3d(self.TF_ASF_placeholder))
         print('ATTENTION: WEIRD MAGIC NUMBER for background field!!')
         #return tf.squeeze(TF_res+(myfac-1j*myfac))/np.sqrt(2)
-        return tf.squeeze(TF_res-1j)#self.TF_myfac)/tf.complex(tf.abs(self.TF_myfac), 0.)
+        return tf.squeeze(TF_res-1j) # add the background
            
     
     def computedeconv(self, ain, alpha = 5e-2):
@@ -538,11 +577,6 @@ class MuScatModel(object):
                 TF_real_3D = self.TF_obj
                 TF_imag_3D = self.TF_obj_absorption     
                 
-            # Eventually add dropout
-            if(0):#self.dropout_prob<1):
-                TF_real_3D = tf.layers.dropout(TF_real_3D, self.tf_dropout_prob)
-                TF_imag_3D = tf.layers.dropout(TF_imag_3D, self.tf_dropout_prob)
-                print('We add dropout if necessary')
     
             # wrapper for force-positivity on the RI-instead of penalizing it
             if(self.is_forcepos):
@@ -554,7 +588,6 @@ class MuScatModel(object):
             with tf.name_scope('Fwd_Propagate'):
                 #print('---------ATTENTION: We are inverting the RI!')
                 for pz in range(0, self.mysize[0]):
-                    #self.TF_A_prop = tf.Print(self.TF_A_prop, [self.tf_iterator], 'Prpagation step: ')
                     with tf.name_scope('Refract'):
                         # beware the "i" is in TF_RefrEffect already!
                         if(self.is_padding):
@@ -570,7 +603,7 @@ class MuScatModel(object):
                         self.TF_A_prop = self.TF_A_prop * self.TF_f  # refraction step
                     with tf.name_scope('Propagate'):
                         self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * self.TF_myprop) # diffraction step
-     
+                        if(is_debug): self.TF_A_prop = tf.Print(self.TF_A_prop, [], 'Performing Slice Propagation')     
 
      
 
@@ -602,19 +635,24 @@ class MuScatModel(object):
                         #tf_global_phase = tf.cast(tf.angle(self.TF_allAmp[self.mid3D[0],self.mid3D[1],self.mid3D[2]]), tf.complex64)
                         #tf_global_phase = tf.cast(np.random.randn(1)*np.pi,tf.complex64)
                         #self.TF_allAmp = self.TF_allAmp * tf.exp(1j*tf_global_phase) # Global Phases need to be adjusted at this step!  Use the zero frequency
-                         
-                    if (1):
+                        
+                        
+                    if(1):
                         with tf.name_scope('Propagate'):
                             self.TF_allAmp_3dft = tf.fft3d(tf.expand_dims(self.TF_allAmp, axis=0))
-                            tf_global_phase = tf.angle(self.TF_allAmp_3dft[0,0,0,0])#tf.angle(self.TF_allAmp_3dft[0, self.mid3D[2], self.mid3D[1], self.mid3D[0]])
+                            #tf_global_phase = tf.angle(self.TF_allAmp_3dft[0,0,0,0])#tf.angle(self.TF_allAmp_3dft[0, self.mid3D[2], self.mid3D[1], self.mid3D[0]])
+                            tf_global_phase = tf_helper.angle(self.TF_allAmp_3dft[0,0,0,0])#tf.angle(self.TF_allAmp_3dft[0, self.mid3D[2], self.mid3D[1], self.mid3D[0]])
                             tf_global_phase = tf.cast(tf_global_phase, tf.complex64)
 
                             self.TF_allAmp = self.TF_allAmp * tf.exp(-1j * tf_global_phase);  # Global Phases need to be adjusted at this step!  Use the zero frequency
-                    #print('Global phase: '+str(tf.exp(1j*tf.cast(tf.angle(self.TF_allAmp[self.mid3D[0],self.mid3D[1],self.mid3D[2]]), tf.complex64).eval()))
+                            #print('Global phase: '+str(tf.exp(1j*tf.cast(tf.angle(self.TF_allAmp[self.mid3D[0],self.mid3D[1],self.mid3D[2]]), tf.complex64).eval()))
+                    else:
+                        print('ATTENTION: WE are not using the global phase factor - angle is not implemented on GPU!')
  
                     with tf.name_scope('Sum_Amps'): # Normalize amplitude by condenser intensity
                         TF_allSumAmp = TF_allSumAmp + self.TF_allAmp #/ self.intensityweights[pillu];  # Superpose the Amplitudes
-                             
+                        if(is_debug): TF_allSumAmp = tf.Print(TF_allSumAmp, [], 'Performing Angle Propagation')     
+  
                     # print('Current illumination angle # is: ' + str(pillu))
  
  
@@ -767,7 +805,7 @@ class MuScatModel(object):
         # This is the reconstruction
         if(init_guess is not None):
             myfwd, mymeas, my_res, my_res_absorption, myzernikes = sess.run([tf_fwd, self.tf_meas, self.TF_obj, self.TF_obj_absorption, self.TF_zernikefactors], 
-                    feed_dict={self.tf_meas:np_meas, self.TF_obj:np.real(init_guess), self.TF_obj_absorption:np.imag(init_guess), self.tf_dropout_prob:1})
+                    feed_dict={self.tf_meas:np_meas, self.TF_obj:np.real(init_guess), self.TF_obj_absorption:np.imag(init_guess)})
         else:
             myfwd, mymeas, my_res, my_res_absorption, myzernikes = sess.run([tf_fwd, self.tf_meas, self.TF_obj, self.TF_obj_absorption, self.TF_zernikefactors], feed_dict={self.tf_meas:np_meas})
              

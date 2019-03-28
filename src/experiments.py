@@ -18,7 +18,7 @@ if(0):
     matlab_par_name = 'myParameter' 
     matlab_val_name = 'allAmpSimu' 
     mybackgroundval = -.95j  
-elif(1):
+elif(0):
     # data files for parameters and measuremets 
     matlab_val_file = './Data/cells/cross_section_10x0.3_hologram_full.tif_allAmp.mat'
     matlab_par_file = './Data/cells/cross_section_10x0.3_hologram_full.tif_myParameter.mat'
@@ -28,6 +28,7 @@ elif(1):
     shiftIcY = -5# 20 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
     shiftIcX = 5# 20 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
     NAc = .32
+    dn=.1
 elif(0):
     # data files for parameters and measuremets 
     matlab_val_file = './Data/cells/cross_section_10x0.3_hologram_full.tiffull_allAmp.mat'
@@ -78,6 +79,8 @@ else:
     matlab_par_file = './Data/DROPLETS/S19_multiple/Parameter.mat'; matlab_par_name='myParameter'
     matlab_val_file = './Data/DROPLETS/RESULTS/allAmp_simu.npy'
     mybackgroundval = 0
+    NAc = .2
+    
 
 
 

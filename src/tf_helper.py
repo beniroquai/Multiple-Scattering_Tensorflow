@@ -261,6 +261,34 @@ def my_ift3d(tensor, scaling=1.):
     """
     return fftshift(tf.ifft3d(ifftshift(tensor)))*scaling
 
+def angle(z):
+    """
+    Returns the elementwise arctan of z, choosing the quadrant correctly.
+
+    Quadrant I: arctan(y/x)
+    Qaudrant II: π + arctan(y/x) (phase of x<0, y=0 is π)
+    Quadrant III: -π + arctan(y/x)
+    Quadrant IV: arctan(y/x)
+
+    Inputs:
+        z: tf.complex64 or tf.complex128 tensor
+    Retunrs:
+        Angle of z
+    """
+    print('ATTENTION: We use unofficial Angle-fct here!')
+    if z.dtype == tf.complex128:
+        dtype = tf.float64
+    else:
+        dtype = tf.float32
+    x = tf.real(z)
+    y = tf.imag(z)
+    xneg = tf.cast(x < 0.0, dtype)
+    yneg = tf.cast(y < 0.0, dtype)
+    ypos = tf.cast(y >= 0.0, dtype)
+
+    offset = xneg * (ypos - yneg) * np.pi
+
+    return tf.atan(y / x) + offset
 
 
 ###### CHRISTIANS STUFF

@@ -1,9 +1,9 @@
 % This is the MATLAB reference implementation for the Wiener Filtering 
 load('./ExperimentAsfObj.mat')
 
-myasf = dip_image(asf);
+myasf = (asf);
 myatf = ft(myasf);
-myobj = dip_image(obj);
-myalpha = .1;
+myobj = (obj);
+myalpha = 1e-1;
 
-myres = ift((conj(myatf)*ft(myobj))/(abssqr(myatf)+myalpha))
+myres = fftshift(dip_image(ifftn((conj(fftn(myasf)).*fftn(myobj))./(abssqr(fftn(myasf))+myalpha))))

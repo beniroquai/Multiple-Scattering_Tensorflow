@@ -87,7 +87,7 @@ matlab_pars = data.import_parameters_mat(filename = experiments.matlab_par_file,
 
 ''' 2.) Read in the parameters of the dataset ''' 
 if(experiments.matlab_val_file.find('mat')==-1):
-    matlab_val = np.load(experiments.matlab_val_file)
+    matlab_val = np.load(experiments.matlab_val_file)+1j
 else:
     matlab_val = data.import_realdata_h5(filename = experiments.matlab_val_file, matname=experiments.matlab_val_name, is_complex=True)
 
@@ -103,7 +103,7 @@ muscat.Nx,muscat.Ny,muscat.Nz = matlab_val.shape[1], matlab_val.shape[2], matlab
 muscat.shiftIcY=experiments.shiftIcY
 muscat.shiftIcX=experiments.shiftIcX
 muscat.dn = dn
-muscat.NAc = experiments.NAc
+muscat.NAc = experiments.NAc*.9
 #muscat.dz = muscat.lambda0/2
 
 
@@ -119,7 +119,7 @@ obj_guess =  np.zeros(matlab_val.shape)+muscat.nEmbb# np.angle(matlab_val)##
 
 ''' Compute the systems model'''
 # Compute the System's properties (e.g. Pupil function/Illumination Source, K-vectors, etc.)¶
-muscat.computesys(obj=obj_guess, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='corr')
+muscat.computesys(obj=obj_guess, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='corr', is_dampic=True)
 
 ''' Create Model Instance'''
 muscat.computemodel()
@@ -129,7 +129,6 @@ muscat.computemodel()
 
 #%%
 print('Convert Data to TF constant')
-matlab_val = matlab_val+1j
 TF_meas = tf.complex(np.real(matlab_val),np.imag(matlab_val))
 TF_meas = tf.cast(TF_meas, tf.complex64)
 
@@ -141,7 +140,8 @@ sess.run(tf.global_variables_initializer())
 ''' Compute the ATF '''
 print('We are precomputing the PSF')
 myATF = sess.run(muscat.TF_ATF)
-myASF = sess.run(muscat.TF_ASF)    
+myASF = sess.run(muscat.TF_ASF) 
+   
 
 plt.figure()    
 plt.subplot(231), plt.imshow(np.abs(((myATF))**.2)[:,myATF.shape[1]//2,:]), plt.colorbar()#, plt.show()
@@ -151,6 +151,18 @@ plt.subplot(234), plt.imshow(np.abs(((myASF))**.2)[:,myASF.shape[1]//2,:]), plt.
 plt.subplot(235), plt.imshow(np.abs(((myASF))**.2)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
 plt.subplot(236), plt.imshow(np.abs(((myASF))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar()
 plt.savefig('ASF_ATF.png'), plt.show()    
+
+#%%
+myobjft = np.fft.fftshift(np.fft.fftn(matlab_val))
+plt.figure()    
+plt.subplot(231), plt.imshow(np.abs(((myobjft))**.1)[:,myATF.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(232), plt.imshow(np.abs(((myobjft))**.1)[myATF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+plt.subplot(233), plt.imshow(np.abs(((myobjft))**.1)[:,:,myATF.shape[2]//2]), plt.colorbar()#, plt.show()    
+plt.subplot(234), plt.imshow(np.angle(((myobjft))**.1)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(235), plt.imshow(np.angle(((myobjft))**.1)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+plt.subplot(236), plt.imshow(np.angle(((myobjft))**.1)[:,:,myASF.shape[2]//2]), plt.colorbar()
+plt.savefig('Obj_Ft.png'), plt.show()    
+
 #%%
 print('Start Deconvolution')
 alpha_b = np.array((1,2,5,8))
@@ -193,7 +205,7 @@ if(1):
     plt.savefig('GT_.png')
 
 #%%
-myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:.08})
+myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:.1})
 tosave = []
 tosave.append(np.real(myres))
 tosave.append(np.imag(myres))

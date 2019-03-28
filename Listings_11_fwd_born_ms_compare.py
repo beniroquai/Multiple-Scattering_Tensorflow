@@ -79,7 +79,8 @@ dn =  .01 #(1.437-1.3326)#/np.pi
 #muscat.dz = 0.1625*2#muscat.lambda0/4
 #muscat.dy = .2; muscat.dx = muscat.dy#muscat.lambda0/4
 #muscat.dx = 0.1560#muscat.lambda0/4
-muscat.Nx = 32; muscat.Ny = 32; muscat.Nz = 64
+#muscat.Nx = 32; muscat.Ny = 32; muscat.Nz = 64
+muscat.Nx = 128; muscat.Ny = 128; muscat.Nz = 128
 #muscat.Nx = 128; muscat.Ny = 128; muscat.Nz = 70
 #muscat.dz = muscat.lambda0/4
 #muscat.Nz = 36
@@ -100,7 +101,7 @@ if(0):
 elif(0):
     obj_real = tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='hollowsphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)#)dn)
     obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .0)
-elif(1):
+elif(0):
     obj_real= tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='twosphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)
     obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='twosphere', diameter = mydiameter, dn = .0)
 elif(0):
@@ -117,6 +118,11 @@ elif(0):
     # load the 3 bar example 
     obj_real= tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='bars', diameter = 3, dn = dn)#)dn)
     obj_absorption = obj_real*0
+elif(1):
+    # load a phantom
+    matlab_val_file = './Data/PHANTOM/HeLa_cell_mat_obj.mat'; matname='HeLa_cell_mat'
+    obj_real = data.import_realdata_h5(filename = matlab_val_file, matname=matname)
+    obj_absorption = obj_real*0    
 else:
     # load a phantom
     # obj_real= np.load('./Data/PHANTOM/phantom_64_64_64.npy')*dn

@@ -40,12 +40,12 @@ resultpath = 'Data/DROPLETS/RESULTS/'
 
 
 ''' Control-Parameters - Optimization '''
-my_learningrate = 1e-1  # learning rate
+my_learningrate = 3e-2  # learning rate
 NreduceLR = 500 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
-mylambdatv = 1e1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
-myepstvval = 1e-15##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+mylambdatv = 1e-1#1e1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+myepstvval = 1e-19##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Positivity Constraint
 lambda_neg = 10000
@@ -57,10 +57,10 @@ Ndisplay = Nsave
 
 # Control Flow 
 is_norm = False 
-is_aberration = True
+is_aberration = False
 is_padding = False
 is_optimization = True
-is_absorption = True
+is_absorption = False
 
 is_recomputemodel = True # TODO: Make it automatic! 
 
@@ -119,7 +119,11 @@ if is_recomputemodel:
     obj_guess = np.load('thikonovinvse.npy')
     #obj_guess = obj_guess-np.min(obj_guess); obj_guess = obj_guess/np.max(obj_guess)
     obj_guess = obj_guess-(np.min(np.real(obj_guess))+1j*np.min(np.imag(obj_guess)))
-    obj_guess = dn*np.real(obj_guess)/np.max(np.real(obj_guess))+1j*dn*np.imag(obj_guess)/np.max(np.imag(obj_guess))
+    if is_absorption:
+        obj_guess = dn*np.real(obj_guess)/np.max(np.real(obj_guess))+1j*dn*np.imag(obj_guess)/np.max(np.imag(obj_guess))
+    else:
+        obj_guess = dn*np.real(obj_guess)/np.max(np.real(obj_guess))
+    
     obj_guess = obj_guess*dn+muscat.nEmbb
     
     ''' Compute the systems model'''
@@ -130,7 +134,7 @@ if is_recomputemodel:
     muscat.computemodel()
     
     ''' Define Fwd operator'''
-    tf_fwd = muscat.computeconvolution(muscat.TF_ASF, is_padding=False)
+    tf_fwd = muscat.computeconvolution(muscat.TF_ASF, is_padding=True)
     
     
     #%%
@@ -138,7 +142,7 @@ if is_recomputemodel:
     
     '''Define Cost-function'''
     # VERY VERY Important to add 0. and 1. - otherwise it gets converted to float!
-    tf_glob_real = tf.Variable(0., tf.float32, name='var_phase') # (0.902339905500412
+    tf_glob_real = tf.Variable(0., tf.float32t, name='var_phase') # (0.902339905500412
     tf_glob_imag = tf.Variable(0., tf.float32, name='var_abs') #0.36691132
                                
     '''REGULARIZER'''
