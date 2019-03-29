@@ -16,24 +16,22 @@ import matplotlib.pyplot as plt
 import time
 from datetime import datetime
 import os
-
-
-# change the following to %matplotlib notebook for interactive plotting
-# %matplotlib inline
-
-# Optionally, tweak styles.
-mpl.rc('figure',  figsize=(9, 6))
-mpl.rc('image', cmap='gray')
-#plt.switch_backend('agg')
+import NanoImagingPack as nip
 
 # load own functions
 import src.model as mus
 import src.tf_generate_object as tf_go
 import src.data as data
+import src.tf_helper as tf_helper
 
 os.environ["CUDA_VISIBLE_DEVICES"]='0'    
 os.environ["TF_CUDNN_USE_AUTOTUNE"]="0" 
+# Optionally, tweak styles.
+mpl.rc('figure',  figsize=(9, 6))
+mpl.rc('image', cmap='gray')
+#plt.switch_backend('agg')
 
+#tf.enable_eager_execution()
 
 '''Define some stuff related to infrastructure'''
 savepath = os.path.join('./Data/DROPLETS/RESULTS/')#, mytimestamp)
@@ -56,7 +54,7 @@ mysubsamplingIC=0
 
 '''Choose between Born (BORN) or BPM (BPM)'''
 psf_modell =  'BORN' # 1st Born
-psf_modell =  'BPM' # MultiSlice
+#psf_modell =  'BPM' # MultiSlice
 
 
 #tf.reset_default_graph()
@@ -67,90 +65,70 @@ matlab_par_name = 'myParameter'  #'./Data/DROPLETS/myParameterNew.mat';matname='
 matlab_par_file = './Data/DROPLETS/S19_multiple/Parameter.mat'; matname='myParameter'
 matlab_pars = data.import_parameters_mat(filename = matlab_par_file, matname=matlab_par_name)
 
+
+''' Create a 3D Refractive Index Distributaton as a artificial sample
+    2.) Read in the virtual sample ''' 
+# Fake Cheek-Cell
+matlab_val_file = './Data/PHANTOM/HeLa_cell_mat_obj.mat'; matname='HeLa_cell_mat'
+obj_real = data.import_realdata_h5(filename = matlab_val_file, matname=matname)
+#TF_obj = tf.cast(tf.complex(obj_real,obj_real*0), tf.complex64)
+TF_obj = tf.cast(tf.placeholder_with_default(obj_real, obj_real.shape), tf.complex64)
+
+# etract scattering subroi-region
+mysize = obj_real.shape
+mysize_sub = ((50,32,32)); mycenter = ((25,mysize[1]//2,mysize[1]//2)) # Region around the nuclei
+TF_obj_sub = tf_helper.extract(TF_obj, mysize_sub, mycenter)
+
+
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
-muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(matlab_pars['Ny'].value))
-zernikefactors = 0*np.array((0,0,0,0,1,0,5,0,0.0,0.1,0.0)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
-zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
-muscat.shiftIcX = -0  # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-muscat.shiftIcY = 0 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-muscat.NAc = .2#051
-muscat.NAo = .95
-dn =  .001 #(1.437-1.3326)#/np.pi
-muscat.Nx = 128; muscat.Ny = 128; muscat.Nz = 128
+muscat_sub = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
 
-''' Adjust some parameters to fit it in the memory '''
-muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
+# some adjustments of global model
+muscat.NAc = .4#051
+muscat.mysize = mysize # ordering is (Nillu, Nz, Nx, Ny)
+muscat.Nx = muscat.mysize[1]; muscat.Ny = muscat.mysize[2]; muscat.Nz = muscat.mysize[0]
 
-''' Create a 3D Refractive Index Distributaton as a artificial sample'''
-mydiameter = 1
-if(0):
-    obj_real= tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)#)dn)
-    obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = .0, nEmbb = 0.0)
-elif(0):
-    obj_real = tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='hollowsphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)#)dn)
-    obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .0)
-elif(0):
-    obj_real= tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='twosphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)
-    obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='twosphere', diameter = mydiameter, dn = .0)
-elif(0):
-    obj_real= tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='foursphere', diameter = mydiameter/8, dn = dn)#)dn)
-    obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='foursphere', diameter = mydiameter/8, dn = .00)
-elif(0):
-    obj_real= tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='eightsphere', diameter = mydiameter/8, dn = dn)#)dn)
-    obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='eightsphere', diameter = mydiameter/8, dn = .01)
-elif(0):
-    # load a neuron
-    obj_real= np.load('./Data/NEURON/myneuron_32_32_70.npy')*dn
-    obj_absorption = obj_real*0
-elif(0):
-    # load the 3 bar example 
-    obj_real= tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='bars', diameter = 3, dn = dn)#)dn)
-    obj_absorption = obj_real*0
-elif(1):
-    # Fake Cheek-Cell
-    matlab_val_file = './Data/PHANTOM/HeLa_cell_mat_obj.mat'; matname='HeLa_cell_mat'
-    obj_real = data.import_realdata_h5(filename = matlab_val_file, matname=matname)
-    obj_absorption = obj_real*0    
-else:
-    # load a phantom
-    # obj_real= np.load('./Data/PHANTOM/phantom_64_64_64.npy')*dn
-    obj_real =  np.load('./Data/PHANTOM/phantom_50_50_50.npy')*dn+ muscat.nEmbb
-    obj_absorption = obj_real*0
+# some adjustments of local model
+muscat_sub.NAc = muscat.NAc #051
+muscat_sub.mysize = mysize_sub # ordering is (Nillu, Nz, Nx, Ny)
+muscat_sub.Nx = muscat_sub.mysize[1]; muscat_sub.Ny = muscat_sub.mysize[2]; muscat_sub.Nz = muscat_sub.mysize[0]
 
-obj = (obj_real + obj_absorption)
-#obj = np.roll(obj, shift=5, axis=0)
-
-# introduce zernike factors here
-muscat.zernikefactors = zernikefactors
-#muscat.zernikefactors = np.array((0,0,0,0,0,0,.1,-1,0,0,-2)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
-muscat.zernikemask = zernikefactors*0
 
 print('Start the TF-session')
 sess = tf.Session()#config=tf.ConfigProto(log_device_placement=True))
 
 ''' Compute the systems model'''
-if psf_modell == 'BPM':
-    # Define 'BPM' model    
-    tf_fwd = muscat.compute_bpm(obj,is_padding=is_padding, mysubsamplingIC=mysubsamplingIC)    
+# Define Born Model on global field
+tf_fwd_born = muscat.compute_born(TF_obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_precompute_psf=True)
 
-else:
-    # Define Born Model 
-    tf_fwd = muscat.compute_born(obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_precompute_psf=True)
-    
-''' Evaluate the model '''
+# Define 'BPM' model on local subroi 
+tf_fwd_bpm = muscat_sub.compute_bpm(TF_obj_sub,is_padding=False, mysubsamplingIC=mysubsamplingIC)    
+print('The subroi is assumed to be in the focus of the PSF, but this is not the same as the one from BORN?!')
+
 sess.run(tf.global_variables_initializer())    
-
-# The first call is -unfortunately- very expensive...   
+#%%
+''' Evaluate the model '''
 start = time.time()
-myfwd = sess.run(tf_fwd)
+myfwd_born = sess.run(tf_fwd_born) # The first call is -unfortunately- very expensive...   
+myfwd_bpm = sess.run(tf_fwd_bpm) # The first call is -unfortunately- very expensive...   
 end = time.time()
 print(end - start)
 
-#%% display the results
+
+#% Merge the two models 
+
+if(1):
+    myfwd = myfwd_born
+    myfwd[mycenter[0] - mysize_sub[0]//2: mycenter[0]+mysize_sub[0]//2,
+          mycenter[1] - mysize_sub[1]//2: mycenter[1]+mysize_sub[1]//2,
+          mycenter[2] - mysize_sub[2]//2: mycenter[2]+mysize_sub[2]//2] = myfwd_bpm*4
+else:
+    myfwd = myfwd_born
+#% display the results
 centerslice = myfwd.shape[0]//2
 
-if(psf_modell is not 'BPM'):
+if(psf_modell is not 'BPM' and False):
     plt.figure()    
     plt.subplot(231), plt.title('real XZ'), plt.imshow(np.real(((muscat.myASF)))[:,muscat.myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
     plt.subplot(233), plt.title('real XZ'), plt.imshow(np.real(((muscat.myASF)))[centerslice,:,:]), plt.colorbar()#, plt.show()    
@@ -166,7 +144,7 @@ if(psf_modell is not 'BPM'):
     plt.subplot(236), plt.title('imag XZ'), plt.imshow(np.imag(((muscat.myATF))**.2)[centerslice,:,:]), plt.colorbar()#, plt.show()    
     plt.subplot(235), plt.title('imag XZ'), plt.imshow(np.imag(((muscat.myATF))**.2)[:,:,muscat.myASF.shape[2]//2]), plt.colorbar(), plt.show()    
 
-#%%
+#%
 plt.figure()    
 plt.subplot(231), plt.title('real XZ'),plt.imshow(np.real(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
 plt.subplot(232), plt.title('real YZ'),plt.imshow(np.real(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
@@ -182,6 +160,7 @@ plt.subplot(235), plt.title('angle YZ'),plt.imshow(np.angle(myfwd)[:,:,myfwd.sha
 plt.subplot(236), plt.title('angle XY'),plt.imshow(np.angle(myfwd)[centerslice,:,:]), plt.colorbar(), plt.show()
 
 #%% save the resultsl
-np.save(savepath+'allAmp_simu.npy', myfwd)
+#np.save(savepath+'allAmp_simu.npy', myfwd)
 #data.export_realdata_h5(filename = './Data/DROPLETS/allAmp_simu.mat', matname = 'allAmp_red', data=myfwd)
-#data.export_realdata_h5(filename = './Data/DROPLETS/mySample.mat', matname = 'mySample', data=np.real(muscat.obj))
+data.export_realdata_h5(filename = './mySample_real.mat', matname = 'mySample', data=np.real(myfwd))
+data.export_realdata_h5(filename = './mySample_imag.mat', matname = 'mySample', data=np.imag(myfwd))

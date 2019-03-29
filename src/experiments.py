@@ -49,7 +49,7 @@ elif(0):
     dn = 1.52-1.33
     shiftIcY = 0 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
     shiftIcX = 0 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-elif(0):
+elif(1):
     # data files for parameters and measuremets 
     matlab_val_file = './Data/cells/Cell_20x_100a_120-270.tif_allAmp.mat'
     matlab_par_file = './Data/cells/Cell_20x_100a_120-270.tif_myParameter.mat'

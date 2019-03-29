@@ -40,18 +40,18 @@ resultpath = 'Data/DROPLETS/RESULTS/'
 
 
 ''' Control-Parameters - Optimization '''
-my_learningrate = 5e-2 # learning rate
+my_learningrate = 3e-2  # learning rate
 NreduceLR = 500 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
-mylambdatv = 1e-3#1e1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
-myepstvval = 1e-15##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+mylambdatv = 1e-1#1e1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+myepstvval = 1e-19##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Positivity Constraint
 lambda_neg = 10000
 
 # Displaying/Saving
-Niter = 500
+Niter = 400
 Nsave = 50 # write info to disk
 Ndisplay = Nsave
 
@@ -115,21 +115,20 @@ if is_recomputemodel:
     muscat.zernikemask = zernikemask
     
     ''' Compute a first guess based on the experimental phase '''
-    obj_guess =  np.zeros(matlab_val.shape)+muscat.nEmbb# np.angle(matlab_val)##
-    if(1):
-        obj_guess = np.load('thikonovinvse.npy')
-        #obj_guess = obj_guess-np.min(obj_guess); obj_guess = obj_guess/np.max(obj_guess)
-        obj_guess = obj_guess-(np.min(np.real(obj_guess))+1j*np.min(np.imag(obj_guess)))
-        if is_absorption:
-            obj_guess = dn*np.real(obj_guess)/np.max(np.real(obj_guess))+1j*dn*np.imag(obj_guess)/np.max(np.imag(obj_guess))
-        else:
-            obj_guess = dn*np.real(obj_guess)/np.max(np.real(obj_guess))
-        
-        obj_guess = obj_guess*dn+muscat.nEmbb
+    obj_guess =  np.zeros(matlab_val.shape)+muscat.nEmbb# np.angle(matlab_val)## 
+    obj_guess = np.load('thikonovinvse.npy')
+    #obj_guess = obj_guess-np.min(obj_guess); obj_guess = obj_guess/np.max(obj_guess)
+    obj_guess = obj_guess-(np.min(np.real(obj_guess))+1j*np.min(np.imag(obj_guess)))
+    if is_absorption:
+        obj_guess = dn*np.real(obj_guess)/np.max(np.real(obj_guess))+1j*dn*np.imag(obj_guess)/np.max(np.imag(obj_guess))
+    else:
+        obj_guess = dn*np.real(obj_guess)/np.max(np.real(obj_guess))
+    
+    obj_guess = obj_guess*dn+muscat.nEmbb
     
     ''' Compute the systems model'''
     # Compute the System's properties (e.g. Pupil function/Illumination Source, K-vectors, etc.)¶
-    muscat.computesys(obj=obj_guess, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='corr')
+    muscat.computesys(obj=obj_guess, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BORN')
     
     ''' Create Model Instance'''
     muscat.computemodel()
@@ -139,11 +138,14 @@ if is_recomputemodel:
     
     
     #%%
-    np_meas = matlab_val
-    
+    if(1):
+        import NanoImagingPack as nip
+        np_meas = nip.extract(matlab_val, matlab_val.shape*2, checkComplex=False)
+        muscat.muscat.tf_meas = tf.placeholder(np_meas.shape, tf.complex64, 'TF_placeholder_meas')
+        
     '''Define Cost-function'''
     # VERY VERY Important to add 0. and 1. - otherwise it gets converted to float!
-    tf_glob_real = tf.Variable(0., tf.float32, name='var_phase') # (0.902339905500412
+    tf_glob_real = tf.Variable(0., tf.float32t, name='var_phase') # (0.902339905500412
     tf_glob_imag = tf.Variable(0., tf.float32, name='var_abs') #0.36691132
                                
     '''REGULARIZER'''
@@ -252,7 +254,7 @@ for iterx in range(iter_last,Niter):
     
         print('Loss@'+str(iterx)+': ' + str(my_loss) + ' - Fid: '+str(my_fidelity)+', Neg: '+str(my_negloss)+', TV: '+str(my_tvloss)+' G-Phase:'+str(myglobalphase)+' G-ABS: '+str(myglobalabs)) 
         myfwdlist.append(myfwd)
-        mylosslist.append(my_tvloss+my_fidelity)
+        mylosslist.append(my_loss)
         myfidelitylist.append(my_fidelity)
         myneglosslist.append(my_negloss)
         mytvlosslist.append(my_tvloss)
@@ -293,8 +295,8 @@ for iterx in range(iter_last,Niter):
 muscat.saveFigures_list(savepath, myfwdlist, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, result_phaselist, result_absorptionlist, 
                               globalphaselist, globalabslist, np_meas, figsuffix='FINAL')
 
-#data.export_realdatastack_h5(savepath+'/myrefractiveindex.h5', 'temp', np.array(result_phaselist))
-#data.export_realdatastack_h5(savepath+'/myrefractiveindex_absorption.h5', 'temp', np.array(result_absorptionlist))
+data.export_realdatastack_h5(savepath+'/myrefractiveindex.h5', 'temp', np.array(result_phaselist))
+data.export_realdatastack_h5(savepath+'/myrefractiveindex_absorption.h5', 'temp', np.array(result_absorptionlist))
        
 print('Zernikes: ' +str(np.real(sess.run(muscat.TF_zernikefactors))))
 

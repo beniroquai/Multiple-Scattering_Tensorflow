@@ -119,7 +119,7 @@ obj_guess =  np.zeros(matlab_val.shape)+muscat.nEmbb# np.angle(matlab_val)##
 
 ''' Compute the systems model'''
 # Compute the System's properties (e.g. Pupil function/Illumination Source, K-vectors, etc.)¶
-muscat.computesys(obj=obj_guess, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='corr', is_dampic=True)
+muscat.computesys(obj=obj_guess, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BORN', is_dampic=True)
 
 ''' Create Model Instance'''
 muscat.computemodel()
@@ -203,6 +203,15 @@ if(1):
     plt.subplot(236),plt.title('imag'),plt.imshow(np.imag(matlab_val[:,:,myATF.shape[2]//2])),plt.colorbar()
     
     plt.savefig('GT_.png')
+
+#
+if(0):
+    #%% Rainers Test with Carrington approach
+    print('Start Deconvolution')
+    import InverseModelling as im
+    TF_myres,_ = im.convolveCutPSFcpx(TF_meas, myASF, maxdim=3)
+    matlab_val = sess.run(TF_myres)
+
 
 #%%
 myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:.1})

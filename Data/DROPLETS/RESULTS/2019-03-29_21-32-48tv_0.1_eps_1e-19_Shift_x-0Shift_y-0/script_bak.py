@@ -24,7 +24,6 @@ import src.data as data
 import src.tf_regularizers as reg
 import src.experiments as experiments 
 
-import NanoImagingPack as nip
 
 # Optionally, tweak styles.
 mpl.rc('figure',  figsize=(9, 6))
@@ -127,30 +126,24 @@ if is_recomputemodel:
     
     obj_guess = obj_guess*dn+muscat.nEmbb
     
-
     ''' Compute the systems model'''
     # Compute the System's properties (e.g. Pupil function/Illumination Source, K-vectors, etc.)¶
-    muscat.computesys(obj=None, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BORN')
-
+    muscat.computesys(obj=obj_guess, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BORN')
+    
     ''' Create Model Instance'''
     muscat.computemodel()
     
+    ''' Define Fwd operator'''
+    tf_fwd = muscat.computeconvolution(muscat.TF_ASF, is_padding=True)
     
+    
+    #%%
     if(1):
-        # Test this Carringotn Padding to have borders at the dges where the optimizer can make pseudo-update
-        #np_meas = np.pad(matlab_val,[(64, 64), (64, 64), (64, 64)], mode='constant', constant_values=0-1j)
-        np_meas = matlab_val
-        obj_guess = np.pad(obj_guess,[(64, 64), (64, 64), (64, 64)], mode='constant', constant_values=muscat.nEmbb)
-        #muscat.tf_meas = tf.placeholder(tf.complex64, np_meas.shape, 'TF_placeholder_meas')
-        muscat.TF_obj = tf.Variable(np.real(obj_guess), dtype=tf.float32, name='Object_Variable_Real')
-        muscat.TF_obj_absorption = tf.Variable(np.imag(obj_guess), dtype=tf.float32, name='Object_Variable_Imag')
-        tf_fwd = muscat.computeconvolution(muscat.TF_ASF, is_padding='border')
-    else:
-        ''' Define Fwd operator'''
-        tf_fwd = muscat.computeconvolution(muscat.TF_ASF, is_padding=True)
-    
-    
-
+        import NanoImagingPack as nip
+        np_meas = nip.extract(matlab_val, np.array(matlab_val.shape)*2, checkComplex=False)
+        np_meas = np.pad(matlab_val,[(64, 64), (64, 64), (64, 64)], mode='constant', constant_values=0-1j)
+        muscat.tf_meas = tf.placeholder(tf.complex64, np_meas.shape, 'TF_placeholder_meas')
+        
     '''Define Cost-function'''
     # VERY VERY Important to add 0. and 1. - otherwise it gets converted to float!
     tf_glob_real = tf.Variable(0., tf.float32, name='var_phase') # (0.902339905500412
@@ -303,13 +296,8 @@ for iterx in range(iter_last,Niter):
 muscat.saveFigures_list(savepath, myfwdlist, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, result_phaselist, result_absorptionlist, 
                               globalphaselist, globalabslist, np_meas, figsuffix='FINAL')
 
-
-data.export_realdatastack_h5(savepath+'/myrefractiveindex.h5', 'phase, abs', 
-                        np.stack((np.real(nip.extract(result_phaselist[-1], muscat.mysize)),
-                                  np.imag(nip.extract(result_phaselist[-1], muscat.mysize))), axis=0))
-data.export_realdatastack_h5(savepath+'/mymeas.h5', 'real, imag', 
-                        np.stack((np.real(np_meas),
-                                  np.imag(np_meas)), axis=0))
+data.export_realdatastack_h5(savepath+'/myrefractiveindex.h5', 'temp', np.array(result_phaselist))
+data.export_realdatastack_h5(savepath+'/myrefractiveindex_absorption.h5', 'temp', np.array(result_absorptionlist))
        
 print('Zernikes: ' +str(np.real(sess.run(muscat.TF_zernikefactors))))
 

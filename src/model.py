@@ -58,21 +58,18 @@ class MuScatModel(object):
         self.Nx=np.int(np.floor((2*self.Rsim)/self.dx)+1);
         self.Ny=np.int(np.floor((2*self.Rsim)/self.dy)+1)
          
-        # create the first guess of the initial obj 
-        self.obj = np.ones((self.Nz, self.Nx, self.Ny))
-         
         # add a vector of zernike factors
         self.nzernikes = 9
-        self.zernikefactors = np.zeros((1,self.nzernikes))
-        self.zernikemask = np.zeros((1,self.nzernikes))
+        self.zernikefactors = np.zeros((self.nzernikes,))
+        self.zernikemask = np.zeros((self.nzernikes,))
         # kamilov uses 420 z-planes with an overall size of 30µm; dx=72nm
          
         # refractive index immersion and embedding
         self.lambdaM = self.lambda0/self.nEmbb; # wavelength in the medium
  
     #@define_scope
-    def computesys(self, obj=None, is_padding=False, is_tomo = False, mysubsamplingIC=0, is_compute_psf='corr', is_dampic=True):
-        # is_compute_psf: 'corr', 'sep'
+    def computesys(self, obj=None, is_padding=False, is_tomo = False, mysubsamplingIC=0, is_compute_psf='BORN', is_dampic=True):
+        # is_compute_psf: 'BORN', 'sep'
         """ This computes the FWD-graph of the Q-PHASE microscope;
         1.) Compute the physical dimensions
         2.) Compute the sampling for the waves
@@ -104,16 +101,34 @@ class MuScatModel(object):
             self.mysize_old = self.mysize
             
         # Allocate memory for the object 
-        if obj is not None:
-            self.obj = obj
-        else:
+        if obj is None:
             self.obj = np.zeros(self.mysize)
+        else:
+            self.obj = obj
             
-
+            
         # Decide whether we wan'T to optimize or simply execute the model
-        if (self.is_optimization==1):
-            #self.TF_obj = tf.Variable(np.real(self.obj), dtype=tf.float32, name='Object_Variable')
-            #self.TF_obj_absorption = tf.Variable(np.imag(self.obj), dtype=tf.float32, name='Object_Variable')                
+        if (self.is_optimization):
+            # assign training variables 
+            self.tf_lambda_tv = tf.placeholder(tf.float32, [])
+            self.tf_eps = tf.placeholder(tf.float32, [])
+            self.tf_meas = tf.placeholder(dtype=tf.complex64, shape=self.mysize_old)
+            self.tf_learningrate = tf.placeholder(tf.float32, []) 
+
+        #else:
+            # Variables of the computational graph
+        #    self.TF_obj = tf.constant(np.real(self.obj), dtype=tf.float32, name='Object_const')
+        #    self.TF_obj_absorption = tf.constant(np.imag(self.obj), dtype=tf.float32, name='Object_const')
+
+        ''' Assign the object '''
+        #self.TF_obj = tf.Variable(np.real(self.obj), dtype=tf.float32, name='Object_Variable')
+        #self.TF_obj_absorption = tf.Variable(np.imag(self.obj), dtype=tf.float32, name='Object_Variable')
+        if type(obj)==tf.Tensor:
+            # In this case we use the model to let another object "pass-through"
+            # obj is a tensor (probalby Variable) which holds both real and imaginary part
+            self.TF_obj = tf.real(self.obj)
+            self.TF_obj_absorption = tf.imag(self.obj)
+        else:
             with tf.variable_scope("Complex_Object"):
                 self.TF_obj = tf.get_variable('Object_Variable_Real', dtype=tf.float32, initializer=np.float32(np.real(self.obj)))
                 self.TF_obj_absorption = tf.get_variable('Object_Variable_Imag', dtype=tf.float32, initializer=np.float32(np.imag(self.obj)))
@@ -121,39 +136,11 @@ class MuScatModel(object):
                 tf.get_variable_scope().reuse_variables()
                 #just an assertion!
                 assert tf.get_variable_scope().reuse==True             
-             
-            # assign training variables 
-            self.tf_lambda_tv = tf.placeholder(tf.float32, [])
-            self.tf_eps = tf.placeholder(tf.float32, [])
-            self.tf_meas = tf.placeholder(dtype=tf.complex64, shape=self.mysize_old)
-            self.tf_learningrate = tf.placeholder(tf.float32, []) 
- 
-        elif(self.is_optimization==0):
-            # Variables of the computational graph
-            self.TF_obj = tf.constant(np.real(self.obj), dtype=tf.float32, name='Object_const')
-            self.TF_obj_absorption = tf.constant(np.imag(self.obj), dtype=tf.float32, name='Object_const')
-         
-        elif(self.is_optimization==-1):
-            # THis is for the case that we want to train the resnet
-            self.tf_meas = tf.placeholder(dtype=tf.complex64, shape=self.mysize_old)
-            # in case one wants to use this as a fwd-model for an inverse problem            
- 
-            #self.TF_obj = tf.Variable(np.real(self.obj), dtype=tf.float32, name='Object_Variable')
-            #self.TF_obj_absorption = tf.Variable(np.imag(self.obj), dtype=tf.float32, name='Object_Variable')                
-            self.TF_obj = tf.placeholder(dtype=tf.float32, shape=self.obj.shape, name='Object_Variable_Real')
-            self.TF_obj_absorption = tf.placeholder(dtype=tf.float32, shape=self.obj.shape, name='Object_Variable_Imag')
- 
-            # assign training variables 
-            self.tf_lambda_tv = tf.placeholder(tf.float32, [])
-            self.tf_eps = tf.placeholder(tf.float32, [])
- 
-            self.tf_learningrate = tf.placeholder(tf.float32, [])
-
-         
+                
         ## Establish normalized coordinates.
         #-----------------------------------------
-        vxx= tf_helper.xx((self.mysize[1], self.mysize[2]),'freq') * self.lambdaM * self.nEmbb / (self.dx * self.NAo);    # normalized optical coordinates in X
-        vyy= tf_helper.yy((self.mysize[1], self.mysize[2]),'freq') * self.lambdaM * self.nEmbb / (self.dy * self.NAo);    # normalized optical coordinates in Y
+        vxx = tf_helper.xx((self.mysize[1], self.mysize[2]),'freq') * self.lambdaM * self.nEmbb / (self.dx * self.NAo);    # normalized optical coordinates in X
+        vyy = tf_helper.yy((self.mysize[1], self.mysize[2]),'freq') * self.lambdaM * self.nEmbb / (self.dy * self.NAo);    # normalized optical coordinates in Y
          
         # AbbeLimit=lambda0/NAo;  # Rainer's Method
         # RelFreq = rr(mysize,'freq')*AbbeLimit/dx;  # Is not generally right (dx and dy)
@@ -266,7 +253,7 @@ class MuScatModel(object):
         self.Nc=np.sum(self.Ic>0); 
         print('Number of Illumination Angles / Plane waves: '+str(self.Nc))
         
-        if not self.is_compute_psf=='corr' or is_compute_psf=='sep':
+        if not self.is_compute_psf=='BORN' or is_compute_psf=='sep':
         
             ## Get a list of vector coordinates corresponding to the pixels in the mask
             xfreq= tf_helper.xx((self.mysize[1], self.mysize[2]),'freq');
@@ -309,7 +296,7 @@ class MuScatModel(object):
             #self.myAllSlicePropagator_psf = np.transpose(np.exp(1j*self.Alldphi_psf) * (np.repeat(self.dphi[:, :, np.newaxis], self.mysize[0], axis=2) >0), [2, 0, 1]);  # Propagates a single end result backwards to all slices
             
             
-        if (self.is_compute_psf=='corr'):
+        if (self.is_compute_psf=='BORN'):
             self.Alldphi_psf = -(np.reshape(np.arange(0, self.mysize[0], 1), [1, 1, self.mysize[0]])-self.Nz/2)*np.repeat(self.dphi[:, :, np.newaxis], self.mysize[0], axis=2)
             self.myAllSlicePropagator_psf = np.transpose(np.exp(-1j*self.Alldphi_psf) * (np.repeat(self.dphi[:, :, np.newaxis], self.mysize[0], axis=2) >0), [2, 0, 1]);  # Propagates a single end result backwards to all slices
             self.myAllSlicePropagator = 0*self.myAllSlicePropagator_psf # dummy variable to make the algorithm happy
@@ -319,7 +306,7 @@ class MuScatModel(object):
             
             
     #@define_scope
-    def computemodel(self, is_resnet=False, is_forcepos=False):
+    def computemodel(self, is_forcepos=False):
         ''' Perform Multiple Scattering here
         1.) Multiple Scattering is perfomed by slice-wise propagation the E-Field throught the sample
         2.) Each Field has to be backprojected to the BFP
@@ -327,7 +314,6 @@ class MuScatModel(object):
  
         This is done for all illumination angles (coming from illumination NA
         simultaneasly)'''
-        self.is_resnet = is_resnet
         self.is_forcepos = is_forcepos
  
         print("Buildup Q-PHASE Model ")
@@ -393,7 +379,7 @@ class MuScatModel(object):
         
         # in a final step limit this to the detection NA:
         self.TF_Po_aberr = tf.exp(1j*tf.cast(tf.reduce_sum(self.TF_zernikefactors_filtered*self.TF_Zernikes, axis=2), tf.complex64)) * self.TF_Po
-        if not self.is_compute_psf=='corr' and not self.is_compute_psf=='sep':
+        if self.is_compute_psf=='BPM':
             # The input field of the PSF calculation is the BFP of the objective lens
             self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop)*self.TF_Po_aberr)
             
@@ -406,7 +392,7 @@ class MuScatModel(object):
             self.TF_allSumAmp = self.propangles(self.TF_A_prop)
             self.TF_allSumAmp = self.TF_allSumAmp*tf.exp(tf.cast(-1j*np.pi/2, tf.complex64)) # align it with the born model
         else:
-            if self.is_compute_psf=='corr': 
+            if self.is_compute_psf=='BORN': 
                 self.TF_ASF, self.TF_ATF = self.computepsf()
             elif self.is_compute_psf=='sep': #
                 self.TF_ASF, self.TF_ATF = self.computepsf_sepang()
@@ -437,7 +423,7 @@ class MuScatModel(object):
     
     def compute_born(self, obj, is_padding=False, mysubsamplingIC=0, is_precompute_psf=True):
         # This function is a wrapper to compute the Born fwd-model (convolution)
-        self.computesys(obj, is_padding=False, mysubsamplingIC=mysubsamplingIC, is_compute_psf='corr')
+        self.computesys(obj, is_padding=False, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BORN')
         
         # Create Model Instance
         self.computemodel()
@@ -451,7 +437,7 @@ class MuScatModel(object):
             print('We are now precomputing the ASF')
             self.myATF = sess.run(self.TF_ATF)
             self.myASF = sess.run(self.TF_ASF)
-            TF_ASF = None
+            TF_ASF = self.myASF
         else:
             # for optimizing the ASF during training
             TF_ASF = self.TF_ASF
@@ -531,6 +517,7 @@ class MuScatModel(object):
         k02 = (2*np.pi*self.nEmbb/self.lambda0)**2
         self.TF_V = (k02/(4*np.pi))*(self.TF_nr**2-self.TF_no**2)
         
+        
         # We need to have a placeholder because the ATF is computed afterwards...
         if (TF_ASF is None):
             # Here we allow sideloading from 3rd party sources
@@ -543,14 +530,22 @@ class MuScatModel(object):
             self.TF_ASF_placeholder = tf.cast(TF_ASF, tf.complex64)
         
         # convolve object with ASF
-        if is_padding:
+        if is_padding==True or is_padding=='pad':
             # to avoid wrap-around artifacts
             self.TF_V_tmp = tf_helper.extract(self.TF_V, self.mysize*2)
             self.TF_ASF_placeholder_tmp = tf_helper.extract(self.TF_ASF_placeholder, self.mysize*2)
             TF_res = tf_helper.my_ift3d(tf_helper.my_ft3d(self.TF_V_tmp)*tf_helper.my_ft3d(self.TF_ASF_placeholder_tmp))
             TF_res = tf_helper.extract(TF_res, self.mysize)
+        elif is_padding=='border':
+            self.TF_ASF_placeholder_tmp = tf_helper.extract(self.TF_ASF_placeholder, self.mysize*2)
+            TF_res = tf_helper.my_ift3d(tf_helper.my_ft3d(self.TF_V)*tf_helper.my_ft3d(self.TF_ASF_placeholder_tmp))
+            TF_res = tf_helper.extract(TF_res, self.mysize)
         else:
             TF_res = tf_helper.my_ift3d(tf_helper.my_ft3d(self.TF_V)*tf_helper.my_ft3d(self.TF_ASF_placeholder))
+            
+
+            
+            
         print('ATTENTION: WEIRD MAGIC NUMBER for background field!!')
         #return tf.squeeze(TF_res+(myfac-1j*myfac))/np.sqrt(2)
         return tf.squeeze(TF_res-1j) # add the background
@@ -565,19 +560,9 @@ class MuScatModel(object):
     def propslices(self):
             # only consider object scattering if we want to use it
         
-            ''' Eventually add a RESNET-layer between RI and Microscope to correct for model discrepancy?'''
-            if(self.is_resnet):
-                with tf.variable_scope('res_real', reuse=False):
-                    TF_real_3D = self.residual_block(tf.expand_dims(tf.expand_dims(self.TF_obj,3),0),1,True)
-                    TF_real_3D = tf.squeeze(TF_real_3D)
-                with tf.variable_scope('res_imag', reuse=False):
-                    TF_imag_3D = self.residual_block(tf.expand_dims(tf.expand_dims(self.TF_obj_absorption,3),0),1,True)
-                    TF_imag_3D = tf.squeeze(TF_imag_3D)
-            else:
-                TF_real_3D = self.TF_obj
-                TF_imag_3D = self.TF_obj_absorption     
-                
-    
+            TF_real_3D = self.TF_obj
+            TF_imag_3D = self.TF_obj_absorption     
+            
             # wrapper for force-positivity on the RI-instead of penalizing it
             if(self.is_forcepos):
                 print('----> ATTENTION: We add the PreMonotonicPos' )
@@ -877,100 +862,3 @@ class MuScatModel(object):
     def initObject():
         print('To Be done')
                     
-        # ReSNET Stuff               
-        # https://github.com/wenxinxu/resnet-in-tensorflow/blob/master/hyper_parameters.py
-    def create_variables(self, name, shape, initializer=tf.contrib.layers.xavier_initializer(), is_fc_layer=False):
-        '''
-        :param name: A string. The name of the new variable
-        :param shape: A list of dimensions
-        :param initializer: User Xavier as default.
-        :param is_fc_layer: Want to create fc layer variable? May use different weight_decay for fc
-        layers.
-        :return: The created variable
-        '''
-         
-        ## TODO: to allow different weight decay to fully connected layer and conv layer
-        regularizer = tf.contrib.layers.l2_regularizer(scale=0.0002)
-     
-        new_variables = tf.get_variable(name, shape=shape, initializer=initializer,
-                                        regularizer=regularizer)
-        return new_variables
-     
-     
-    def batch_normalization_layer(self, input_layer, dimension):
-        '''
-        Helper function to do batch normalziation
-        :param input_layer: 4D tensor
-        :param dimension: input_layer.get_shape().as_list()[-1]. The depth of the 4D tensor
-        :return: the 4D tensor after being normalized
-        '''
-        mean, variance = tf.nn.moments(input_layer, axes=[0, 1, 2])
-        beta = tf.get_variable('beta', dimension, tf.float32,
-                                   initializer=tf.constant_initializer(0.0, tf.float32))
-        gamma = tf.get_variable('gamma', dimension, tf.float32,
-                                    initializer=tf.constant_initializer(1.0, tf.float32))
-        bn_layer = tf.nn.batch_normalization(input_layer, mean, variance, beta, gamma, 0.001)
-     
-        return bn_layer
- 
-    def bn_relu_conv_layer(self, input_layer, filter_shape, stride):
-        '''
-        A helper function to batch normalize, relu and conv the input layer sequentially
-        :param input_layer: 4D tensor
-        :param filter_shape: list. [filter_height, filter_width, filter_depth, filter_number]
-        :param stride: stride size for conv
-        :return: 4D tensor. Y = conv(Relu(batch_normalize(X)))
-        '''
-     
-        in_channel = input_layer.get_shape().as_list()[-1]
-     
-        bn_layer = self.batch_normalization_layer(input_layer, in_channel)
-        relu_layer = tf.nn.relu(bn_layer)
-     
-        filter = self.create_variables(name='conv', shape=filter_shape)
-        conv_layer = tf.nn.conv3d(relu_layer, filter, strides=[1, stride, stride, 1, 1], padding='SAME')
-        return conv_layer
-     
-    def residual_block(self, input_layer, output_channel=1, first_block=True):
-        '''
-        Defines a residual block in ResNet
-        :param input_layer: 4D tensor
-        :param output_channel: int. return_tensor.get_shape().as_list()[-1] = output_channel
-        :param first_block: if this is the first residual block of the whole network
-        :return: 4D tensor.
-        '''
-        input_channel = input_layer.get_shape().as_list()[-1]
-     
-        # When it's time to "shrink" the image size, we use stride = 2
-        if input_channel * 2 == output_channel:
-            increase_dim = True
-            stride = 2
-        elif input_channel == output_channel:
-            increase_dim = False
-            stride = 1
-        else:
-            raise ValueError('Output and input channel does not match in residual blocks!!!')
-     
-        # The first conv layer of the first residual block does not need to be normalized and relu-ed.
-        with tf.variable_scope('conv1_in_block'):
-            if first_block:
-                filter = self.create_variables(name='conv', shape=[3, 3, input_channel, output_channel, 1])
-                conv1 = tf.nn.conv3d(input_layer, filter=filter, strides=[1, 1, 1, 1, 1], padding='SAME')
-            else:
-                conv1 = self.bn_relu_conv_layer(input_layer, [3, 3, input_channel, output_channel], stride)
-     
-        with tf.variable_scope('conv2_in_block'):
-            conv2 = self.bn_relu_conv_layer(conv1, [3, 3, output_channel, output_channel, 1], 1)
-     
-        # When the channels of input layer and conv2 does not match, we add zero pads to increase the
-        #  depth of input layers
-        if increase_dim is True:
-            pooled_input = tf.nn.avg_pool(input_layer, ksize=[1, 2, 2, 1],
-                                          strides=[1, 2, 2, 1], padding='VALID')
-            padded_input = tf.pad(pooled_input, [[0, 0], [0, 0], [0, 0], [input_channel // 2,
-                                                                         input_channel // 2]])
-        else:
-            padded_input = input_layer
-     
-        output = conv2 + padded_input
-        return output

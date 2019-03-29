@@ -24,7 +24,6 @@ import src.data as data
 import src.tf_regularizers as reg
 import src.experiments as experiments 
 
-import NanoImagingPack as nip
 
 # Optionally, tweak styles.
 mpl.rc('figure',  figsize=(9, 6))
@@ -139,7 +138,6 @@ if is_recomputemodel:
     if(1):
         # Test this Carringotn Padding to have borders at the dges where the optimizer can make pseudo-update
         #np_meas = np.pad(matlab_val,[(64, 64), (64, 64), (64, 64)], mode='constant', constant_values=0-1j)
-        np_meas = matlab_val
         obj_guess = np.pad(obj_guess,[(64, 64), (64, 64), (64, 64)], mode='constant', constant_values=muscat.nEmbb)
         #muscat.tf_meas = tf.placeholder(tf.complex64, np_meas.shape, 'TF_placeholder_meas')
         muscat.TF_obj = tf.Variable(np.real(obj_guess), dtype=tf.float32, name='Object_Variable_Real')
@@ -303,13 +301,8 @@ for iterx in range(iter_last,Niter):
 muscat.saveFigures_list(savepath, myfwdlist, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, result_phaselist, result_absorptionlist, 
                               globalphaselist, globalabslist, np_meas, figsuffix='FINAL')
 
-
-data.export_realdatastack_h5(savepath+'/myrefractiveindex.h5', 'phase, abs', 
-                        np.stack((np.real(nip.extract(result_phaselist[-1], muscat.mysize)),
-                                  np.imag(nip.extract(result_phaselist[-1], muscat.mysize))), axis=0))
-data.export_realdatastack_h5(savepath+'/mymeas.h5', 'real, imag', 
-                        np.stack((np.real(np_meas),
-                                  np.imag(np_meas)), axis=0))
+data.export_realdatastack_h5(savepath+'/myrefractiveindex.h5', 'temp', np.array(result_phaselist))
+data.export_realdatastack_h5(savepath+'/myrefractiveindex_absorption.h5', 'temp', np.array(result_absorptionlist))
        
 print('Zernikes: ' +str(np.real(sess.run(muscat.TF_zernikefactors))))
 
