@@ -41,15 +41,15 @@ resultpath = 'Data/DROPLETS/RESULTS/'
 
 
 ''' Control-Parameters - Optimization '''
-my_learningrate = 3e-2  # learning rate
-NreduceLR = 500 # when should we reduce the Learningrate? 
+my_learningrate = 5e-2  # learning rate
+NreduceLR = 100 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
 mylambdatv = 1e-1#1e1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
-myepstvval = 1e-19##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+myepstvval = 1e-15##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Positivity Constraint
-lambda_neg = 10000
+lambda_neg = 1000
 
 # Displaying/Saving
 Niter = 400
@@ -61,7 +61,7 @@ is_norm = False
 is_aberration = False
 is_padding = False
 is_optimization = True
-is_absorption = False
+is_absorption = True
 
 is_recomputemodel = True # TODO: Make it automatic! 
 
@@ -97,11 +97,12 @@ if is_recomputemodel:
     if(np.mod(matlab_val.shape[0],2)==1):
         matlab_val = matlab_val[0:matlab_val.shape[0]-1,:,:]
     matlab_val = matlab_val + experiments.mybackgroundval
+    matlab_val = matlab_val[:,100:300,100:300]
     
     ''' Create the Model'''
     muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
     # Correct some values - just for the puprose of fitting in the RAM
-    muscat.Nx,muscat.Ny,muscat.Nz = matlab_val.shape[1], matlab_val.shape[2], matlab_val.shape[0]
+    muscat.Nz,muscat.Nx,muscat.Ny = matlab_val.shape
     muscat.shiftIcY=experiments.shiftIcY
     muscat.shiftIcX=experiments.shiftIcX
     muscat.dn = experiments.dn
@@ -118,6 +119,7 @@ if is_recomputemodel:
     ''' Compute a first guess based on the experimental phase '''
     obj_guess =  np.zeros(matlab_val.shape)+muscat.nEmbb# np.angle(matlab_val)## 
     obj_guess = np.load('thikonovinvse.npy')
+    obj_guess = obj_guess[:,100:300,100:300]
     #obj_guess = obj_guess-np.min(obj_guess); obj_guess = obj_guess/np.max(obj_guess)
     obj_guess = obj_guess-(np.min(np.real(obj_guess))+1j*np.min(np.imag(obj_guess)))
     if is_absorption:
@@ -125,7 +127,7 @@ if is_recomputemodel:
     else:
         obj_guess = dn*np.real(obj_guess)/np.max(np.real(obj_guess))
     
-    obj_guess = obj_guess*dn+muscat.nEmbb
+    obj_guess = obj_guess+muscat.nEmbb
     
 
     ''' Compute the systems model'''
@@ -140,11 +142,13 @@ if is_recomputemodel:
         # Test this Carringotn Padding to have borders at the dges where the optimizer can make pseudo-update
         #np_meas = np.pad(matlab_val,[(64, 64), (64, 64), (64, 64)], mode='constant', constant_values=0-1j)
         np_meas = matlab_val
-        obj_guess = np.pad(obj_guess,[(64, 64), (64, 64), (64, 64)], mode='constant', constant_values=muscat.nEmbb)
+        my_border_region = np.array((muscat.mysize[0]//2,20,20)) # border-region around the object 
+        bz, bx, by = my_border_region
+        obj_guess = np.pad(obj_guess,[(bz, bz), (bx, bx), (by, by)], mode='constant', constant_values=muscat.nEmbb)
         #muscat.tf_meas = tf.placeholder(tf.complex64, np_meas.shape, 'TF_placeholder_meas')
         muscat.TF_obj = tf.Variable(np.real(obj_guess), dtype=tf.float32, name='Object_Variable_Real')
         muscat.TF_obj_absorption = tf.Variable(np.imag(obj_guess), dtype=tf.float32, name='Object_Variable_Imag')
-        tf_fwd = muscat.computeconvolution(muscat.TF_ASF, is_padding='border')
+        tf_fwd = muscat.computeconvolution(muscat.TF_ASF, is_padding='border',border_region=my_border_region)
     else:
         ''' Define Fwd operator'''
         tf_fwd = muscat.computeconvolution(muscat.TF_ASF, is_padding=True)
@@ -191,18 +195,13 @@ if is_recomputemodel:
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
     
-    # Assign the initial guess to the object inside the fwd-model
-    #print('Assigning Variables')
-    #sess.run(tf.assign(muscat.TF_obj, np.real(init_guess))); # assign abs of measurement as initial guess of 
-    #sess.run(tf.assign(muscat.TF_obj_absorption, np.imag(init_guess))); # assign abs of measurement as initial guess of 
-    
     ''' Compute the ATF '''
     if(0):
         print('We are precomputing the PSF')
         myATF = sess.run(muscat.TF_ATF)
         myASF = sess.run(muscat.TF_ASF)    
     
-        #%%
+        #%
         plt.figure()    
         plt.subplot(231), plt.imshow(np.abs(((myATF))**.2)[:,myATF.shape[1]//2,:]), plt.colorbar()#, plt.show()
         plt.subplot(232), plt.imshow(np.abs(((myATF))**.2)[myATF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
@@ -305,8 +304,8 @@ muscat.saveFigures_list(savepath, myfwdlist, mylosslist, myfidelitylist, myneglo
 
 
 data.export_realdatastack_h5(savepath+'/myrefractiveindex.h5', 'phase, abs', 
-                        np.stack((np.real(nip.extract(result_phaselist[-1], muscat.mysize)),
-                                  np.imag(nip.extract(result_phaselist[-1], muscat.mysize))), axis=0))
+                        np.stack(((nip.extract(result_phaselist[-1], muscat.mysize)),
+                                 (nip.extract(result_absorptionlist[-1], muscat.mysize))), axis=0))
 data.export_realdatastack_h5(savepath+'/mymeas.h5', 'real, imag', 
                         np.stack((np.real(np_meas),
                                   np.imag(np_meas)), axis=0))

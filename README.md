@@ -17,3 +17,11 @@ This is the output of the partially coherent fwd model (Q-PHASE):
 After minimizing the L2-norm and applying the TV-Regularizer with lambda=1e-3 after 1000 iterations:
 
 ![3D Meas](./images/sphere_rec.gif)
+
+### Simulated cheek-cell 'imaged' using single and multiple scattering
+
+This one is the result after a convolution of the `ASF` with the scattering potential `V`:
+![Cheek_abs_born](./images/Cheek_abs_born.png)
+
+This one is the result after full BPM simulation of the partially-coherent image-formation using the same sample:
+![Cheek_abs_born](./images/Cheek_abs_bpm.png)

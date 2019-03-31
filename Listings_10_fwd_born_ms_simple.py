@@ -53,7 +53,7 @@ is_flip = False
 is_measurement = False
 mysubsamplingIC=0
 
-
+tf.reset_default_graph()
 '''Choose between Born (BORN) or BPM (BPM)'''
 psf_modell =  'BORN' # 1st Born
 psf_modell =  'BPM' # MultiSlice
@@ -76,15 +76,15 @@ muscat.shiftIcX = -0  # has influence on the XZ-Plot - negative values shifts th
 muscat.shiftIcY = 0 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 muscat.NAc = .2#051
 muscat.NAo = .95
-dn =  .001 #(1.437-1.3326)#/np.pi
-muscat.Nx = 128; muscat.Ny = 128; muscat.Nz = 128
+dn =  .1 #(1.437-1.3326)#/np.pi
+#muscat.Nx = 128; muscat.Ny = 128; muscat.Nz = 128
 
 ''' Adjust some parameters to fit it in the memory '''
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
 
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
 mydiameter = 1
-if(0):
+if(1):
     obj_real= tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)#)dn)
     obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = .0, nEmbb = 0.0)
 elif(0):

@@ -71,13 +71,19 @@ matlab_pars = data.import_parameters_mat(filename = matlab_par_file, matname=mat
 # Fake Cheek-Cell
 matlab_val_file = './Data/PHANTOM/HeLa_cell_mat_obj.mat'; matname='HeLa_cell_mat'
 obj_real = data.import_realdata_h5(filename = matlab_val_file, matname=matname)
+
+if(0):
+    mysize = np.array((52,50,50))
+    mydiameter=1
+    obj_real= tf_go.generateObject(mysize=mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = .02, nEmbb = 1.33)#)dn)
+    
 #TF_obj = tf.cast(tf.complex(obj_real,obj_real*0), tf.complex64)
 TF_obj = tf.cast(tf.placeholder_with_default(obj_real, obj_real.shape), tf.complex64)
 
 # etract scattering subroi-region
 mysize = obj_real.shape
-mysize_sub = ((50,32,32)); mycenter = ((25,mysize[1]//2,mysize[1]//2)) # Region around the nuclei
-TF_obj_sub = tf_helper.extract(TF_obj, mysize_sub, mycenter)
+mysize_sub = ((32,32,32)); mycenter = ((mysize[0]//2,mysize[1]//2,mysize[1]//2)) # Region around the nuclei
+TF_obj_sub = tf_helper.extract((TF_obj-1.33)*2*np.pi, mysize_sub, mycenter)
 
 
 ''' Create the Model'''
@@ -100,10 +106,10 @@ sess = tf.Session()#config=tf.ConfigProto(log_device_placement=True))
 
 ''' Compute the systems model'''
 # Define Born Model on global field
-tf_fwd_born = muscat.compute_born(TF_obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_precompute_psf=True)
+tf_fwd_born = muscat.compute_born(TF_obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_precompute_psf=True, is_dampic=False)
 
 # Define 'BPM' model on local subroi 
-tf_fwd_bpm = muscat_sub.compute_bpm(TF_obj_sub,is_padding=False, mysubsamplingIC=mysubsamplingIC)    
+tf_fwd_bpm = muscat_sub.compute_bpm(TF_obj_sub,is_padding=False, mysubsamplingIC=mysubsamplingIC, is_dampic=False)    
 print('The subroi is assumed to be in the focus of the PSF, but this is not the same as the one from BORN?!')
 
 sess.run(tf.global_variables_initializer())    
@@ -119,12 +125,13 @@ print(end - start)
 #% Merge the two models 
 
 if(1):
-    myfwd = myfwd_born
+    myfwd = np.copy(myfwd_born)
     myfwd[mycenter[0] - mysize_sub[0]//2: mycenter[0]+mysize_sub[0]//2,
           mycenter[1] - mysize_sub[1]//2: mycenter[1]+mysize_sub[1]//2,
-          mycenter[2] - mysize_sub[2]//2: mycenter[2]+mysize_sub[2]//2] = myfwd_bpm*4
+          mycenter[2] - mysize_sub[2]//2: mycenter[2]+mysize_sub[2]//2] = myfwd_bpm
 else:
     myfwd = myfwd_born
+    myfwd = myfwd_bpm
 #% display the results
 centerslice = myfwd.shape[0]//2
 

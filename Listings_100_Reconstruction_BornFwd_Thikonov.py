@@ -175,7 +175,7 @@ for i in range(5):
 #alpha_i = np.array((1e-2,5e-2))
 TF_myres = muscat.computedeconv(TF_meas, alpha = 1.)
     
-if(1):
+if(0):
     for iteri in range(np.squeeze(alpha_i.shape)): 
         myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:alpha_i[iteri]})
         print('Start Displaying')
@@ -214,7 +214,7 @@ if(0):
 
 
 #%%
-myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:.1})
+myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:1})
 tosave = []
 tosave.append(np.real(myres))
 tosave.append(np.imag(myres))

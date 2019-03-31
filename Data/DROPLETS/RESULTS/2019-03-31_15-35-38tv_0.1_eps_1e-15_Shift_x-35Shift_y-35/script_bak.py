@@ -24,6 +24,7 @@ import src.data as data
 import src.tf_regularizers as reg
 import src.experiments as experiments 
 
+import NanoImagingPack as nip
 
 # Optionally, tweak styles.
 mpl.rc('figure',  figsize=(9, 6))
@@ -40,24 +41,24 @@ resultpath = 'Data/DROPLETS/RESULTS/'
 
 
 ''' Control-Parameters - Optimization '''
-my_learningrate = 1e-1  # learning rate
-NreduceLR = 500 # when should we reduce the Learningrate? 
+my_learningrate = 5e-2  # learning rate
+NreduceLR = 100 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
-mylambdatv = 1e-0 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+mylambdatv = 1e-1#1e1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 myepstvval = 1e-15##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Positivity Constraint
-lambda_neg = 10000
+lambda_neg = 1000
 
 # Displaying/Saving
-Niter = 200
-Nsave = 25 # write info to disk
+Niter = 400
+Nsave = 50 # write info to disk
 Ndisplay = Nsave
 
 # Control Flow 
 is_norm = False 
-is_aberration = True
+is_aberration = False
 is_padding = False
 is_optimization = True
 is_absorption = True
@@ -75,7 +76,7 @@ if is_recomputemodel:
     myfac = 1e0# 0*dn*1e-3
     
     ''' microscope parameters '''
-    zernikefactors = np.array((0,0,0,0,0,0,-.01,-.001,0.01,0.01,.010))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
+    zernikefactors = 0*np.array((0,0,0,0,0,0,-.01,-.001,0.01,0.01,.010))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
     zernikemask = np.ones(zernikefactors.shape) #np.array(np.abs(zernikefactors)>0)*1# mask of factors that should be updated
     zernikemask[0]=0 # we don't want the first one to be shifting the phase!!
     '''START CODE'''
@@ -96,11 +97,12 @@ if is_recomputemodel:
     if(np.mod(matlab_val.shape[0],2)==1):
         matlab_val = matlab_val[0:matlab_val.shape[0]-1,:,:]
     matlab_val = matlab_val + experiments.mybackgroundval
+    matlab_val = matlab_val[:,100:300,100:300]
     
     ''' Create the Model'''
     muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
     # Correct some values - just for the puprose of fitting in the RAM
-    muscat.Nx,muscat.Ny,muscat.Nz = matlab_val.shape[1], matlab_val.shape[2], matlab_val.shape[0]
+    muscat.Nz,muscat.Nx,muscat.Ny = matlab_val.shape
     muscat.shiftIcY=experiments.shiftIcY
     muscat.shiftIcX=experiments.shiftIcX
     muscat.dn = experiments.dn
@@ -117,24 +119,42 @@ if is_recomputemodel:
     ''' Compute a first guess based on the experimental phase '''
     obj_guess =  np.zeros(matlab_val.shape)+muscat.nEmbb# np.angle(matlab_val)## 
     obj_guess = np.load('thikonovinvse.npy')
+    obj_guess = obj_guess[:,100:300,100:300]
     #obj_guess = obj_guess-np.min(obj_guess); obj_guess = obj_guess/np.max(obj_guess)
     obj_guess = obj_guess-(np.min(np.real(obj_guess))+1j*np.min(np.imag(obj_guess)))
-    obj_guess = obj_guess*dn+muscat.nEmbb
+    if is_absorption:
+        obj_guess = dn*np.real(obj_guess)/np.max(np.real(obj_guess))+1j*dn*np.imag(obj_guess)/np.max(np.imag(obj_guess))
+    else:
+        obj_guess = dn*np.real(obj_guess)/np.max(np.real(obj_guess))
     
+    obj_guess = obj_guess+muscat.nEmbb
+    
+
     ''' Compute the systems model'''
     # Compute the System's properties (e.g. Pupil function/Illumination Source, K-vectors, etc.)¶
-    muscat.computesys(obj=obj_guess, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='corr')
-    
+    muscat.computesys(obj=None, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BORN')
+
     ''' Create Model Instance'''
     muscat.computemodel()
     
-    ''' Define Fwd operator'''
-    tf_fwd = muscat.computeconvolution(muscat.TF_ASF)
+    
+    if(1):
+        # Test this Carringotn Padding to have borders at the dges where the optimizer can make pseudo-update
+        #np_meas = np.pad(matlab_val,[(64, 64), (64, 64), (64, 64)], mode='constant', constant_values=0-1j)
+        np_meas = matlab_val
+        my_border_region = np.array((muscat.mysize[0]//2,20,20)) # border-region around the object 
+        bz, bx, by = my_border_region
+        obj_guess = np.pad(obj_guess,[(bz, bz), (bx, bx), (by, by)], mode='constant', constant_values=muscat.nEmbb)
+        #muscat.tf_meas = tf.placeholder(tf.complex64, np_meas.shape, 'TF_placeholder_meas')
+        muscat.TF_obj = tf.Variable(np.real(obj_guess), dtype=tf.float32, name='Object_Variable_Real')
+        muscat.TF_obj_absorption = tf.Variable(np.imag(obj_guess), dtype=tf.float32, name='Object_Variable_Imag')
+        tf_fwd = muscat.computeconvolution(muscat.TF_ASF, is_padding='border',border_region=my_border_region)
+    else:
+        ''' Define Fwd operator'''
+        tf_fwd = muscat.computeconvolution(muscat.TF_ASF, is_padding=True)
     
     
-    #%%
-    np_meas = matlab_val
-    
+
     '''Define Cost-function'''
     # VERY VERY Important to add 0. and 1. - otherwise it gets converted to float!
     tf_glob_real = tf.Variable(0., tf.float32, name='var_phase') # (0.902339905500412
@@ -175,18 +195,13 @@ if is_recomputemodel:
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
     
-    # Assign the initial guess to the object inside the fwd-model
-    #print('Assigning Variables')
-    #sess.run(tf.assign(muscat.TF_obj, np.real(init_guess))); # assign abs of measurement as initial guess of 
-    #sess.run(tf.assign(muscat.TF_obj_absorption, np.imag(init_guess))); # assign abs of measurement as initial guess of 
-    
     ''' Compute the ATF '''
     if(0):
         print('We are precomputing the PSF')
         myATF = sess.run(muscat.TF_ATF)
         myASF = sess.run(muscat.TF_ASF)    
     
-        #%%
+        #%
         plt.figure()    
         plt.subplot(231), plt.imshow(np.abs(((myATF))**.2)[:,myATF.shape[1]//2,:]), plt.colorbar()#, plt.show()
         plt.subplot(232), plt.imshow(np.abs(((myATF))**.2)[myATF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
@@ -287,8 +302,13 @@ for iterx in range(iter_last,Niter):
 muscat.saveFigures_list(savepath, myfwdlist, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, result_phaselist, result_absorptionlist, 
                               globalphaselist, globalabslist, np_meas, figsuffix='FINAL')
 
-data.export_realdatastack_h5(savepath+'/myrefractiveindex.h5', 'temp', np.array(result_phaselist))
-data.export_realdatastack_h5(savepath+'/myrefractiveindex_absorption.h5', 'temp', np.array(result_absorptionlist))
+
+data.export_realdatastack_h5(savepath+'/myrefractiveindex.h5', 'phase, abs', 
+                        np.stack(((nip.extract(result_phaselist[-1], muscat.mysize)),
+                                 (nip.extract(result_absorptionlist[-1], muscat.mysize))), axis=0))
+data.export_realdatastack_h5(savepath+'/mymeas.h5', 'real, imag', 
+                        np.stack((np.real(np_meas),
+                                  np.imag(np_meas)), axis=0))
        
 print('Zernikes: ' +str(np.real(sess.run(muscat.TF_zernikefactors))))
 

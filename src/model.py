@@ -408,22 +408,22 @@ class MuScatModel(object):
         return self.TF_allSumAmp
 
     
-    def compute_bpm(self, obj, is_padding=False, mysubsamplingIC=0):
+    def compute_bpm(self, obj, is_padding=False, mysubsamplingIC=0, is_dampic=True):
         # this funciton is a wrapper for the bpm forward model
         
         # We need to subtract the background as BPM assumes dn as per-slice refractive index
         obj = obj - self.nEmbb
         
         # Compute System Function
-        self.computesys(obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BPM')
+        self.computesys(obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BPM', is_dampic=is_dampic)
     
         # Compute Model
         return self.computemodel()
 
     
-    def compute_born(self, obj, is_padding=False, mysubsamplingIC=0, is_precompute_psf=True):
+    def compute_born(self, obj, is_padding=False, mysubsamplingIC=0, is_precompute_psf=True, is_dampic=True):
         # This function is a wrapper to compute the Born fwd-model (convolution)
-        self.computesys(obj, is_padding=False, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BORN')
+        self.computesys(obj, is_padding=False, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BORN',is_dampic=is_dampic)
         
         # Create Model Instance
         self.computemodel()
@@ -506,7 +506,7 @@ class MuScatModel(object):
         #normfac = tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(TF_ATF[self.mysize[0]//2,:,:])))
         return TF_ASF, TF_ATF 
 
-    def computeconvolution(self, TF_ASF=None, is_padding=False):
+    def computeconvolution(self, TF_ASF=None, is_padding=False, border_region=(10,10,10)):
         # We want to compute the born-fwd model
         # TF_ATF - is the tensorflow node holding the ATF - alternatively use numpy arry!
         print('Computing the fwd model in born approximation')
@@ -516,8 +516,7 @@ class MuScatModel(object):
         self.TF_no = tf.cast(self.nEmbb+0j, tf.complex64)
         k02 = (2*np.pi*self.nEmbb/self.lambda0)**2
         self.TF_V = (k02/(4*np.pi))*(self.TF_nr**2-self.TF_no**2)
-        
-        
+
         # We need to have a placeholder because the ATF is computed afterwards...
         if (TF_ASF is None):
             # Here we allow sideloading from 3rd party sources
@@ -537,7 +536,7 @@ class MuScatModel(object):
             TF_res = tf_helper.my_ift3d(tf_helper.my_ft3d(self.TF_V_tmp)*tf_helper.my_ft3d(self.TF_ASF_placeholder_tmp))
             TF_res = tf_helper.extract(TF_res, self.mysize)
         elif is_padding=='border':
-            self.TF_ASF_placeholder_tmp = tf_helper.extract(self.TF_ASF_placeholder, self.mysize*2)
+            self.TF_ASF_placeholder_tmp = tf_helper.extract(self.TF_ASF_placeholder, self.mysize+2*border_region)
             TF_res = tf_helper.my_ift3d(tf_helper.my_ft3d(self.TF_V)*tf_helper.my_ft3d(self.TF_ASF_placeholder_tmp))
             TF_res = tf_helper.extract(TF_res, self.mysize)
         else:
@@ -646,7 +645,8 @@ class MuScatModel(object):
             #TF_allSumAmp = TF_allSumAmp/tf.cast(np.sum(self.Ic), tf.complex64) # tf.cast(tf.reduce_max(tf.abs(self.TF_allSumAmp)), tf.complex64) # self.Nc #/
 
             # Normalize along Z to account for energy conservation
-            TF_mynorm = tf.cast(tf.sqrt(tf_helper.tf_abssqr(tf.reduce_sum(TF_allSumAmp , axis=(1,2))))/np.prod(self.mysize[1:3]),tf.complex64)
+            #TF_mynorm = tf.cast(tf.sqrt(tf_helper.tf_abssqr(tf.reduce_sum(TF_allSumAmp , axis=(1,2))))/np.prod(self.mysize[1:3]),tf.complex64)
+            TF_mynorm = tf.cast(tf.sqrt(tf_helper.tf_abssqr(tf.reduce_mean(TF_allSumAmp , axis=(1,2)))),tf.complex64)
             TF_mynorm = tf.expand_dims(tf.expand_dims(TF_mynorm,1),1)
             TF_allSumAmp = TF_allSumAmp/TF_mynorm;
             print('BPM Normalization accounts for ENERGY conservation!!')
