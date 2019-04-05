@@ -42,17 +42,17 @@ resultpath = 'Data/DROPLETS/RESULTS/'
 
 ''' Control-Parameters - Optimization '''
 my_learningrate = 5e-2  # learning rate
-NreduceLR = 100 # when should we reduce the Learningrate? 
+NreduceLR = 1000 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
 mylambdatv = 1e-1#1e1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
-myepstvval = 1e-15##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+myepstvval = 1e-10##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Positivity Constraint
-lambda_neg = 1000
+lambda_neg = 1000.
 
 # Displaying/Saving
-Niter = 400
+Niter = 1000
 Nsave = 50 # write info to disk
 Ndisplay = Nsave
 
@@ -62,8 +62,10 @@ is_aberration = False
 is_padding = False
 is_optimization = True
 is_absorption = True
+is_obj_init_tikhonov = True
 
 is_recomputemodel = True # TODO: Make it automatic! 
+
 
 
 
@@ -73,12 +75,7 @@ if is_recomputemodel:
     # need to figure out why this holds somehow true - at least produces reasonable results
     mysubsamplingIC = 0    
     dn = experiments.dn
-    myfac = 1e0# 0*dn*1e-3
-    
-    ''' microscope parameters '''
-    zernikefactors = 0*np.array((0,0,0,0,0,0,-.01,-.001,0.01,0.01,.010))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
-    zernikemask = np.ones(zernikefactors.shape) #np.array(np.abs(zernikefactors)>0)*1# mask of factors that should be updated
-    zernikemask[0]=0 # we don't want the first one to be shifting the phase!!
+
     '''START CODE'''
     #tf.reset_default_graph() # just in case there was an open session
     
@@ -92,12 +89,13 @@ if is_recomputemodel:
         matlab_val = np.load(experiments.matlab_val_file)
     else:
         matlab_val = data.import_realdata_h5(filename = experiments.matlab_val_file, matname=experiments.matlab_val_name, is_complex=True)
-    
+
+   
     # Make sure it's radix 2 along Z
     if(np.mod(matlab_val.shape[0],2)==1):
         matlab_val = matlab_val[0:matlab_val.shape[0]-1,:,:]
+    matlab_val = matlab_val[:,100:200,100:200,]
     matlab_val = matlab_val + experiments.mybackgroundval
-    matlab_val = matlab_val[:,100:300,100:300]
     
     ''' Create the Model'''
     muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
@@ -113,26 +111,29 @@ if is_recomputemodel:
     muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
     
     # introduce zernike factors here
-    muscat.zernikefactors = zernikefactors
-    muscat.zernikemask = zernikemask
+    muscat.zernikefactors = experiments.zernikefactors
+    muscat.zernikemask = experiments.zernikemask
     
     ''' Compute a first guess based on the experimental phase '''
-    obj_guess =  np.zeros(matlab_val.shape)+muscat.nEmbb# np.angle(matlab_val)## 
-    obj_guess = np.load('thikonovinvse.npy')
-    obj_guess = obj_guess[:,100:300,100:300]
-    #obj_guess = obj_guess-np.min(obj_guess); obj_guess = obj_guess/np.max(obj_guess)
-    obj_guess = obj_guess-(np.min(np.real(obj_guess))+1j*np.min(np.imag(obj_guess)))
-    if is_absorption:
-        obj_guess = dn*np.real(obj_guess)/np.max(np.real(obj_guess))+1j*dn*np.imag(obj_guess)/np.max(np.imag(obj_guess))
+    if(is_obj_init_tikhonov):
+        obj_guess =  np.zeros(matlab_val.shape)+muscat.nEmbb# np.angle(matlab_val)## 
+        obj_guess = np.load('thikonovinvse.npy')
+        obj_guess = obj_guess[:,100:200,100:200,]
+        #obj_guess = obj_guess-np.min(obj_guess); obj_guess = obj_guess/np.max(obj_guess)
+        obj_guess = obj_guess-(np.min(np.real(obj_guess))+1j*np.min(np.imag(obj_guess)))
+        if is_absorption:
+            obj_guess = dn*np.real(obj_guess)/np.max(np.real(obj_guess))+1j*dn*np.imag(obj_guess)/np.max(np.imag(obj_guess))
+        else:
+            obj_guess = dn*np.real(obj_guess)/np.max(np.real(obj_guess))
     else:
-        obj_guess = dn*np.real(obj_guess)/np.max(np.real(obj_guess))
+        obj_guess =  np.zeros(matlab_val.shape)# np.angle(matlab_val)## 
     
     obj_guess = obj_guess+muscat.nEmbb
     
 
     ''' Compute the systems model'''
     # Compute the System's properties (e.g. Pupil function/Illumination Source, K-vectors, etc.)¶
-    muscat.computesys(obj=None, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BORN')
+    muscat.computesys(obj=None, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BORN',is_dampic=.01)
 
     ''' Create Model Instance'''
     muscat.computemodel()
@@ -144,7 +145,7 @@ if is_recomputemodel:
         np_meas = matlab_val
         my_border_region = np.array((muscat.mysize[0]//2,20,20)) # border-region around the object 
         bz, bx, by = my_border_region
-        obj_guess = np.pad(obj_guess,[(bz, bz), (bx, bx), (by, by)], mode='constant', constant_values=muscat.nEmbb)
+        obj_guess = np.pad(obj_guess,[(bz, bz), (bx, bx), (by, by)], mode='constant', constant_values=np.mean(np.real(obj_guess))+1j*np.mean(np.imag(obj_guess)))
         #muscat.tf_meas = tf.placeholder(tf.complex64, np_meas.shape, 'TF_placeholder_meas')
         muscat.TF_obj = tf.Variable(np.real(obj_guess), dtype=tf.float32, name='Object_Variable_Real')
         muscat.TF_obj_absorption = tf.Variable(np.imag(obj_guess), dtype=tf.float32, name='Object_Variable_Imag')
@@ -167,9 +168,9 @@ if is_recomputemodel:
     tf_tvloss += muscat.tf_lambda_tv*reg.Reg_TV(muscat.TF_obj_absorption, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
                                              
     '''Negativity Constraint'''                                          
-    tf_negsqrloss = lambda_neg*reg.Reg_NegSqr(muscat.TF_obj)
-    tf_negsqrloss += lambda_neg*reg.Reg_NegSqr(muscat.TF_obj_absorption)
-    
+    tf_negsqrloss = reg.Reg_NegSqr(muscat.TF_obj)#-tf.minimum(tf.reduce_min(muscat.TF_obj-1.),0) 
+    tf_negsqrloss += reg.Reg_NegSqr(muscat.TF_obj_absorption)
+    tf_negsqrloss *= lambda_neg
     # Correc the fwd model - not good here!
     tf_norm = tf.complex(tf_glob_real, tf_glob_imag)
     
@@ -180,15 +181,15 @@ if is_recomputemodel:
     else:
         print('-------> Losstype is L2')
         tf_fidelity = tf.reduce_mean(tf_helper.tf_abssqr((muscat.tf_meas+tf_norm) - tf_fwd)) # allow a global phase parameter to avoid unwrapping effects
-    tf_loss = tf_fidelity + tf_negsqrloss 
+    tf_loss = tf_fidelity + tf_negsqrloss + tf_tvloss
     
     '''Define Optimizer'''
     tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
     tf_lossop_norm = tf_optimizer.minimize(tf_loss, var_list = [tf_glob_imag, tf_glob_real])
     #tf_lossop_tv = tf_optimizer.minimize(tf_tvloss, var_list = [muscat.TF_obj, muscat.TF_obj_absorption])
-    tf_lossop_obj = tf_optimizer.minimize(tf_loss+tf_tvloss, var_list = [muscat.TF_obj])
-    tf_lossop_obj_absorption = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj_absorption])
-    tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_shiftIcX, muscat.TF_shiftIcY])#, muscat.TF_zernikefactors])
+    tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj])
+    tf_lossop_obj_absorption = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj,muscat.TF_obj_absorption])
+    tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_shiftIcX, muscat.TF_shiftIcY, muscat.TF_zernikefactors])
     tf_lossop = tf_optimizer.minimize(tf_loss) 
     
     ''' Initialize the model '''
@@ -270,26 +271,28 @@ for iterx in range(iter_last,Niter):
         globalphaselist.append(myglobalphase)
         globalabslist.append(myglobalabs) 
         
-        # Display recovered Pupil
+        #%% Display recovered Pupil
         plt.figure()
         myzernikes = sess.run(muscat.TF_zernikefactors)
-        plt.subplot(131), plt.title('Po Phase'), plt.imshow(np.fft.fftshift(np.angle(sess.run(muscat.TF_Po_aberr)))), plt.colorbar(fraction=0.046, pad=0.04)
-        plt.subplot(132), plt.title('Po abs'), plt.imshow(np.fft.fftshift(np.abs(sess.run(muscat.TF_Po_aberr)))), plt.colorbar()
-        plt.subplot(133), plt.bar(np.linspace(1, np.squeeze(myzernikes.shape), np.squeeze(myzernikes.shape)), myzernikes, align='center', alpha=0.5)
-
-        
+        plt.subplot(141), plt.title('Po Phase'), plt.imshow(np.fft.fftshift(np.angle(sess.run(muscat.TF_Po_aberr)))), plt.colorbar(fraction=0.046, pad=0.04)
+        plt.subplot(142), plt.title('Po abs'), plt.imshow(np.fft.fftshift(np.abs(sess.run(muscat.TF_Po_aberr)))), plt.colorbar(fraction=0.046, pad=0.04)
+        plt.subplot(143), plt.title('Po abs'), plt.imshow(muscat.Ic), plt.colorbar(fraction=0.046, pad=0.04)
+        plt.subplot(144), plt.bar(np.linspace(1, np.squeeze(myzernikes.shape), np.squeeze(myzernikes.shape)), myzernikes, align='center', alpha=0.5)
+        plt.savefig('Aberrations_'+str(iterx)+'.png'), plt.show()
+        #%%
         ''' Save Figures and Parameters '''
         muscat.saveFigures_list(savepath, myfwdlist, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, result_phaselist, result_absorptionlist, 
                               globalphaselist, globalabslist, np_meas, figsuffix='Iter'+str(iterx))
             
     # Alternate between pure object optimization and aberration recovery
-    sess.run([tf_lossop_obj], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
     #sess.run([tf_lossop_tv], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
 
     if is_absorption:
         sess.run([tf_lossop_obj_absorption], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
-        
-    if is_aberration:
+    else:
+        sess.run([tf_lossop_obj], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
+    
+    if is_aberration and (iterx > 50):
         sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
 
     if is_norm:
@@ -298,10 +301,10 @@ for iterx in range(iter_last,Niter):
 
     iter_last = iterx
 
+#%%
 ''' Save Figures and Parameters '''
 muscat.saveFigures_list(savepath, myfwdlist, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, result_phaselist, result_absorptionlist, 
                               globalphaselist, globalabslist, np_meas, figsuffix='FINAL')
-
 
 data.export_realdatastack_h5(savepath+'/myrefractiveindex.h5', 'phase, abs', 
                         np.stack(((nip.extract(result_phaselist[-1], muscat.mysize)),
@@ -318,5 +321,5 @@ import os
 src = (os.path.basename(__file__))
 copyfile(src, savepath+'/script_bak.py')
 
-#%%
+#%
 plt.imshow(np.fft.ifftshift(np.angle(sess.run(muscat.TF_Po_aberr))))

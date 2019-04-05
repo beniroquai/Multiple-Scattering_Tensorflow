@@ -179,9 +179,9 @@ class MuScatModel(object):
             self.Ic_map = np.cos((myIntensityFactor *tf_helper.xx((self.Nx, self.Ny), mode='freq')**2+myIntensityFactor *tf_helper.yy((self.Nx, self.Ny), mode='freq')**2))**2
             print('We are taking the cosine illuminatino shape!')
            
-        if(self.is_dampic):
+        if(self.is_dampic>0):
             print('We are taking the gaussian illuminatino shape!')
-            myIntensityFactor = 0.03
+            myIntensityFactor = self.is_dampic
             self.Ic_map = np.exp(-tf_helper.rr((self.Nx, self.Ny),mode='freq')**2/myIntensityFactor)
         else:
             print('We are not weighing our illumination!')
@@ -497,7 +497,8 @@ class MuScatModel(object):
         TF_ASF = TF_ASF_ic*tf.conj(TF_ASF_po) #tf_helper.my_ift3d(TF_ATF_po,myfftfac)*tf.conj(tf_helper.my_ift3d(TF_ATF_ic,myfftfac))
 
         # I wish I could use this here - but not a good idea!
-        self.normfac = tf.sqrt(tf.reduce_sum(tf.abs(TF_ASF[self.mysize[0]//2,:,:])))
+        #self.normfac = tf.sqrt(tf.reduce_sum(tf.abs(TF_ASF[self.mysize[0]//2,:,:])))
+        self.normfac = tf.sqrt(tf.reduce_sum(tf.abs(TF_ASF)))
         #self.normfac = 1.
         TF_ASF = TF_ASF/tf.complex(self.normfac,0.) # TODO: norm Tensorflow?! 
 
@@ -515,7 +516,7 @@ class MuScatModel(object):
         self.TF_nr = tf.complex(self.TF_obj, self.TF_obj_absorption)
         self.TF_no = tf.cast(self.nEmbb+0j, tf.complex64)
         k02 = (2*np.pi*self.nEmbb/self.lambda0)**2
-        self.TF_V = (k02/(4*np.pi))*(self.TF_nr**2-self.TF_no**2)
+        self.TF_V = -(k02/(4*np.pi))*(self.TF_nr**2-self.TF_no**2)
 
         # We need to have a placeholder because the ATF is computed afterwards...
         if (TF_ASF is None):
@@ -782,8 +783,7 @@ class MuScatModel(object):
         plt.subplot(236), plt.title('Result abs: XY'),plt.imshow(my_res_absorption[my_res.shape[0]//2,:,:]), plt.colorbar()
         plt.savefig(savepath+'/RI_abs_result'+figsuffix+'.png'), plt.show()
          
-        
-
+                 
     def saveFigures(self, sess, savepath, tf_fwd, np_meas, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, globalphaselist, globalabslist, 
                     result_phaselist=None, result_absorptionlist=None, init_guess=None, figsuffix=''):
         ''' We want to save some figures for debugging purposes'''
@@ -850,7 +850,6 @@ class MuScatModel(object):
         plt.subplot(133), plt.bar(np.linspace(1, np.squeeze(myzernikes.shape), np.squeeze(myzernikes.shape)), myzernikes, align='center', alpha=0.5)
         plt.ylabel('Zernike Values')
         plt.title('Zernike Coefficients (Noll)')
-        plt.show()
         plt.savefig(savepath+'/recovered_pupil'+figsuffix+'.png'), plt.show()
 
         # Eventually write H5 stacks to disc

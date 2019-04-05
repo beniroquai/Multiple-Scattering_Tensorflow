@@ -56,7 +56,7 @@ mysubsamplingIC=0
 tf.reset_default_graph()
 '''Choose between Born (BORN) or BPM (BPM)'''
 psf_modell =  'BORN' # 1st Born
-psf_modell =  'BPM' # MultiSlice
+#psf_modell =  'BPM' # MultiSlice
 
 
 #tf.reset_default_graph()
@@ -70,20 +70,21 @@ matlab_pars = data.import_parameters_mat(filename = matlab_par_file, matname=mat
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
 muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(matlab_pars['Ny'].value))
-zernikefactors = 0*np.array((0,0,0,0,1,0,5,0,0.0,0.1,0.0)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
+zernikefactors = np.array((0,0,0,0,0,0,-1.5,-1.5,0,0.0,.0)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
 zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
-muscat.shiftIcX = -0  # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-muscat.shiftIcY = 0 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+muscat.shiftIcX = 1  # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+muscat.shiftIcY = 1 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
 muscat.NAc = .2#051
 muscat.NAo = .95
 dn =  .1 #(1.437-1.3326)#/np.pi
 #muscat.Nx = 128; muscat.Ny = 128; muscat.Nz = 128
+muscat.Nx = 50; muscat.Ny = 50; muscat.Nz = 70
 
 ''' Adjust some parameters to fit it in the memory '''
 muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
 
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
-mydiameter = 1
+mydiameter = 5
 if(1):
     obj_real= tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)#)dn)
     obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = .0, nEmbb = 0.0)

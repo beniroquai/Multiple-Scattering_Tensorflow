@@ -122,7 +122,7 @@ for shiftIcX in range(-35,35,10):
             
             ''' Compute the systems model'''
             # Compute the System's properties (e.g. Pupil function/Illumination Source, K-vectors, etc.)¶
-            muscat.computesys(obj=obj_guess, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='corr')
+            muscat.computesys(obj=obj_guess, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BORN')
             
             ''' Create Model Instance'''
             muscat.computemodel()
@@ -142,9 +142,9 @@ for shiftIcX in range(-35,35,10):
             sess.run(tf.global_variables_initializer())
             
             ''' Compute the ATF '''
-            print('We are precomputing the PSF')
-            myATF = sess.run(muscat.TF_ATF)
-            myASF = sess.run(muscat.TF_ASF)    
+            #print('We are precomputing the PSF')
+            #myATF = sess.run(muscat.TF_ATF)
+            #myASF = sess.run(muscat.TF_ASF)    
             
             #%%
             print('Start Deconvolution')
@@ -167,24 +167,24 @@ for shiftIcX in range(-35,35,10):
                     print(alpha_i[iteri])
                     
                     plt.figure()
-                    plt.subplot(231),plt.imshow(np.real(myres[:,myATF.shape[1]//2,:])),plt.colorbar()
-                    plt.subplot(232),plt.imshow(np.real(myres[myATF.shape[0]//2,:,:])),plt.colorbar()
-                    plt.subplot(233),plt.imshow(np.real(myres[:,:,myATF.shape[2]//2])),plt.colorbar()
+                    plt.subplot(231),plt.imshow(np.real(myres[:,myres.shape[1]//2,:])),plt.colorbar()
+                    plt.subplot(232),plt.imshow(np.real(myres[myres.shape[0]//2,:,:])),plt.colorbar()
+                    plt.subplot(233),plt.imshow(np.real(myres[:,:,myres.shape[2]//2])),plt.colorbar()
                     
-                    plt.subplot(234),plt.imshow(np.imag(myres[:,myATF.shape[1]//2,:])),plt.colorbar()
-                    plt.subplot(235),plt.imshow(np.imag(myres[myATF.shape[0]//2,:,:])),plt.colorbar()
-                    plt.subplot(236),plt.imshow(np.imag(myres[:,:,myATF.shape[2]//2])),plt.colorbar()
+                    plt.subplot(234),plt.imshow(np.imag(myres[:,myres.shape[1]//2,:])),plt.colorbar()
+                    plt.subplot(235),plt.imshow(np.imag(myres[myres.shape[0]//2,:,:])),plt.colorbar()
+                    plt.subplot(236),plt.imshow(np.imag(myres[:,:,myres.shape[2]//2])),plt.colorbar()
                     
                     plt.savefig('thikonov_reg_'+str(iteri)+'_'+str(alpha_i[iteri])+'_shiftIcX_'+str(muscat.shiftIcX)+'_shiftIcY_'+str(muscat.shiftIcY)+'.png')
                 
                 plt.figure()
-                plt.subplot(231),plt.title('real'),plt.imshow(np.real(matlab_val[:,myATF.shape[1]//2,:])),plt.colorbar()
-                plt.subplot(232),plt.title('real'),plt.imshow(np.real(matlab_val[myATF.shape[0]//2,:,:])),plt.colorbar()
-                plt.subplot(233),plt.title('real'),plt.imshow(np.real(matlab_val[:,:,myATF.shape[2]//2])),plt.colorbar()
+                plt.subplot(231),plt.title('real'),plt.imshow(np.real(matlab_val[:,myres.shape[1]//2,:])),plt.colorbar()
+                plt.subplot(232),plt.title('real'),plt.imshow(np.real(matlab_val[myres.shape[0]//2,:,:])),plt.colorbar()
+                plt.subplot(233),plt.title('real'),plt.imshow(np.real(matlab_val[:,:,myres.shape[2]//2])),plt.colorbar()
                 
-                plt.subplot(234),plt.title('imag'),plt.imshow(np.imag(matlab_val[:,myATF.shape[1]//2,:])),plt.colorbar()
-                plt.subplot(235),plt.title('imag'),plt.imshow(np.imag(matlab_val[myATF.shape[0]//2,:,:])),plt.colorbar()
-                plt.subplot(236),plt.title('imag'),plt.imshow(np.imag(matlab_val[:,:,myATF.shape[2]//2])),plt.colorbar()
+                plt.subplot(234),plt.title('imag'),plt.imshow(np.imag(matlab_val[:,myres.shape[1]//2,:])),plt.colorbar()
+                plt.subplot(235),plt.title('imag'),plt.imshow(np.imag(matlab_val[myres.shape[0]//2,:,:])),plt.colorbar()
+                plt.subplot(236),plt.title('imag'),plt.imshow(np.imag(matlab_val[:,:,myres.shape[2]//2])),plt.colorbar()
                 
                 
                 

@@ -73,9 +73,9 @@ matlab_val_file = './Data/PHANTOM/HeLa_cell_mat_obj.mat'; matname='HeLa_cell_mat
 obj_real = data.import_realdata_h5(filename = matlab_val_file, matname=matname)
 
 if(0):
-    mysize = np.array((52,50,50))
+    mysize = np.array((128,128,128))
     mydiameter=1
-    obj_real= tf_go.generateObject(mysize=mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = .02, nEmbb = 1.33)#)dn)
+    obj_real= tf_go.generateObject(mysize=mysize, obj_dim=1, obj_type ='twosphere', diameter = mydiameter, dn = .02, nEmbb = 1.33)#)dn)
     
 #TF_obj = tf.cast(tf.complex(obj_real,obj_real*0), tf.complex64)
 TF_obj = tf.cast(tf.placeholder_with_default(obj_real, obj_real.shape), tf.complex64)
@@ -107,6 +107,7 @@ sess = tf.Session()#config=tf.ConfigProto(log_device_placement=True))
 ''' Compute the systems model'''
 # Define Born Model on global field
 tf_fwd_born = muscat.compute_born(TF_obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_precompute_psf=True, is_dampic=False)
+tf_fwd_born_sub = tf_helper.extract(tf_fwd_born, mysize_sub, mycenter)
 
 # Define 'BPM' model on local subroi 
 tf_fwd_bpm = muscat_sub.compute_bpm(TF_obj_sub,is_padding=False, mysubsamplingIC=mysubsamplingIC, is_dampic=False)    
@@ -116,13 +117,14 @@ sess.run(tf.global_variables_initializer())
 #%%
 ''' Evaluate the model '''
 start = time.time()
-myfwd_born = sess.run(tf_fwd_born) # The first call is -unfortunately- very expensive...   
+myfwd_born = sess.run(tf_fwd_born) # The first call is -unfortunately- very expensive...  
+myfwd_born_sub = sess.run(tf_fwd_born_sub) 
 myfwd_bpm = sess.run(tf_fwd_bpm) # The first call is -unfortunately- very expensive...   
 end = time.time()
 print(end - start)
 
 
-#% Merge the two models 
+#%% Merge the two models 
 
 if(1):
     myfwd = np.copy(myfwd_born)
@@ -131,6 +133,7 @@ if(1):
           mycenter[2] - mysize_sub[2]//2: mycenter[2]+mysize_sub[2]//2] = myfwd_bpm
 else:
     myfwd = myfwd_born
+    #myfwd = myfwd_born_sub
     myfwd = myfwd_bpm
 #% display the results
 centerslice = myfwd.shape[0]//2
@@ -158,13 +161,18 @@ plt.subplot(232), plt.title('real YZ'),plt.imshow(np.real(myfwd)[:,:,myfwd.shape
 plt.subplot(233), plt.title('real XY'),plt.imshow(np.real(myfwd)[centerslice,:,:]), plt.colorbar()# plt.show()
 plt.subplot(234), plt.title('imag XZ'),plt.imshow(np.imag(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
 plt.subplot(235), plt.title('imag YZ'),plt.imshow(np.imag(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-plt.subplot(236), plt.title('imag XY'),plt.imshow(np.imag(myfwd)[centerslice,:,:]), plt.colorbar(), plt.show()
+plt.subplot(236), plt.title('imag XY'),plt.imshow(np.imag(myfwd)[centerslice,:,:]), plt.colorbar()
+plt.savefig('real_imag.png')
+plt.show()
+#%
 plt.subplot(231), plt.title('abs XZ'),plt.imshow(np.abs(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
 plt.subplot(232), plt.title('abs YZ'),plt.imshow(np.abs(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
 plt.subplot(233), plt.title('abs XY'),plt.imshow(np.abs(myfwd)[centerslice,:,:]), plt.colorbar()# plt.show()
 plt.subplot(234), plt.title('angle XZ'),plt.imshow(np.angle(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
 plt.subplot(235), plt.title('angle YZ'),plt.imshow(np.angle(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
-plt.subplot(236), plt.title('angle XY'),plt.imshow(np.angle(myfwd)[centerslice,:,:]), plt.colorbar(), plt.show()
+plt.subplot(236), plt.title('angle XY'),plt.imshow(np.angle(myfwd)[centerslice,:,:]), plt.colorbar()#, plt.show()
+plt.savefig('abs_phase.png')
+plt.show()
 
 #%% save the resultsl
 #np.save(savepath+'allAmp_simu.npy', myfwd)
