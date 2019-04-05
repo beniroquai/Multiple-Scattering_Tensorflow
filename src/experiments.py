@@ -102,14 +102,20 @@ elif(1):
     matlab_val_name = 'allAmpSimu'
     NAc = .25
     mybackgroundval = -1j
-    shiftIcY =  -1.07# has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-    shiftIcX =  -.4 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-    zernikefactors =np.array(( 0., 0., 0.,0.,0.,0.,-0.9171849,-2.070675, 0.,0., 3.0056386,  0))
-  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
+    shiftIcY =  5# has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    shiftIcX =  5 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    zernikefactors = np.array((0,0,0,0,0,-0.,-.005,.001,0,0,.005,.0))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
     zernikemask = np.array(np.abs(zernikefactors)>0)*1# mask of factors that should be updated
 # -0.9171849 -2.070675   0.         0.         4.0056386
 
+  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
+    #zernikemask = np.array(np.abs(zernikefactors)>0)*1# mask of factors that should be updated
+    #zernikemask = zernikemask*0
+    zernikemask[:]=1
 
+#Zernikes: [ 0.47486836 -0.39439008 -1.4269363  -0.37701255 -0.08931556  0.22308928
+#  0.67801976  0.15227595 -0.13716215 -0.22266115 -0.24198568  0.20539095]
+#ShiftX/Y: -0.073108904 / 2.4129255
 else:
     matlab_par_file = './Data/DROPLETS/S19_multiple/Parameter.mat'; matlab_par_name='myParameter'
     matlab_val_file = './Data/DROPLETS/RESULTS/allAmp_simu.npy'

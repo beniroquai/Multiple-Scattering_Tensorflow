@@ -43,8 +43,8 @@ my_learningrate = 5e-2  # learning rate
 NreduceLR = 500 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
-mylambdatv = 1e-2 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
-myepstvval = 1e-15##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+mylambdatv = 1e-1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+myepstvval = 1e-10##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Positivity Constraint
 lambda_neg = 10000
@@ -91,7 +91,7 @@ else:
 # Make sure it's radix 2 along Z
 if(np.mod(matlab_val.shape[0],2)==1):
     matlab_val = matlab_val[0:matlab_val.shape[0]-1,:,:]
-#matlab_val = -(matlab_val)# - .6j
+matlab_val = -(matlab_val)# - .6j
 
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
@@ -119,7 +119,7 @@ obj_guess= tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='sphe
 
 ''' Compute the systems model'''
 # Compute the System's properties (e.g. Pupil function/Illumination Source, K-vectors, etc.)¶
-muscat.computesys(obj=obj_guess, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BORN', is_dampic=.01)
+muscat.computesys(obj=obj_guess, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BORN', is_dampic=.02)
 
 
 

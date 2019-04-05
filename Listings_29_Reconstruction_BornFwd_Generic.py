@@ -41,27 +41,27 @@ resultpath = 'Data/DROPLETS/RESULTS/'
 
 
 ''' Control-Parameters - Optimization '''
-my_learningrate = 5e-2  # learning rate
-NreduceLR = 1000 # when should we reduce the Learningrate? 
+my_learningrate = 1e-2  # learning rate
+NreduceLR = 10000 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
 mylambdatv = 1e-1#1e1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 myepstvval = 1e-10##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Positivity Constraint
-lambda_neg = 1000.
+lambda_neg = 10000.
 
 # Displaying/Saving
-Niter = 1000
-Nsave = 50 # write info to disk
+Niter = 2000
+Nsave = 200 # write info to disk
 Ndisplay = Nsave
 
 # Control Flow 
 is_norm = False 
-is_aberration = False
+is_aberration = True
 is_padding = False
 is_optimization = True
-is_absorption = True
+is_absorption = False
 is_obj_init_tikhonov = True
 
 is_recomputemodel = True # TODO: Make it automatic! 
@@ -133,7 +133,7 @@ if is_recomputemodel:
 
     ''' Compute the systems model'''
     # Compute the System's properties (e.g. Pupil function/Illumination Source, K-vectors, etc.)¶
-    muscat.computesys(obj=None, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BORN',is_dampic=.01)
+    muscat.computesys(obj=None, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BORN',is_dampic=.02)
 
     ''' Create Model Instance'''
     muscat.computemodel()
@@ -149,6 +149,8 @@ if is_recomputemodel:
         #muscat.tf_meas = tf.placeholder(tf.complex64, np_meas.shape, 'TF_placeholder_meas')
         muscat.TF_obj = tf.Variable(np.real(obj_guess), dtype=tf.float32, name='Object_Variable_Real')
         muscat.TF_obj_absorption = tf.Variable(np.imag(obj_guess), dtype=tf.float32, name='Object_Variable_Imag')
+        #muscat.TF_obj = tf.cast(muscat.TF_obj, tf.float32)
+        #muscat.TF_obj_absorption = tf.cast(muscat.TF_obj_absorption, tf.float32)
         tf_fwd = muscat.computeconvolution(muscat.TF_ASF, is_padding='border',border_region=my_border_region)
     else:
         ''' Define Fwd operator'''
@@ -168,6 +170,7 @@ if is_recomputemodel:
     tf_tvloss += muscat.tf_lambda_tv*reg.Reg_TV(muscat.TF_obj_absorption, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
                                              
     '''Negativity Constraint'''                                          
+    #tf_negsqrloss = reg.Reg_NegSqr(tf_helper.extract(tf.cast(muscat.TF_obj, tf.float32), muscat.mysize))#-tf.minimum(tf.reduce_min(muscat.TF_obj-1.),0) 
     tf_negsqrloss = reg.Reg_NegSqr(muscat.TF_obj)#-tf.minimum(tf.reduce_min(muscat.TF_obj-1.),0) 
     tf_negsqrloss += reg.Reg_NegSqr(muscat.TF_obj_absorption)
     tf_negsqrloss *= lambda_neg
@@ -271,15 +274,15 @@ for iterx in range(iter_last,Niter):
         globalphaselist.append(myglobalphase)
         globalabslist.append(myglobalabs) 
         
-        #%% Display recovered Pupil
+        #% Display recovered Pupil
         plt.figure()
         myzernikes = sess.run(muscat.TF_zernikefactors)
         plt.subplot(141), plt.title('Po Phase'), plt.imshow(np.fft.fftshift(np.angle(sess.run(muscat.TF_Po_aberr)))), plt.colorbar(fraction=0.046, pad=0.04)
         plt.subplot(142), plt.title('Po abs'), plt.imshow(np.fft.fftshift(np.abs(sess.run(muscat.TF_Po_aberr)))), plt.colorbar(fraction=0.046, pad=0.04)
         plt.subplot(143), plt.title('Po abs'), plt.imshow(muscat.Ic), plt.colorbar(fraction=0.046, pad=0.04)
         plt.subplot(144), plt.bar(np.linspace(1, np.squeeze(myzernikes.shape), np.squeeze(myzernikes.shape)), myzernikes, align='center', alpha=0.5)
-        plt.savefig('Aberrations_'+str(iterx)+'.png'), plt.show()
-        #%%
+        plt.savefig(savepath+'/Aberrations_'+str(iterx)+'.png'), plt.show()
+        #%
         ''' Save Figures and Parameters '''
         muscat.saveFigures_list(savepath, myfwdlist, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, result_phaselist, result_absorptionlist, 
                               globalphaselist, globalabslist, np_meas, figsuffix='Iter'+str(iterx))
@@ -314,6 +317,7 @@ data.export_realdatastack_h5(savepath+'/mymeas.h5', 'real, imag',
                                   np.imag(np_meas)), axis=0))
        
 print('Zernikes: ' +str(np.real(sess.run(muscat.TF_zernikefactors))))
+print('ShiftX/Y: '+ str(sess.run(muscat.TF_shiftIcX))+' / ' + str(sess.run(muscat.TF_shiftIcY)))
 
 # backup current script
 from shutil import copyfile
