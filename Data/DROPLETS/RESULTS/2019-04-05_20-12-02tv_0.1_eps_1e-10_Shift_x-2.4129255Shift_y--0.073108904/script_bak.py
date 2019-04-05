@@ -62,7 +62,7 @@ is_aberration = False
 is_padding = False
 is_optimization = True
 is_absorption = False
-is_obj_init_tikhonov = False
+is_obj_init_tikhonov = True
 
 is_recomputemodel = True # TODO: Make it automatic! 
 
