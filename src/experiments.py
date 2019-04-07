@@ -57,7 +57,7 @@ elif(0):
     dn = 1.52-1.33
     shiftIcY = 0 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
     shiftIcX = 0 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-elif(0):
+elif(1):
     # data files for parameters and measuremets 
     matlab_val_file = './Data/cells/Cell_20x_100a_120-270.tif_allAmp.mat'
     matlab_par_file = './Data/cells/Cell_20x_100a_120-270.tif_myParameter.mat'
@@ -68,6 +68,10 @@ elif(0):
     shiftIcY = -35 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
     shiftIcX = -35 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
     NAc = .42
+    #zernikemask[:]=1
+    #zernikefactors = np.array((1.5145516,  -0.4922971,  -1.6731209,   0.9618724,   0.03274873,  0.0987005, 0.45747086,  0.13862132, -0.08351833, -0.11787935, -0.29825905, -0.07494219))
+    #shiftIcY =  2.3640773
+    #shiftIcX = -0.52940077
 elif(0):
     # data files for parameters and measuremets 
     matlab_val_file = './Data/cells/Cell_20x_100a_150-250.tif_allAmp.mat'
@@ -77,6 +81,7 @@ elif(0):
     mybackgroundval = -.85j  
     shiftIcY = 8 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
     shiftIcX = 6 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    
 
 elif(0):
     # data files for parameters and measuremets 
@@ -112,9 +117,10 @@ elif(1):
     #zernikemask = np.array(np.abs(zernikefactors)>0)*1# mask of factors that should be updated
     #zernikemask = zernikemask*0
     zernikemask[:]=1
-
     zernikefactors = np.array((.47486836, -0.39439008, -1.4269363,  -0.37701255, -0.08931556,  0.22308928,  0.67801976,  0.15227595, -0.13716215, -0.22266115, -0.24198568,  0.20539095))
-
+    zernikefactors = np.array((1.5145516,  -0.4922971,  -1.6731209,   0.9618724,   0.03274873,  0.0987005, 0.45747086,  0.13862132, -0.08351833, -0.11787935, -0.29825905, -0.07494219))
+    shiftIcY =  2.3640773
+    shiftIcX = -0.52940077
 else:
     matlab_par_file = './Data/DROPLETS/S19_multiple/Parameter.mat'; matlab_par_name='myParameter'
     matlab_val_file = './Data/DROPLETS/RESULTS/allAmp_simu.npy'

@@ -91,7 +91,7 @@ else:
 # Make sure it's radix 2 along Z
 if(np.mod(matlab_val.shape[0],2)==1):
     matlab_val = matlab_val[0:matlab_val.shape[0]-1,:,:]
-matlab_val = -(matlab_val)# - .6j
+matlab_val = (matlab_val)# - .6j
 
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
@@ -100,7 +100,7 @@ muscat.Nx,muscat.Ny,muscat.Nz = matlab_val.shape[1], matlab_val.shape[2], matlab
 muscat.shiftIcY=experiments.shiftIcY
 muscat.shiftIcX=experiments.shiftIcX
 muscat.dn = dn
-muscat.dz = .32
+#muscat.dz = .32
 muscat.NAc = experiments.NAc
 
 ''' Adjust some parameters to fit it in the memory '''
@@ -204,7 +204,7 @@ for i in range(5):
 #alpha_i = np.array((1e-2,5e-2))
 TF_myres = muscat.computedeconv(TF_meas, alpha = 1.)
     
-if(1):
+if(0):
     for iteri in range(np.squeeze(alpha_i.shape)): 
         myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:alpha_i[iteri]})
         print('Start Displaying')

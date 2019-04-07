@@ -45,20 +45,20 @@ my_learningrate = 1e-2  # learning rate
 NreduceLR = 10000 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
-mylambdatv = 5e-1#1e1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+mylambdatv = 1e-1#1e1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 myepstvval = 1e-10##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Positivity Constraint
-lambda_neg = 1000.
+lambda_neg = 10000.
 
 # Displaying/Saving
-Niter = 1000
+Niter = 200
 Nsave = 50 # write info to disk
 Ndisplay = Nsave
 
 # Control Flow 
 is_norm = False 
-is_aberration = True
+is_aberration = False
 is_padding = False
 is_optimization = True
 is_absorption = True
@@ -133,7 +133,7 @@ if is_recomputemodel:
 
     ''' Compute the systems model'''
     # Compute the System's properties (e.g. Pupil function/Illumination Source, K-vectors, etc.)¶
-    muscat.computesys(obj=None, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BORN',is_dampic=.03)
+    muscat.computesys(obj=None, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BORN',is_dampic=.02)
 
     ''' Create Model Instance'''
     muscat.computemodel()

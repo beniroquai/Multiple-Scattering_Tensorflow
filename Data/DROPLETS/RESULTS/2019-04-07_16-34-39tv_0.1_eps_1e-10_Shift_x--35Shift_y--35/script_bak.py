@@ -45,7 +45,7 @@ my_learningrate = 1e-2  # learning rate
 NreduceLR = 10000 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
-mylambdatv = 5e-1#1e1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+mylambdatv = 1e-1#1e1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 myepstvval = 1e-10##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Positivity Constraint
@@ -58,7 +58,7 @@ Ndisplay = Nsave
 
 # Control Flow 
 is_norm = False 
-is_aberration = True
+is_aberration = False
 is_padding = False
 is_optimization = True
 is_absorption = True
@@ -94,7 +94,7 @@ if is_recomputemodel:
     # Make sure it's radix 2 along Z
     if(np.mod(matlab_val.shape[0],2)==1):
         matlab_val = matlab_val[0:matlab_val.shape[0]-1,:,:]
-    matlab_val = matlab_val[:,:,:,]
+    matlab_val = -matlab_val[:,:,:,]
     matlab_val = matlab_val + experiments.mybackgroundval
     
     ''' Create the Model'''

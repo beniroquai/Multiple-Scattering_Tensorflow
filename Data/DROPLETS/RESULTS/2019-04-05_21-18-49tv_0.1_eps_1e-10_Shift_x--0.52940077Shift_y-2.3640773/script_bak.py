@@ -45,20 +45,20 @@ my_learningrate = 1e-2  # learning rate
 NreduceLR = 10000 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
-mylambdatv = 5e-1#1e1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+mylambdatv = 1e-1#1e1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 myepstvval = 1e-10##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Positivity Constraint
-lambda_neg = 1000.
+lambda_neg = 10000.
 
 # Displaying/Saving
-Niter = 1000
+Niter = 200
 Nsave = 50 # write info to disk
 Ndisplay = Nsave
 
 # Control Flow 
 is_norm = False 
-is_aberration = True
+is_aberration = False
 is_padding = False
 is_optimization = True
 is_absorption = True
@@ -94,7 +94,7 @@ if is_recomputemodel:
     # Make sure it's radix 2 along Z
     if(np.mod(matlab_val.shape[0],2)==1):
         matlab_val = matlab_val[0:matlab_val.shape[0]-1,:,:]
-    matlab_val = matlab_val[:,:,:,]
+    matlab_val = matlab_val[:,100:200,100:200,]
     matlab_val = matlab_val + experiments.mybackgroundval
     
     ''' Create the Model'''
@@ -118,7 +118,7 @@ if is_recomputemodel:
     if(is_obj_init_tikhonov):
         obj_guess =  np.zeros(matlab_val.shape)+muscat.nEmbb# np.angle(matlab_val)## 
         obj_guess = np.load('thikonovinvse.npy')
-        obj_guess = obj_guess[:,:,:,]
+        obj_guess = obj_guess[:,100:200,100:200,]
         #obj_guess = obj_guess-np.min(obj_guess); obj_guess = obj_guess/np.max(obj_guess)
         obj_guess = obj_guess-(np.min(np.real(obj_guess))+1j*np.min(np.imag(obj_guess)))
         if is_absorption:
@@ -133,7 +133,7 @@ if is_recomputemodel:
 
     ''' Compute the systems model'''
     # Compute the System's properties (e.g. Pupil function/Illumination Source, K-vectors, etc.)¶
-    muscat.computesys(obj=None, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BORN',is_dampic=.03)
+    muscat.computesys(obj=None, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BORN',is_dampic=.02)
 
     ''' Create Model Instance'''
     muscat.computemodel()
