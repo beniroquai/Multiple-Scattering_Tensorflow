@@ -41,31 +41,35 @@ resultpath = 'Data/DROPLETS/RESULTS/'
 
 
 ''' Control-Parameters - Optimization '''
-my_learningrate = 1e-1    # learning rate
+my_learningrate = 1e-2    # learning rate
 NreduceLR = 10000 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
-mylambdatv = 1e-2
+mylambdatv = 5e-2
 #1e1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 myepstvval = 1e-10##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Positivity Constraint
 lambda_neg = 10000.
 
+# Displaying/Saving
+Niter = 100
+Nsave = 10 # write info to disk
+Ndisplay = Nsave
+
 # Control Flow 
 is_norm = False 
-lambda_neg = 10.
+lambda_neg = 1000.
 
 # Displaying/Saving
 Niter = 100
-Nsave =20 # write info to disk
+Nsave = 10 # write info to disk
 Ndisplay = Nsave
-Ndisplay = Nsave
-is_aberration = False
+is_aberration = True
 is_padding = False
 is_optimization = True
 is_absorption = True
-is_obj_init_tikhonov = True 
+is_obj_init_tikhonov = False 
 
 is_recomputemodel = True # TODO: Make it automatic! 
 
@@ -119,7 +123,7 @@ if is_recomputemodel:
     
     ''' Compute a first guess based on the experimental phase '''
     if(is_obj_init_tikhonov):
-        obj_guess =  np.zeros(matlab_val.shape)+muscat.nEmbb # np.angle(matlab_val)## 
+        obj_guess =  np.zeros(matlab_val.shape)+muscat.nEmbb +muscat.dn/2# np.angle(matlab_val)## 
         obj_guess = np.load('thikonovinvse.npy')
         obj_guess = obj_guess[:,:,:,]
         #obj_guess = obj_guess-np.min(obj_guess); obj_guess = obj_guess/np.max(obj_guess)
@@ -129,9 +133,7 @@ if is_recomputemodel:
         else:
             obj_guess = dn*np.real(obj_guess)/np.max(np.real(obj_guess))
     else:
-        obj_guess =  np.zeros(matlab_val.shape)+muscat.dn/2# np.angle(matlab_val)## 
-        #obj_guess = np.random.rand(matlab_val.shape[0],matlab_val.shape[1],matlab_val.shape[2])*muscat.dn/2
-        
+        obj_guess =  np.zeros(matlab_val.shape)# np.angle(matlab_val)## 
     
     obj_guess = obj_guess+muscat.nEmbb
     

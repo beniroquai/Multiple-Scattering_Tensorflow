@@ -45,27 +45,31 @@ my_learningrate = 1e-1    # learning rate
 NreduceLR = 10000 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
-mylambdatv = 1e-2
+mylambdatv = 5e-2
 #1e1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
 myepstvval = 1e-10##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Positivity Constraint
 lambda_neg = 10000.
 
+# Displaying/Saving
+Niter = 100
+Nsave = 10 # write info to disk
+Ndisplay = Nsave
+
 # Control Flow 
 is_norm = False 
-lambda_neg = 10.
+lambda_neg = 1000.
 
 # Displaying/Saving
 Niter = 100
-Nsave =20 # write info to disk
+Nsave = 10 # write info to disk
 Ndisplay = Nsave
-Ndisplay = Nsave
-is_aberration = False
+is_aberration = True
 is_padding = False
 is_optimization = True
 is_absorption = True
-is_obj_init_tikhonov = True 
+is_obj_init_tikhonov = False 
 
 is_recomputemodel = True # TODO: Make it automatic! 
 
@@ -119,7 +123,7 @@ if is_recomputemodel:
     
     ''' Compute a first guess based on the experimental phase '''
     if(is_obj_init_tikhonov):
-        obj_guess =  np.zeros(matlab_val.shape)+muscat.nEmbb # np.angle(matlab_val)## 
+        obj_guess =  np.zeros(matlab_val.shape)+muscat.nEmbb +muscat.dn/2# np.angle(matlab_val)## 
         obj_guess = np.load('thikonovinvse.npy')
         obj_guess = obj_guess[:,:,:,]
         #obj_guess = obj_guess-np.min(obj_guess); obj_guess = obj_guess/np.max(obj_guess)
@@ -129,16 +133,14 @@ if is_recomputemodel:
         else:
             obj_guess = dn*np.real(obj_guess)/np.max(np.real(obj_guess))
     else:
-        obj_guess =  np.zeros(matlab_val.shape)+muscat.dn/2# np.angle(matlab_val)## 
-        #obj_guess = np.random.rand(matlab_val.shape[0],matlab_val.shape[1],matlab_val.shape[2])*muscat.dn/2
-        
+        obj_guess =  np.zeros(matlab_val.shape)# np.angle(matlab_val)## 
     
     obj_guess = obj_guess+muscat.nEmbb
     
 
     ''' Compute the systems model'''
     # Compute the System's properties (e.g. Pupil function/Illumination Source, K-vectors, etc.)¶
-    muscat.computesys(obj=None, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BORN',is_dampic=experiments.is_dampic)
+    muscat.computesys(obj=None, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BORN',is_dampic=.03)
 
     ''' Create Model Instance'''
     muscat.computemodel()
@@ -157,8 +159,6 @@ if is_recomputemodel:
         #muscat.TF_obj = tf.cast(muscat.TF_obj, tf.float32)
         #muscat.TF_obj_absorption = tf.cast(muscat.TF_obj_absorption, tf.float32)
         tf_fwd = muscat.computeconvolution(muscat.TF_ASF, is_padding='border',border_region=my_border_region)
-        
-        
     else:
         ''' Define Fwd operator'''
         tf_fwd = muscat.computeconvolution(muscat.TF_ASF, is_padding=True)
@@ -207,8 +207,7 @@ if is_recomputemodel:
     sess.run(tf.global_variables_initializer())
     
     ''' Compute the ATF '''
-    if(1):
-        #%%
+    if(0):
         print('We are precomputing the PSF')
         myATF = sess.run(muscat.TF_ATF)
         myASF = sess.run(muscat.TF_ASF)    
@@ -221,8 +220,7 @@ if is_recomputemodel:
         plt.subplot(234), plt.imshow(np.abs(((myASF))**.2)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
         plt.subplot(235), plt.imshow(np.abs(((myASF))**.2)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
         plt.subplot(236), plt.imshow(np.abs(((myASF))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar()#, plt.show()    
-        #%%
-        
+    
        
     '''Define some stuff related to infrastructure'''
     mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')

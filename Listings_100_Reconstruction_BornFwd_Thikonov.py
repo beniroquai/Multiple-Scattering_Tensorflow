@@ -18,17 +18,13 @@ from datetime import datetime
 
 # load own functions
 import src.model as mus
-import src.tf_helper as tf_helper
 import src.data as data
-import src.tf_regularizers as reg
 import src.experiments as experiments 
 
 
 # Optionally, tweak styles.
 mpl.rc('figure',  figsize=(12, 9))
 mpl.rc('image', cmap='gray')
-#plt.switch_backend('agg')
-#np.set_printoptions(threshold=np.nan)
 
 
 #%%
@@ -37,45 +33,9 @@ mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 basepath = './'#'/projectnb/cislidt/diederich/muScat/Multiple-Scattering_Tensorflow/'
 resultpath = 'Data/DROPLETS/RESULTS/'
 
-
-''' Control-Parameters - Optimization '''
-my_learningrate = 5e-2  # learning rate
-NreduceLR = 500 # when should we reduce the Learningrate? 
-
-# TV-Regularizer 
-mylambdatv = 1e-1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
-myepstvval = 1e-10##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
-
-# Positivity Constraint
-lambda_neg = 10000
-
-# Displaying/Saving
-Niter = 200
-Nsave = 25 # write info to disk
-Ndisplay = Nsave
-
-# Control Flow 
-is_norm = False 
-is_aberration = True
-is_padding = False 
-is_optimization = 1 
-is_absorption = False
-
-is_recomputemodel = False # TODO: Make it automatic! 
-
 tf.reset_default_graph()
 
-''' MODELLING StARTS HERE'''
-
-# need to figure out why this holds somehow true - at least produces reasonable results
-mysubsamplingIC = 0    
-dn = .1
-myfac = 1e0# 0*dn*1e-3
-myabsnorm = 1e5#myfac
-
-
 '''START CODE'''
-#tf.reset_default_graph() # just in case there was an open session
 
 # Generate Test-Object
 ''' File which stores the experimental parameters from the Q-PHASE setup 
@@ -87,20 +47,18 @@ if(experiments.matlab_val_file.find('mat')==-1):
     matlab_val = np.load(experiments.matlab_val_file)+1j
 else:
     matlab_val = data.import_realdata_h5(filename = experiments.matlab_val_file, matname=experiments.matlab_val_name, is_complex=True)
-#matlab_val = np.conj(matlab_val)
-# Make sure it's radix 2 along Z
+
+# Make sure it's even numberalong Z
 if(np.mod(matlab_val.shape[0],2)==1):
     matlab_val = matlab_val[0:matlab_val.shape[0]-1,:,:]
 matlab_val = (matlab_val)# - .6j
 
 ''' Create the Model'''
-muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
+muscat = mus.MuScatModel(matlab_pars, is_optimization=True)
 # Correct some values - just for the puprose of fitting in the RAM
 muscat.Nx,muscat.Ny,muscat.Nz = matlab_val.shape[1], matlab_val.shape[2], matlab_val.shape[0]
 muscat.shiftIcY=experiments.shiftIcY
 muscat.shiftIcX=experiments.shiftIcX
-muscat.dn = dn
-#muscat.dz = .32
 muscat.NAc = experiments.NAc
 
 ''' Adjust some parameters to fit it in the memory '''
@@ -114,20 +72,14 @@ muscat.zernikemask = experiments.zernikemask
 obj_guess =  np.zeros(matlab_val.shape)+muscat.nEmbb# np.angle(matlab_val)## 
 import src.tf_generate_object as tf_go
 mydiameter=5
-obj_guess= tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = dn, nEmbb = 1.33)#)dn)
-#obj_guess = obj_guess+1j*.1*(obj_guess>1.340)
+obj_guess= tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = .05, nEmbb = 1.33)#)dn)
 
 ''' Compute the systems model'''
 # Compute the System's properties (e.g. Pupil function/Illumination Source, K-vectors, etc.)¶
-muscat.computesys(obj=obj_guess, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BORN', is_dampic=.02)
-
-
+muscat.computesys(obj=obj_guess, is_compute_psf='BORN', is_dampic=.02)
 
 ''' Create Model Instance'''
 muscat.computemodel()
-
-
-
 
 #%
 print('Convert Data to TF constant')
@@ -204,7 +156,7 @@ for i in range(5):
 #alpha_i = np.array((1e-2,5e-2))
 TF_myres = muscat.computedeconv(TF_meas, alpha = 1.)
     
-if(0):
+if(1):
     for iteri in range(np.squeeze(alpha_i.shape)): 
         myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:alpha_i[iteri]})
         print('Start Displaying')

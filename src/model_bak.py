@@ -516,7 +516,7 @@ class MuScatModel(object):
         self.TF_nr = tf.complex(self.TF_obj, self.TF_obj_absorption)
         self.TF_no = tf.cast(self.nEmbb+0j, tf.complex64)
         k02 = (2*np.pi*self.nEmbb/self.lambda0)**2
-        self.TF_V = (k02/(4*np.pi))*(self.TF_nr**2-self.TF_no**2)
+        self.TF_V = -(k02/(4*np.pi))*(self.TF_nr**2-self.TF_no**2)
 
         # We need to have a placeholder because the ATF is computed afterwards...
         if (TF_ASF is None):
