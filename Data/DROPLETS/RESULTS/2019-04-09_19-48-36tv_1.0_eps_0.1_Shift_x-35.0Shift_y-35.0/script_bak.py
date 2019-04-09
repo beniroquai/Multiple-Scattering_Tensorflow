@@ -36,7 +36,27 @@ mpl.rc('image', cmap='gray')
 #%%
 '''Define some stuff related to infrastructure'''
 mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-basepath = './'#'/projectnb/cislidt/diederich
+basepath = './'#'/projectnb/cislidt/diederich/muScat/Multiple-Scattering_Tensorflow/'
+resultpath = 'Data/DROPLETS/RESULTS/'
+
+
+''' Control-Parameters - Optimization '''
+my_learningrate = 1e-2   # learning rate
+NreduceLR = 10000 # when should we reduce the Learningrate? 
+
+# TV-Regularizer 
+mylambdatv = 1e0
+#1e1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
+myepstvval = 1e-1##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+
+# Control Flow 
+lambda_neg = 1000.
+
+# Displaying/Saving
+Niter = 200
+Nsave = 20 # write info to disk
+Ndisplay = Nsave
+is_norm = False
 is_aberration = False
 is_padding = False
 is_optimization = True
@@ -47,26 +67,6 @@ is_recomputemodel = True # TODO: Make it automatic!
 
 mybordersize = 20
 
-#/muScat/Multiple-Scattering_Tensorflow/'
-resultpath = 'Data/DROPLETS/RESULTS/'
-
-
-''' Control-Parameters - Optimization '''
-my_learningrate = 1e-2   # learning rate
-NreduceLR = 10000 # when should we reduce the Learningrate? 
-
-# TV-Regularizer 
-lambda_tv = 1e2
-myepstvval = 1e-1##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
-
-# Control Flow 
-lambda_neg = 1000.
-
-# Displaying/Saving
-Niter = 1000
-Nsave = 100 # write info to disk
-Ndisplay = Nsave
-is_norm = False
 
 ''' MODELLING StARTS HERE'''
 if is_recomputemodel:
@@ -165,25 +165,25 @@ if is_recomputemodel:
        # TF_obj_tmp = tf_helper.extract(tf.cast(muscat.TF_obj, tf.float32), muscat.mysize)
         #TF_obj_absorption_tmp = tf_helper.extract(tf.cast(muscat.TF_obj_absorption, tf.float32), muscat.mysize)
         
-        #tf_tvloss =  muscat.tf_lambda_tv*reg.Reg_TV_RH(muscat.TF_obj, Eps=muscat.tf_eps)  #Alernatively tf_total_variation_regularization # total_variation
-        #tf_tvloss += muscat.tf_lambda_tv*reg.Reg_TV_RH(muscat.TF_obj_absorption, Eps=muscat.tf_eps)  #Alernatively tf_total_variation_regularization # total_variation
+        tf_tvloss =  muscat.tf_lambda_tv*reg.Reg_TV_RH(muscat.TF_obj, Eps=muscat.tf_eps)  #Alernatively tf_total_variation_regularization # total_variation
+        tf_tvloss += muscat.tf_lambda_tv*reg.Reg_TV_RH(muscat.TF_obj_absorption, Eps=muscat.tf_eps)  #Alernatively tf_total_variation_regularization # total_variation
          
         
-        tf_tvloss =  reg.Reg_TV(muscat.TF_obj, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
-        tf_tvloss += reg.Reg_TV(muscat.TF_obj_absorption, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
+        #tf_tvloss =  muscat.tf_lambda_tv*reg.Reg_TV(TF_obj_tmp, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
+        #tf_tvloss += muscat.tf_lambda_tv*reg.Reg_TV(TF_obj_absorption_tmp, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
          
     else:
         print('We are using GR - Regularization')
         tf_tvloss =  reg.Reg_GR(muscat.TF_obj, eps1=muscat.tf_eps)  #Alernatively tf_total_variation_regularization # total_variation
         tf_tvloss += reg.Reg_GR(muscat.TF_obj_absorption,  eps1=muscat.tf_eps)  #Alernatively tf_total_variation_regularization # total_variation
-
+        tf_tvloss *= muscat.tf_lambda_tv   
         
                         
     '''Negativity Constraint'''                                          
     #tf_negsqrloss = reg.Reg_NegSqr(tf_helper.extract(tf.cast(muscat.TF_obj, tf.float32), muscat.mysize))#-tf.minimum(tf.reduce_min(muscat.TF_obj-1.),0) 
     tf_negsqrloss = reg.Reg_NegSqr(muscat.TF_obj)#-tf.minimum(tf.reduce_min(muscat.TF_obj-1.),0) 
     tf_negsqrloss += reg.Reg_NegSqr(muscat.TF_obj_absorption)
-    
+    tf_negsqrloss *= lambda_neg
     # Correc the fwd model - not good here!
     #tf_norm = tf.complex(tf_glob_real, tf_glob_imag)
     
@@ -194,10 +194,12 @@ if is_recomputemodel:
     else:
         print('-------> Losstype is L2')
         tf_fidelity = tf.reduce_mean(tf_helper.tf_abssqr(muscat.tf_meas - tf_fwd)) # allow a global phase parameter to avoid unwrapping effects
-    tf_loss = tf_fidelity + lambda_neg*tf_negsqrloss + lambda_tv*tf_tvloss
+    tf_loss = tf_fidelity + tf_negsqrloss + tf_tvloss
     
     '''Define Optimizer'''
     tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
+#    tf_lossop_norm = tf_optimizer.minimize(tf_loss, var_list = [tf_glob_imag, tf_glob_real])
+    #tf_lossop_tv = tf_optimizer.minimize(tf_tvloss, var_list = [muscat.TF_obj, muscat.TF_obj_absorption])
     tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj])
     tf_lossop_obj_absorption = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj,muscat.TF_obj_absorption])
     tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_shiftIcX, muscat.TF_shiftIcY, muscat.TF_zernikefactors])
@@ -227,7 +229,7 @@ if is_recomputemodel:
        
     '''Define some stuff related to infrastructure'''
     mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    savepath = basepath + resultpath + mytimestamp + 'tv_' + str(lambda_tv) + '_eps_' +str(myepstvval) + '_' +'Shift_x-'+str(experiments.shiftIcX)+'Shift_y-'+str(experiments.shiftIcY)
+    savepath = basepath + resultpath + mytimestamp + 'tv_' + str(mylambdatv) + '_eps_' +str(myepstvval) + '_' +'Shift_x-'+str(experiments.shiftIcX)+'Shift_y-'+str(experiments.shiftIcY)
     
     # Create directory
     try: 
@@ -267,7 +269,7 @@ for iterx in range(iter_last,Niter):
     if(iterx==0 or not np.mod(iterx, Ndisplay)):
         my_res, my_res_absortpion, my_loss, my_fidelity, my_negloss, my_tvloss, myglobalphase, myglobalabs, myfwd =  \
             sess.run([muscat.TF_obj, muscat.TF_obj_absorption, tf_loss, tf_fidelity, tf_negsqrloss, tf_tvloss, tf_glob_real, tf_glob_imag, tf_fwd], \
-                     feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:lambda_tv, muscat.tf_eps:myepstvval}) #, muscat.TF_ATF_placeholder:myATF
+                     feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval}) #, muscat.TF_ATF_placeholder:myATF
 
         print('Loss@'+str(iterx)+': ' + str(my_loss) + ' - Fid: '+str(my_fidelity)+', Neg: '+str(my_negloss)+', TV: '+str(my_tvloss)+' G-Phase:'+str(myglobalphase)+' G-ABS: '+str(myglobalabs)) 
         myfwdlist.append(myfwd)
@@ -297,18 +299,18 @@ for iterx in range(iter_last,Niter):
                               globalphaselist, globalabslist, np_meas, figsuffix='Iter'+str(iterx))
             
     # Alternate between pure object optimization and aberration recovery
-    #sess.run([tf_lossop_tv], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:lambda_tv, muscat.tf_eps:myepstvval})
+    #sess.run([tf_lossop_tv], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
 
     if is_absorption:
-        sess.run([tf_lossop_obj_absorption], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:lambda_tv, muscat.tf_eps:myepstvval})
+        sess.run([tf_lossop_obj_absorption], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
     else:
-        sess.run([tf_lossop_obj], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:lambda_tv, muscat.tf_eps:myepstvval})
+        sess.run([tf_lossop_obj], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
        # print('Attetntion: Generalized costfunction1')
     if is_aberration and (iterx > 50):
-        sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:lambda_tv, muscat.tf_eps:myepstvval})
+        sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
 
     if is_norm:
-        sess.run([tf_lossop_norm], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:lambda_tv, muscat.tf_eps:myepstvval})
+        sess.run([tf_lossop_norm], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
         
 
     iter_last = iterx

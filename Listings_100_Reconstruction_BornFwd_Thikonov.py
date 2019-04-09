@@ -51,7 +51,7 @@ else:
 # Make sure it's even numberalong Z
 if(np.mod(matlab_val.shape[0],2)==1):
     matlab_val = matlab_val[0:matlab_val.shape[0]-1,:,:]
-matlab_val = np.conj(matlab_val)# - .6j
+matlab_val = -(matlab_val)# - .6j
 
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=True)
@@ -155,7 +155,7 @@ for i in range(5):
 #alpha_i = np.array((1e-2,5e-2))
 TF_myres = muscat.computedeconv(TF_meas, alpha = 1.)
     
-if(1):
+if(0):
     for iteri in range(np.squeeze(alpha_i.shape)): 
         myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:alpha_i[iteri]})
         print('Start Displaying')
@@ -172,7 +172,7 @@ if(1):
         plt.subplot(236),plt.imshow(np.imag(myres[:,:,myres.shape[2]//2])),plt.colorbar()
         
         plt.savefig('thikonov_reg_'+str(iteri)+'_'+str(alpha_i[iteri])+'.png')
-
+        plt.show()
 
 #%%
 if(0):
@@ -185,7 +185,7 @@ if(0):
 
 
 #%%
-myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:5.1})
+myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:.1})
 tosave = []
 tosave.append(np.real(myres))
 tosave.append(np.imag(myres))

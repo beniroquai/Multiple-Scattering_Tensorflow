@@ -59,15 +59,15 @@ elif(0):
 elif(1):
     # data files for parameters and measuremets 
     matlab_val_file = './Data/cells/Cell_20x_100a_120-270.tif_allAmp.mat'
-    matlab_par_file = './Data/cells/Cell_20x_100a_120-270.tif_myParameter.mat'
+    matlab_par_file = './Data/cells/Cell_20x_100a_120-270.tifmyParameter.mat'
     matlab_par_name = 'myParameter' 
     matlab_val_name = 'allAmpSimu'   
-    mybackgroundval = -1.0*1j 
-    dn = 0.05
-    shiftIcY = -35.#0*35 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-    shiftIcX = -35.#*35 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-    NAc = .32
-    zernikemask[:]=1
+    mybackgroundval = 0 
+    dn = 0.01
+    shiftIcY = -25#0*35 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    shiftIcX = -25.#*35 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    NAc = .2
+    zernikemask[7:8]=1
     zernikemask[0]=0
     is_dampic=.03
     #zernikefactors = np.array((1.5145516,  -0.4922971,  -1.6731209,   0.9618724,   0.03274873,  0.0987005, 0.45747086,  0.13862132, -0.08351833, -0.11787935, -0.29825905, -0.07494219))
@@ -101,12 +101,13 @@ elif(0):
     shiftIcX =  10 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
     zernikefactors = np.array((0,0,0,0,0,-0.,-3.0,1.,0,0,.5,.0))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
     zernikemask = np.array(np.abs(zernikefactors)>0)*1# mask of factors that should be updated
-elif(1):
+elif(0):
     matlab_val_file = './Data/cells/0014a_zstack_dz0-04um_751planes_20x_every10thslice.tif_allAmp.mat'
     matlab_par_file = './Data/cells/0014a_zstack_dz0-04um_751planes_20x_every10thslice.tifmyParameter.mat'
     matlab_par_name = 'myParameter'
     matlab_val_name = 'allAmpSimu'
     NAc = .25
+    is_dampic = .04
     mybackgroundval = -1j
     shiftIcY =  -0.073108904# has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
     shiftIcX =  2.4129255 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left

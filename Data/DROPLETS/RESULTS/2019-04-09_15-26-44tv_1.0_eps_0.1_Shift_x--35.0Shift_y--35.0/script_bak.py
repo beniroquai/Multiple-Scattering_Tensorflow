@@ -31,7 +31,7 @@ mpl.rc('figure',  figsize=(9, 6))
 mpl.rc('image', cmap='gray')
 #plt.switch_backend('agg')
 #np.set_printoptions(threshold=np.nan)
-
+#%load_ext autoreload
 
 #%%
 '''Define some stuff related to infrastructure'''
@@ -41,20 +41,20 @@ resultpath = 'Data/DROPLETS/RESULTS/'
 
 
 ''' Control-Parameters - Optimization '''
-my_learningrate = 1e-1    # learning rate
+my_learningrate = 5e-2   # learning rate
 NreduceLR = 10000 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
-mylambdatv = 1e-0
+mylambdatv = 1e0
 #1e1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
-myepstvval = 1e-5##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+myepstvval = 1e-1##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Control Flow 
-lambda_neg = 10.
+lambda_neg = 1000.
 
 # Displaying/Saving
-Niter = 300
-Nsave = 50 # write info to disk
+Niter = 200
+Nsave = 20 # write info to disk
 Ndisplay = Nsave
 is_norm = False
 is_aberration = False
@@ -82,13 +82,13 @@ if is_recomputemodel:
     ''' File which stores the experimental parameters from the Q-PHASE setup 
         1.) Read in the parameters of the dataset ''' 
     matlab_pars = data.import_parameters_mat(filename = experiments.matlab_par_file, matname = experiments.matlab_par_name)
-    
     ''' 2.) Read in the parameters of the dataset ''' 
     if(experiments.matlab_val_file.find('mat')==-1):
         matlab_val = np.load(experiments.matlab_val_file)
     else:
         matlab_val = data.import_realdata_h5(filename = experiments.matlab_val_file, matname=experiments.matlab_val_name, is_complex=True)
-
+    matlab_val = np.conj(matlab_val)
+       
    
     # Make sure it's radix 2 along Z
     if(np.mod(matlab_val.shape[0],2)==1):
@@ -121,7 +121,7 @@ if is_recomputemodel:
         #obj_guess = obj_guess-np.min(obj_guess); obj_guess = obj_guess/np.max(obj_guess)
         obj_guess = obj_guess-(np.min(np.real(obj_guess))+1j*np.min(np.imag(obj_guess)))
         if is_absorption:
-            obj_guess = dn*np.real(obj_guess)/np.max(np.real(obj_guess))+1j*dn*np.imag(obj_guess)/np.max(np.imag(obj_guess))
+            obj_guess = dn*np.real(obj_guess)/np.max(np.real(obj_guess))+1j*.1*dn*np.imag(obj_guess)/np.max(np.imag(obj_guess))
         else:
             obj_guess = dn*np.real(obj_guess)/np.max(np.real(obj_guess))
     else:
@@ -168,10 +168,25 @@ if is_recomputemodel:
                                
     '''REGULARIZER'''
     # Total Variation
-    print('We are using TV - Regularization')
-    tf_tvloss =  reg.Reg_TV(muscat.TF_obj, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
-    tf_tvloss += reg.Reg_TV(muscat.TF_obj_absorption, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
-    tf_tvloss *= muscat.tf_lambda_tv                           
+    if(1):
+        print('We are using TV - Regularization') # (tfin, Eps=1e-15, doubleSided=False,regDataType=None)
+       # TF_obj_tmp = tf_helper.extract(tf.cast(muscat.TF_obj, tf.float32), muscat.mysize)
+        #TF_obj_absorption_tmp = tf_helper.extract(tf.cast(muscat.TF_obj_absorption, tf.float32), muscat.mysize)
+        
+        tf_tvloss =  muscat.tf_lambda_tv*reg.Reg_TV_RH(muscat.TF_obj, Eps=muscat.tf_eps)  #Alernatively tf_total_variation_regularization # total_variation
+        tf_tvloss += muscat.tf_lambda_tv*reg.Reg_TV_RH(muscat.TF_obj_absorption, Eps=muscat.tf_eps)  #Alernatively tf_total_variation_regularization # total_variation
+         
+        
+        #tf_tvloss =  muscat.tf_lambda_tv*reg.Reg_TV(TF_obj_tmp, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
+        #tf_tvloss += muscat.tf_lambda_tv*reg.Reg_TV(TF_obj_absorption_tmp, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
+         
+    else:
+        print('We are using GR - Regularization')
+        tf_tvloss =  reg.Reg_GR(muscat.TF_obj, eps1=muscat.tf_eps)  #Alernatively tf_total_variation_regularization # total_variation
+        tf_tvloss += reg.Reg_GR(muscat.TF_obj_absorption,  eps1=muscat.tf_eps)  #Alernatively tf_total_variation_regularization # total_variation
+        tf_tvloss *= muscat.tf_lambda_tv   
+        
+                        
     '''Negativity Constraint'''                                          
     #tf_negsqrloss = reg.Reg_NegSqr(tf_helper.extract(tf.cast(muscat.TF_obj, tf.float32), muscat.mysize))#-tf.minimum(tf.reduce_min(muscat.TF_obj-1.),0) 
     tf_negsqrloss = reg.Reg_NegSqr(muscat.TF_obj)#-tf.minimum(tf.reduce_min(muscat.TF_obj-1.),0) 
@@ -186,12 +201,12 @@ if is_recomputemodel:
         tf_fidelity = tf.reduce_mean((tf.abs((muscat.tf_meas+tf_norm) - tf_fwd))) # allow a global phase parameter to avoid unwrapping effects
     else:
         print('-------> Losstype is L2')
-        tf_fidelity = tf.reduce_mean(tf_helper.tf_abssqr((muscat.tf_meas+tf_norm) - tf_fwd)) # allow a global phase parameter to avoid unwrapping effects
+        tf_fidelity = tf.reduce_mean(tf_helper.tf_abssqr(muscat.tf_meas - tf_fwd)) # allow a global phase parameter to avoid unwrapping effects
     tf_loss = tf_fidelity + tf_negsqrloss + tf_tvloss
     
     '''Define Optimizer'''
     tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
-    tf_lossop_norm = tf_optimizer.minimize(tf_loss, var_list = [tf_glob_imag, tf_glob_real])
+#    tf_lossop_norm = tf_optimizer.minimize(tf_loss, var_list = [tf_glob_imag, tf_glob_real])
     #tf_lossop_tv = tf_optimizer.minimize(tf_tvloss, var_list = [muscat.TF_obj, muscat.TF_obj_absorption])
     tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj])
     tf_lossop_obj_absorption = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj,muscat.TF_obj_absorption])

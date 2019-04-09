@@ -548,7 +548,7 @@ class MuScatModel(object):
             
         print('ATTENTION: WEIRD MAGIC NUMBER for background field!!')
         #return tf.squeeze(TF_res+(myfac-1j*myfac))/np.sqrt(2)
-        return tf.squeeze(TF_res-1j) # add the background
+        return tf.squeeze(TF_res)#-1j) # add the background
            
     
     def computedeconv(self, ain, alpha = 5e-2):
