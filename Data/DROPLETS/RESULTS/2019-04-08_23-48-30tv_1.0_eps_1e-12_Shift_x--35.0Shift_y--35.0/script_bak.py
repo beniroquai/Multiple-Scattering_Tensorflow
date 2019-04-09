@@ -31,7 +31,7 @@ mpl.rc('figure',  figsize=(9, 6))
 mpl.rc('image', cmap='gray')
 #plt.switch_backend('agg')
 #np.set_printoptions(threshold=np.nan)
-
+#%load_ext autoreload
 
 #%%
 '''Define some stuff related to infrastructure'''
@@ -41,30 +41,26 @@ resultpath = 'Data/DROPLETS/RESULTS/'
 
 
 ''' Control-Parameters - Optimization '''
-my_learningrate = 1e-1    # learning rate
+my_learningrate = 5e-2    # learning rate
 NreduceLR = 10000 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
-mylambdatv = 1e1
+mylambdatv = 1e-0
 #1e1 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
-myepstvval = 1e-10##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
-
-# Positivity Constraint
-lambda_neg = 10000.
+myepstvval = 1e-12##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Control Flow 
-is_norm = False 
 lambda_neg = 10.
 
 # Displaying/Saving
 Niter = 300
 Nsave = 50 # write info to disk
 Ndisplay = Nsave
-Ndisplay = Nsave
-is_aberration = True
+is_norm = False
+is_aberration = False
 is_padding = False
 is_optimization = True
-is_absorption = False
+is_absorption = True
 is_obj_init_tikhonov = False 
 
 is_recomputemodel = True # TODO: Make it automatic! 
@@ -86,13 +82,13 @@ if is_recomputemodel:
     ''' File which stores the experimental parameters from the Q-PHASE setup 
         1.) Read in the parameters of the dataset ''' 
     matlab_pars = data.import_parameters_mat(filename = experiments.matlab_par_file, matname = experiments.matlab_par_name)
-    
     ''' 2.) Read in the parameters of the dataset ''' 
     if(experiments.matlab_val_file.find('mat')==-1):
         matlab_val = np.load(experiments.matlab_val_file)
     else:
         matlab_val = data.import_realdata_h5(filename = experiments.matlab_val_file, matname=experiments.matlab_val_name, is_complex=True)
-
+    matlab_val = np.conj(matlab_val)
+       
    
     # Make sure it's radix 2 along Z
     if(np.mod(matlab_val.shape[0],2)==1):
@@ -130,7 +126,7 @@ if is_recomputemodel:
             obj_guess = dn*np.real(obj_guess)/np.max(np.real(obj_guess))
     else:
         obj_guess =  np.zeros(matlab_val.shape)+muscat.dn/2# np.angle(matlab_val)## 
-        obj_guess = np.random.rand(matlab_val.shape[0],matlab_val.shape[1],matlab_val.shape[2])*muscat.dn/2
+        #obj_guess = np.random.rand(matlab_val.shape[0],matlab_val.shape[1],matlab_val.shape[2])*muscat.dn/2
         
     
     obj_guess = obj_guess+muscat.nEmbb
@@ -172,10 +168,18 @@ if is_recomputemodel:
                                
     '''REGULARIZER'''
     # Total Variation
-    print('We are using TV - Regularization')
-    tf_tvloss =  reg.Reg_TV(muscat.TF_obj, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
-    tf_tvloss += reg.Reg_TV(muscat.TF_obj_absorption, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
-    tf_tvloss *= muscat.tf_lambda_tv                           
+    if(1):
+        print('We are using TV - Regularization')
+        tf_tvloss =  muscat.tf_lambda_tv*reg.Reg_TV(muscat.TF_obj, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
+        tf_tvloss += muscat.tf_lambda_tv*reg.Reg_TV(muscat.TF_obj_absorption, BetaVals = [muscat.dx,muscat.dy,muscat.dz], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
+         
+    else:
+        print('We are using GR - Regularization')
+        tf_tvloss =  reg.Reg_GR(muscat.TF_obj, eps1=muscat.tf_eps)  #Alernatively tf_total_variation_regularization # total_variation
+        tf_tvloss += reg.Reg_GR(muscat.TF_obj_absorption,  eps1=muscat.tf_eps)  #Alernatively tf_total_variation_regularization # total_variation
+        tf_tvloss *= muscat.tf_lambda_tv   
+        
+                        
     '''Negativity Constraint'''                                          
     #tf_negsqrloss = reg.Reg_NegSqr(tf_helper.extract(tf.cast(muscat.TF_obj, tf.float32), muscat.mysize))#-tf.minimum(tf.reduce_min(muscat.TF_obj-1.),0) 
     tf_negsqrloss = reg.Reg_NegSqr(muscat.TF_obj)#-tf.minimum(tf.reduce_min(muscat.TF_obj-1.),0) 
@@ -200,14 +204,14 @@ if is_recomputemodel:
     tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj])
     tf_lossop_obj_absorption = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj,muscat.TF_obj_absorption])
     tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_shiftIcX, muscat.TF_shiftIcY, muscat.TF_zernikefactors])
-    tf_lossop = tf_optimizer.minimize(tf_loss) 
+    tf_lossop = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj,muscat.TF_obj_absorption, muscat.TF_shiftIcX, muscat.TF_shiftIcY, muscat.TF_zernikefactors])
     
     ''' Initialize the model '''
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
     
     ''' Compute the ATF '''
-    if(1):
+    if(0):
         #%%
         print('We are precomputing the PSF')
         myATF = sess.run(muscat.TF_ATF)
@@ -283,15 +287,18 @@ for iterx in range(iter_last,Niter):
         globalphaselist.append(myglobalphase)
         globalabslist.append(myglobalabs) 
         
-        #% Display recovered Pupil
+        #%% Display recovered Pupil
         plt.figure()
         myzernikes = sess.run(muscat.TF_zernikefactors)
+        myshiftX = sess.run(muscat.TF_shiftIcX)
+        myshiftY = sess.run(muscat.TF_shiftIcY)
+        
         plt.subplot(141), plt.title('Po Phase'), plt.imshow(np.fft.fftshift(np.angle(sess.run(muscat.TF_Po_aberr)))), plt.colorbar(fraction=0.046, pad=0.04)
         plt.subplot(142), plt.title('Po abs'), plt.imshow(np.fft.fftshift(np.abs(sess.run(muscat.TF_Po_aberr)))), plt.colorbar(fraction=0.046, pad=0.04)
-        plt.subplot(143), plt.title('Po abs'), plt.imshow(muscat.Ic), plt.colorbar(fraction=0.046, pad=0.04)
+        plt.subplot(143), plt.title('Ic, shiftX: '+str(myshiftX)+' myShiftY: '+str(myshiftY)), plt.imshow(muscat.Ic), plt.colorbar(fraction=0.046, pad=0.04)
         plt.subplot(144), plt.bar(np.linspace(1, np.squeeze(myzernikes.shape), np.squeeze(myzernikes.shape)), myzernikes, align='center', alpha=0.5)
         plt.savefig(savepath+'/Aberrations_'+str(iterx)+'.png'), plt.show()
-        #%
+        #%%
         ''' Save Figures and Parameters '''
         muscat.saveFigures_list(savepath, myfwdlist, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, result_phaselist, result_absorptionlist, 
                               globalphaselist, globalabslist, np_meas, figsuffix='Iter'+str(iterx))
@@ -303,7 +310,7 @@ for iterx in range(iter_last,Niter):
         sess.run([tf_lossop_obj_absorption], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
     else:
         sess.run([tf_lossop_obj], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
-    
+       # print('Attetntion: Generalized costfunction1')
     if is_aberration and (iterx > 50):
         sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:mylambdatv, muscat.tf_eps:myepstvval})
 
@@ -319,8 +326,8 @@ muscat.saveFigures_list(savepath, myfwdlist, mylosslist, myfidelitylist, myneglo
                               globalphaselist, globalabslist, np_meas, figsuffix='FINAL')
 
 data.export_realdatastack_h5(savepath+'/myrefractiveindex.h5', 'phase, abs', 
-                        np.stack(((nip.extract(result_phaselist[-1], muscat.mysize)),
-                                 (nip.extract(result_absorptionlist[-1], muscat.mysize))), axis=0))
+                        np.stack(((nip.extract(result_phaselist[-1], muscat.mysize,None,None)),
+                                 (nip.extract(result_absorptionlist[-1], muscat.mysize,None,None))), axis=0))
 data.export_realdatastack_h5(savepath+'/mymeas.h5', 'real, imag', 
                         np.stack((np.real(np_meas),
                                   np.imag(np_meas)), axis=0))

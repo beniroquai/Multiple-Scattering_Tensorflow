@@ -51,7 +51,7 @@ else:
 # Make sure it's even numberalong Z
 if(np.mod(matlab_val.shape[0],2)==1):
     matlab_val = matlab_val[0:matlab_val.shape[0]-1,:,:]
-matlab_val = (matlab_val)# - .6j
+matlab_val = np.conj(matlab_val)# - .6j
 
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=True)
@@ -93,7 +93,6 @@ print('Start Session')
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
 myres = sess.run(TF_myres)
-
 
 plt.figure()    
 plt.subplot(231), plt.imshow(np.real((myres))[:,myres.shape[1]//2,:]), plt.colorbar()#, plt.show()
@@ -186,7 +185,7 @@ if(0):
 
 
 #%%
-myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:.01})
+myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:5.1})
 tosave = []
 tosave.append(np.real(myres))
 tosave.append(np.imag(myres))

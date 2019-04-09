@@ -49,7 +49,7 @@ def Reg_L2(im):
     return tf.reduce_mean(im ** 2)
 
 
-def Reg_GR(tfin, Eps1=1e-15,Eps2=1e-15):
+def Reg_GR(tfin, eps1=1e-15,eps2=1e-15):
     loss=0.0
     for d in range(tfin.shape.ndims):
         loss += tf.square(tf.manip.roll(tfin,-1,d) - tf.manip.roll(tfin,1,d))/tf.sqrt(tf.square(tfin)+Eps1)   # /4.0
@@ -174,17 +174,19 @@ def Reg_TV(toRegularize, BetaVals = [1,1,1], epsR = 1, epsC=1e-10, is_circ = Tru
     return myReg
 
 
-def Reg_TV_RH(tfin, Eps=1e-15, doubleSided=False):
+def Reg_TV_RH(tfin, Eps=1e-15, doubleSided=False,regDataType=None):
+    if regDataType is None:
+        regDataType=tf.float32
     loss=0.0
     if doubleSided:
         for d in range(tfin.shape.ndims):   # sum over the dimensions to calculate the one norm
-            loss += tf.square(tf.manip.roll(tfin,-1,d) - tf.manip.roll(tfin,1,d))
+            loss += tf.square(tf.roll(tfin,-1,d) - tf.roll(tfin,1,d))
     else:
         for d in range(tfin.shape.ndims):   # sum over the dimensions to calculate the one norm
-            loss += tf.square(tfin - tf.manip.roll(tfin,1,d))
+            loss += tf.square(tfin - tf.roll(tfin,1,d))
     if doubleSided:
         loss=loss/2.0
-    return tf.reduce_mean(tf.cast(tf.sqrt(loss+Eps),'float64')) # /2.0
+    return tf.reduce_mean(tf.cast(tf.sqrt(loss+Eps),regDataType)) # /2.0
 
     
 def PreMonotonicPosNAN(tfin):

@@ -110,7 +110,7 @@ objfwdinv_imag =im.Variable("preObj_imag")
 #    objfwdinv=im.PreBorderRegion(objfwdinv,nimg,border=myborder) # The cut operation allows the data to be smaller than the reconstructed region
 #    objfwdinv=im.PreAbsSqr(objfwdinv)
 objfwdinv_real=im.PreMonotonicPos(objfwdinv_real)
-obj_real=im.PreObjInit(objfwdinv_real,np.mean(V)*np.ones(V.shape))
+obj_real=im.PreObjInit(objfwdinv_real,muscat.nEmbb*np.ones(V.shape))
 objfwdinv_imag=im.PreMonotonicPos(objfwdinv_real)
 obj_imag=im.PreObjInit(objfwdinv_imag,0*np.ones(V.shape))
 TF_nr = tf.complex(obj_real,obj_imag)
@@ -138,111 +138,17 @@ myloss = myloss + mylambdaTV*im.Reg_TV(TF_nr,1e-5)
 
 
 #%% Optimize 
-learningRate = 30.0
-NIter = 80
+learningRate = 1e-0
+NIter = 100
 
 # tfinit=nip.convROTF(nimg,rotf).astype('float32')  # start with a convolved version
-resVars=[TF_nr]  # generates the graph and variables to solve for
+resVars=[obj_real,obj_imag]  # generates the graph and variables to solve for
 
-myoptimizer = im.optimizer(myloss,otype="adam",oparam={"learning_rate": 30.0},NIter=1)
+myoptimizer = im.optimizer(myloss,otype="adam",oparam={"learning_rate": 30.0},NIter=NIter)
 # myoptimizer = im.optimizer(loss,otype="L-BFGS-B",NIter=150)
 
 resObj = im.Optimize(myoptimizer,loss=myloss,resVars=resVars,TBSummary=True) # ,resVars=(ObjFwd,PupilFwd)
-
-
-#%%
-
-# here the measured values are baked into the model:
-#       res=im.Convolve(obj,psf.astype("float32"))
-mypimg=im.convolveROTF(obj, rotf)
-
-
-
-im.Init()
-
-mylambdaTi=0.5; mylambdaTV=0.0001; mylambdaGR=0.08
-myborder=3 # better: [3 3]
-objinit=nip.convROTF(nimg,np.conj(rotf)).astype('float32')  # start with a convolved version
-#objinit=obj.astype('float32')  # start with a convolved version
-
-PhaseOnly=True
-
-objfwdinv=im.Variable("preObj") # ,1.0/np.mean(objinit)
-objfwdinv=im.PreMonotonicPos(objfwdinv)
-objfwd=im.PreObjInit(objfwdinv,objinit)
-
-# now the otf part
-if PhaseOnly:
-    pupilfwdinv=im.PrePhase2Cpx(im.Variable("prePhases"))  # Attention! Eps has to stay low for this!
-else:
-    pupilfwdinv=im.PrePackCpx(im.Variable("prePhases"))
-pupilfwdinv=im.PreFillROI(pupilfwdinv,pupilmask)
-pupilfwd=im.PreObjInit(pupilfwdinv,-(0.0+1.0j)*pupilmask.astype(np.complex64))  # start pupil with assigning 1.0
+resObj[1][:,25,:]
 
 print("running inverse pupil model")        
 
-myobj=objfwd
-#    myobj=tf.constant(objinit.astype("float32"))
-#    myobj=tf.constant(obj.astype("float32")) # yields perfect phase reconstructions
-#    pupil=tf.constant(mypupil.astype("complex64"))
-pupil=pupilfwd
-# psf part
-mypsf = im.PSFfromPupil(pupil) #  
-#    rotf = im.ROTFfromPupil(pupil) 
-mypsf = mypsf/tf.reduce_sum(mypsf)
-#    mypsf=tf.constant(psf.astype("float32"))
-# obj part
-# both 
-#    fwd=im.ConvolveROTF(myobj,10*rotf) #   !!! The gradient of the rotf is not defined!
-fwd=im.convolveReal(myobj, mypsf)
-#    fwd=im.ConvolveReal(10*mypsf,myobj) #   !!! The gradient is not defined!
-#    fwd=mypsf
-#    myloss=im.Loss_Poisson(fwd,nimg)+ mylambdaTV*im.Reg_TV(myobj,1e-15)
-#    myloss=im.Loss_ScaledGaussianReadNoise(fwd,nimg,1.0) + mylambdaTi*im.Reg_Tichonov(myobj)
-#    myloss=im.Loss_ScaledGaussianReadNoise(fwd,nimg,1.0) + mylambdaTV*im.Reg_TV(myobj,1e-15)
-#    myloss=im.Loss_ScaledGaussianReadNoise(fwd,nimg,1.0) + mylambdaGR*im.Reg_GR(myobj)
-#    myloss=im.Loss_ScaledGaussianReadNoise(fwd,nimg,1.0)
-loss=im.Loss_FixedGaussian(fwd,nimg.astype("float32"))
-
-# (loss,ObjFwd,PupilFwd)=Loss()
-
-#%% Check the gradients
-
-ObjTests=[[0,0],[400,400],[401,400],[400,410]];
-PhaseTests=[0,1,500,1000,2000,2800]
-myresult=im.GradCheck(loss,Idx=[ObjTests,PhaseTests],Eps=0.1,TestVars=tf.trainable_variables())  # real data
-
-#toshow=nip.image.image(nip.cat([nimg,myresult[0],obj,myresult[1]],3))
-#nip.v5(toshow)
-#raise ValueError("stopped")
-
-#%%
-resVars=(myobj,pupil) # generates the graph and variables to solve for
-
-AllVars=tf.trainable_variables()
-# optimizeBoth= im.optimizer(loss,otype="L-BFGS-B",NIter=100) # not so good here. Adam is much better
-optimizeBoth= im.optimizer(loss,otype="adam",oparam={"learning_rate": 1},NIter=100)
-resObj,resPupil=im.Optimize(optimizeBoth,loss=loss,resVars=resVars) # ,resVars=(ObjFwd,PupilFwd)
-
-# raise ValueError("stopped")
-
-# start with 10 pupil-only iterations
-optimizeObj= im.optimizer(loss,otype="adam",oparam={"learning_rate": 1.0},NIter=10,var_list=AllVars[0]) # continue with alteranting updates
-optimizePupil= im.optimizer(loss,otype="adam",oparam={"learning_rate": 1.0},NIter=10,var_list=AllVars[1])
-optimizeBothFinal= im.optimizer(loss,otype="adam",oparam={"learning_rate": 0.1},NIter=10,var_list=AllVars,verbose=True)  # This massively reduced learning rate is necessary to tame the adam
-alternatingMain = im.alternatingOptimizer((optimizePupil,optimizeObj),4) # same amount of iterations, but slower than adam
-alternatingOptimizer = im.alternatingOptimizer((optimizePupil,alternatingMain,optimizeBothFinal)) # same amount of iterations, but slower than adam
-
-resObj2,resPupil2=im.Optimize(alternatingOptimizer,loss=loss,resVars=resVars) # ,resVars=(ObjFwd,PupilFwd)
-#resObj,resPupil=im.Optimize(myoptimizer,resVars=resVars) # ,resVars=(ObjFwd,PupilFwd)
-# myresult=im.Optimize(Loss,myoptimizer,Eager=True)
-
-toshow=nip.image.image(nip.cat([nimg,resObj,resObj2,obj],-4))
-toshowC=nip.cat([resPupil,resPupil2,mypupil],-4)
-# nip.view(toshow)
-v=v5(toshow)
-v=v5(nip.cat((resPupil,resPupil2),-1),showPhases=True)
-v=v5(mypupil,showPhases=True)
-# np.angle(toshowC)
-#v=v5(toshow)
-#vc=v5(np.angle(toshowC))

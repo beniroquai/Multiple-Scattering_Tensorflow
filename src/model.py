@@ -497,8 +497,8 @@ class MuScatModel(object):
         TF_ASF = TF_ASF_ic*tf.conj(TF_ASF_po) #tf_helper.my_ift3d(TF_ATF_po,myfftfac)*tf.conj(tf_helper.my_ift3d(TF_ATF_ic,myfftfac))
 
         # I wish I could use this here - but not a good idea!
-        #self.normfac = tf.sqrt(tf.reduce_sum(tf.abs(TF_ASF[self.mysize[0]//2,:,:])))
-        self.normfac = tf.sqrt(tf.reduce_sum(tf.abs(TF_ASF)))
+        self.normfac = tf.sqrt(tf.reduce_sum(tf.abs(TF_ASF[self.mysize[0]//2,:,:])))
+        #self.normfac = tf.sqrt(tf.reduce_sum(tf.abs(TF_ASF)))
         #self.normfac = 1.
         TF_ASF = TF_ASF/tf.complex(self.normfac,0.) # TODO: norm Tensorflow?! 
 
@@ -845,8 +845,10 @@ class MuScatModel(object):
          
         # Display recovered Pupil
         plt.figure()
+        myshiftX = sess.run(self.TF_shiftIcX)
+        myshiftY = sess.run(self.TF_shiftIcY)
         plt.subplot(131), plt.title('Po Phase'), plt.imshow(np.fft.fftshift(np.angle(sess.run(self.TF_Po_aberr)))), plt.colorbar()
-        plt.subplot(132), plt.title('Po abs'), plt.imshow(np.fft.fftshift(np.abs(sess.run(self.TF_Po_aberr)))), plt.colorbar()
+        plt.subplot(132), plt.title('Ic, shiftX: '+str(myshiftX)+' myShiftY: '+str(myshiftY)), plt.imshow(np.fft.fftshift(np.abs(sess.run(self.TF_Po_aberr)))), plt.colorbar()
         plt.subplot(133), plt.bar(np.linspace(1, np.squeeze(myzernikes.shape), np.squeeze(myzernikes.shape)), myzernikes, align='center', alpha=0.5)
         plt.ylabel('Zernike Values')
         plt.title('Zernike Coefficients (Noll)')
