@@ -66,10 +66,10 @@ elif(1):
     dn = 0.05
     shiftIcY = -15#0*35 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
     shiftIcX = -15.#*35 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-    NAc = .25
-    zernikefactors[10]=.80 # defocus
-    zernikefactors[6]=.80 # coma X
-    zernikefactors[7]=.80 # coma y
+    NAc = .32
+    zernikefactors[10]=.50 # defocus
+    zernikefactors[6]=1.40 # coma X
+    zernikefactors[7]=1.390 # coma y
     
     
     zernikemask=1.*(np.abs(zernikefactors)>0)
@@ -101,8 +101,8 @@ elif(0):
     matlab_val_name = 'allAmpSimu'
     NAc = .25
     mybackgroundval = -1j
-    shiftIcY =  10# has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-    shiftIcX =  10 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    shiftIcY =  20# has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    shiftIcX =  20 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
     zernikefactors = np.array((0,0,0,0,0,-0.,-3.0,1.,0,0,.5,.0))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
     zernikemask = np.array(np.abs(zernikefactors)>0)*1# mask of factors that should be updated
 elif(0):

@@ -56,7 +56,7 @@ my_learningrate = 5e-3  # learning rate
 NreduceLR = 1000 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
-lambda_tv =1e-1
+lambda_tv =1e-0
 myepstvval = 1e-12##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Control Flow 
@@ -216,13 +216,6 @@ if is_recomputemodel:
     '''Define some stuff related to infrastructure'''
     mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     savepath = basepath + resultpath + mytimestamp + 'tv_' + str(lambda_tv) + '_eps_' +str(myepstvval) + '_' +'Shift_x-'+str(experiments.shiftIcX)+'Shift_y-'+str(experiments.shiftIcY)
-   
-        # Create directory
-    try: 
-        os.mkdir(savepath)
-    except(FileExistsError): 
-        print('Folder exists already')
-    
     ''' Compute the ATF '''
     if(1):
         #%%
@@ -238,9 +231,14 @@ if is_recomputemodel:
         plt.subplot(234), plt.imshow(np.abs(((myASF))**.2)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
         plt.subplot(235), plt.imshow(np.abs(((myASF))**.2)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
         plt.subplot(236), plt.imshow(np.abs(((myASF))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar()#, plt.show()    
-        plt.savefig(savepath+'/ASFATF.png'), plt.show()
+        plt.savefig(savepath+'ASFATF.png'), plt.show()
         #%%
-
+    # Create directory
+    try: 
+        os.mkdir(savepath)
+    except(FileExistsError): 
+        print('Folder exists already')
+    
     # assert some memory 
     iter_last = 0
     mylosslist = []; myfidelitylist = []
