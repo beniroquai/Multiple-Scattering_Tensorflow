@@ -62,14 +62,18 @@ elif(1):
     matlab_par_file = './Data/cells/Cell_20x_100a_120-270.tifmyParameter.mat'
     matlab_par_name = 'myParameter' 
     matlab_val_name = 'allAmpSimu'   
-    mybackgroundval = 0 
-    dn = 0.01
-    shiftIcY = -25#0*35 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-    shiftIcX = -25.#*35 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-    NAc = .2
-    zernikemask[7:8]=1
-    zernikemask[0]=0
-    is_dampic=.03
+    mybackgroundval = -.9
+    dn = 0.05
+    shiftIcY = -15#0*35 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    shiftIcX = -15.#*35 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    NAc = .25
+    zernikefactors[10]=.80 # defocus
+    zernikefactors[6]=.80 # coma X
+    zernikefactors[7]=.80 # coma y
+    
+    
+    zernikemask=1.*(np.abs(zernikefactors)>0)
+    is_dampic=.05
     #zernikefactors = np.array((1.5145516,  -0.4922971,  -1.6731209,   0.9618724,   0.03274873,  0.0987005, 0.45747086,  0.13862132, -0.08351833, -0.11787935, -0.29825905, -0.07494219))
     #shiftIcY =  2.3640773
     #shiftIcX = -0.52940077

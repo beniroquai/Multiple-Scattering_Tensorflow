@@ -11,6 +11,10 @@ import numpy as np
 import src.tf_helper as tf_helper
 
 # %% sparsity penalty
+def Reg_Tichonov(tfin,regDataType=None):
+    
+    return tf.reduce_mean(tf.square(tfin)) # tf.math.scalar_mul(mylambda,
+
 
 def Reg_L1(im):
     # ready for 3D!
@@ -171,7 +175,7 @@ def Reg_TV(toRegularize, BetaVals = [1,1,1], epsR = 1, epsC=1e-10, is_circ = Tru
         
     myReg = tf.reduce_mean(mySqrt)
 
-    return myReg
+    return mySqrt
 
 
 def Reg_TV_RH(tfin, Eps=1e-15, doubleSided=False,regDataType=None):
