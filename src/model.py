@@ -59,7 +59,7 @@ class MuScatModel(object):
         self.Ny=np.int(np.floor((2*self.Rsim)/self.dy)+1)
          
         # add a vector of zernike factors
-        self.nzernikes = 9
+        self.nzernikes = 11
         self.zernikefactors = np.zeros((self.nzernikes,))
         self.zernikemask = np.zeros((self.nzernikes,))
         # kamilov uses 420 z-planes with an overall size of 30µm; dx=72nm

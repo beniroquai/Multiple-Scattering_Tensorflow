@@ -44,7 +44,7 @@ is_absorption = True
 is_obj_init_tikhonov = False 
 is_norm = False
 is_recomputemodel = True # TODO: Make it automatic! 
-
+is_estimatepsf = False
 mybordersize = 20
 
 #/muScat/Multiple-Scattering_Tensorflow/'
@@ -56,15 +56,15 @@ my_learningrate = 1e-2  # learning rate
 NreduceLR = 1000 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
-lambda_tv =1e-0
+lambda_tv = 1e1
 myepstvval = 1e-15##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Control Flow 
 lambda_neg = 10000.
 
 # Displaying/Saving
-Niter =  150
-Nsave = 25 # write info to disk
+Niter =  1500
+Nsave = 50 # write info to disk
 
 
 ''' MODELLING StARTS HERE''' 
@@ -87,6 +87,10 @@ if is_recomputemodel:
         matlab_val = data.import_realdata_h5(filename = experiments.matlab_val_file, matname=experiments.matlab_val_name, is_complex=True)
     matlab_val = (matlab_val[:,:,:])
        
+
+    if(is_estimatepsf):
+        obj_val = data.import_realdata_h5(filename = experiments.matlab_obj_file, matname='mysphere_mat', is_complex=False)
+    
    
     # If Z-is odd numbered
     if(np.mod(matlab_val.shape[0],2)==1):
@@ -120,6 +124,9 @@ if is_recomputemodel:
             obj_guess = experiments.dn*np.real(obj_guess)/np.max(np.real(obj_guess))
     else:
         obj_guess =  np.zeros(matlab_val.shape)# np.angle(matlab_val)## 
+    
+    if is_estimatepsf:
+        obj_guess =  obj_val*experiments.dn+1j*.01*obj_val
         #obj_guess = np.random.rand(matlab_val.shape[0],matlab_val.shape[1],matlab_val.shape[2])*muscat.dn/2
     obj_guess = obj_guess+muscat.nEmbb # add background
     
@@ -140,10 +147,11 @@ if is_recomputemodel:
         bz, bx, by = my_border_region
         obj_guess = np.pad(obj_guess,[(bz, bz), (bx, bx), (by, by)], mode='constant', constant_values=np.mean(np.real(obj_guess))+1j*np.mean(np.imag(obj_guess)))
         #muscat.tf_meas = tf.placeholder(tf.complex64, np_meas.shape, 'TF_placeholder_meas')
+        TF_real_norm = tf.Variable(1.)
         muscat.TF_obj = tf.Variable(np.real(obj_guess), dtype=tf.float32, name='Object_Variable_Real')
         muscat.TF_obj_absorption = tf.Variable(np.imag(obj_guess), dtype=tf.float32, name='Object_Variable_Imag')
-        #muscat.TF_obj = tf.cast(muscat.TF_obj, tf.float32)
-        #muscat.TF_obj_absorption = tf.cast(muscat.TF_obj_absorption, tf.float32)
+        
+
         tf_fwd = muscat.computeconvolution(muscat.TF_ASF, is_padding='border',border_region=my_border_region)
         
         
@@ -199,20 +207,20 @@ if is_recomputemodel:
         print('-------> Losstype is L2')
         tf_fidelity = tf.reduce_mean(tf_helper.tf_abssqr(muscat.tf_meas - tf_fwd)) # allow a global phase parameter to avoid unwrapping effects
     tf_loss = tf_fidelity + tf_negsqrloss + tf_tvloss
-    
-    '''Define Optimizer'''
+   
     tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
-    tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj])
-    tf_lossop_obj_absorption = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj,muscat.TF_obj_absorption])
+    '''Define Optimizer'''
+    if not is_estimatepsf:
+      tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj])
+      tf_lossop_obj_absorption = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj,muscat.TF_obj_absorption])
+      tf_lossop = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj,muscat.TF_obj_absorption, muscat.TF_shiftIcX, muscat.TF_shiftIcY, muscat.TF_zernikefactors])
+
     tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_shiftIcX, muscat.TF_shiftIcY, muscat.TF_zernikefactors])
-    tf_lossop = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj,muscat.TF_obj_absorption, muscat.TF_shiftIcX, muscat.TF_shiftIcY, muscat.TF_zernikefactors])
     
     ''' Initialize the model '''
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
     
-
-        
        
     '''Define some stuff related to infrastructure'''
     mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
@@ -327,12 +335,13 @@ for iterx in range(iter_last,Niter):
     # Alternate between pure object optimization and aberration recovery
     #sess.run([tf_lossop_tv], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:lambda_tv, muscat.tf_eps:myepstvval})
 
-    if is_absorption:
+    if is_absorption and not is_estimatepsf:
         sess.run([tf_lossop_obj_absorption], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:lambda_tv, muscat.tf_eps:myepstvval})
-    else:
+    elif(not is_estimatepsf):
         sess.run([tf_lossop_obj], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:lambda_tv, muscat.tf_eps:myepstvval})
-       # print('Attetntion: Generalized costfunction1')
-    if is_aberration and (iterx > 10):
+   
+    # print('Attetntion: Generalized costfunction1')
+    if is_aberration and (iterx > 100) or is_estimatepsf:
         sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:lambda_tv, muscat.tf_eps:myepstvval})
 
     if is_norm:

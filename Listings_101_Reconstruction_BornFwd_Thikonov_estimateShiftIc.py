@@ -39,30 +39,6 @@ resultpath = 'Data/DROPLETS/RESULTS/'
 
 
 ''' Control-Parameters - Optimization '''
-my_learningrate = 1e-1  # learning rate
-NreduceLR = 500 # when should we reduce the Learningrate? 
-
-# TV-Regularizer 
-mylambdatv = 1e-2 ##, 1e-2, 1e-2, 1e-3)) # lambda for Total variation - 1e-1
-myepstvval = 1e-15##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
-
-# Positivity Constraint
-lambda_neg = 10000
-
-# Displaying/Saving
-Niter = 200
-Nsave = 25 # write info to disk
-Ndisplay = Nsave
-
-# Control Flow 
-is_norm = False 
-is_aberration = True
-is_padding = False 
-is_optimization = 1 
-is_absorption = False
-
-is_recomputemodel = False # TODO: Make it automatic! 
-
 tf.reset_default_graph()
 
 ''' MODELLING StARTS HERE'''
@@ -96,11 +72,11 @@ if(np.mod(matlab_val.shape[0],2)==1):
     matlab_val = matlab_val[0:matlab_val.shape[0]-1,:,:]
 #matlab_val = (matlab_val) - .6j
 
-for shiftIcX in range(-35,35,10):
-    for shiftIcY in range(-35,35,10):
+for shiftIcX in range(-25,25,5):
+    for shiftIcY in range(-25,25,5):
             tf.reset_default_graph()
             ''' Create the Model'''
-            muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
+            muscat = mus.MuScatModel(matlab_pars, is_optimization=True)
             # Correct some values - just for the puprose of fitting in the RAM
             muscat.Nx,muscat.Ny,muscat.Nz = matlab_val.shape[1], matlab_val.shape[2], matlab_val.shape[0]
             muscat.shiftIcY=shiftIcY

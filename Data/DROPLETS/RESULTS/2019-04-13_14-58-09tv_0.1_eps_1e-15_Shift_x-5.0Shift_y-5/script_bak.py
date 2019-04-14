@@ -27,7 +27,7 @@ import src.experiments as experiments
 import NanoImagingPack as nip
 
 # Optionally, tweak styles.
-mpl.rc('figure',  figsize=(14, 10))
+mpl.rc('figure',  figsize=(12, 8))
 mpl.rc('image', cmap='gray')
 #plt.switch_backend('agg')
 #np.set_printoptions(threshold=np.nan)
@@ -56,15 +56,15 @@ my_learningrate = 1e-2  # learning rate
 NreduceLR = 1000 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
-lambda_tv =1e-0
+lambda_tv =1e-1
 myepstvval = 1e-15##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Control Flow 
 lambda_neg = 10000.
 
 # Displaying/Saving
-Niter =  150
-Nsave = 25 # write info to disk
+Niter = 150
+Nsave = 10 # write info to disk
 
 
 ''' MODELLING StARTS HERE''' 
@@ -106,7 +106,6 @@ if is_recomputemodel:
     muscat.zernikefactors = experiments.zernikefactors
     muscat.zernikemask = experiments.zernikemask
 
-    #muscat.NAo = .8
     ''' Compute a first guess based on the experimental phase '''
     if(is_obj_init_tikhonov):
         obj_guess =  np.zeros(matlab_val.shape)+muscat.nEmbb # np.angle(matlab_val)## 
@@ -233,34 +232,13 @@ if is_recomputemodel:
     
         #%
         plt.figure()    
-        plt.subplot(331), plt.imshow(np.log(1+np.abs(((myATF))**.2)[:,myATF.shape[1]//2,:])), plt.colorbar()#, plt.show()
-        plt.subplot(332), plt.imshow(np.log(1+np.abs(((myATF))**.2)[myATF.shape[0]//2,:,:])), plt.colorbar()#, plt.show()    
-        plt.subplot(333), plt.imshow(np.log(1+np.abs(((myATF))**.2)[:,:,myATF.shape[2]//2])), plt.colorbar()#, plt.show()    
-        plt.subplot(334), plt.imshow(np.real(((myASF))**.2)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
-        plt.subplot(335), plt.imshow(np.real(((myASF))**.2)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
-        plt.subplot(336), plt.imshow(np.real(((myASF))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar()#, plt.show()    
-        plt.subplot(337), plt.imshow(np.imag(((myASF))**.2)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
-        plt.subplot(338), plt.imshow(np.imag(((myASF))**.2)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
-        plt.subplot(339), plt.imshow(np.imag(((myASF))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar()#, plt.show()    
+        plt.subplot(231), plt.imshow(np.abs(((myATF))**.2)[:,myATF.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(232), plt.imshow(np.abs(((myATF))**.2)[myATF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+        plt.subplot(233), plt.imshow(np.abs(((myATF))**.2)[:,:,myATF.shape[2]//2]), plt.colorbar()#, plt.show()    
+        plt.subplot(234), plt.imshow(np.abs(((myASF))**.2)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(235), plt.imshow(np.abs(((myASF))**.2)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+        plt.subplot(236), plt.imshow(np.abs(((myASF))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar()#, plt.show()    
         plt.savefig(savepath+'/ASFATF.png'), plt.show()
-        data.export_realdatastack_h5(savepath+'/myasf.h5', 'real, imag', 
-                        np.stack((np.real(myASF),
-                                  np.imag(myASF)), axis=0))
-   
-        
-        plt.figure()    
-        myobjft = np.fft.fftshift(np.fft.fftn(np_meas))
-        plt.subplot(331), plt.imshow(np.log(1+np.abs(((myobjft))**.2)[:,myATF.shape[1]//2,:])), plt.colorbar()#, plt.show()
-        plt.subplot(332), plt.imshow(np.log(1+np.abs(((myobjft))**.2)[myATF.shape[0]//2,:,:])), plt.colorbar()#, plt.show()    
-        plt.subplot(333), plt.imshow(np.log(1+np.abs(((myobjft))**.2)[:,:,myATF.shape[2]//2])), plt.colorbar()#, plt.show()    
-        plt.subplot(334), plt.imshow(np.real(((np_meas))**.2)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
-        plt.subplot(335), plt.imshow(np.real(((np_meas))**.2)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
-        plt.subplot(336), plt.imshow(np.real(((np_meas))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar()#, plt.show()    
-        plt.subplot(337), plt.imshow(np.imag(((np_meas))**.2)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
-        plt.subplot(338), plt.imshow(np.imag(((np_meas))**.2)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
-        plt.subplot(339), plt.imshow(np.imag(((np_meas))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar()#, plt.show()    
-        plt.savefig(savepath+'/ATF_Support.png'), plt.show()    
-        
         #%%
 
     # assert some memory 
@@ -332,7 +310,7 @@ for iterx in range(iter_last,Niter):
     else:
         sess.run([tf_lossop_obj], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:lambda_tv, muscat.tf_eps:myepstvval})
        # print('Attetntion: Generalized costfunction1')
-    if is_aberration and (iterx > 10):
+    if is_aberration and (iterx > 20):
         sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:lambda_tv, muscat.tf_eps:myepstvval})
 
     if is_norm:

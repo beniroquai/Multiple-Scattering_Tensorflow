@@ -56,7 +56,8 @@ elif(0):
     dn = 1.52-1.33
     shiftIcY = 0 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
     shiftIcX = 0 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-elif(1):
+elif(0):
+    '''HELA CELL GOOD! '''
     # data files for parameters and measuremets 
     matlab_val_file = './Data/cells/Cell_20x_100a_120-270.tif_allAmp.mat'
     matlab_par_file = './Data/cells/Cell_20x_100a_120-270.tifmyParameter.mat'
@@ -64,8 +65,8 @@ elif(1):
     matlab_val_name = 'allAmpSimu'   
     mybackgroundval = -.9
     dn = 0.05
-    shiftIcY = -15#0*35 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-    shiftIcX = -15.#*35 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    shiftIcY = -22#0*35 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    shiftIcX = -22.#*35 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
     NAc = .32
     zernikefactors[10]=.50 # defocus
     zernikefactors[6]=1.40 # coma X
@@ -77,6 +78,61 @@ elif(1):
     #zernikefactors = np.array((1.5145516,  -0.4922971,  -1.6731209,   0.9618724,   0.03274873,  0.0987005, 0.45747086,  0.13862132, -0.08351833, -0.11787935, -0.29825905, -0.07494219))
     #shiftIcY =  2.3640773
     #shiftIcX = -0.52940077
+elif(0):
+    
+    '''CHeek CELL GOOD! '''
+    # data files for parameters and measuremets 
+    matlab_val_file = './Data/cells/Cheek_20x_3.tif_allAmp.mat'
+    matlab_par_file = './Data/cells/Cheek_20x_3.tifmyParameter.mat'
+    matlab_par_name = 'myParameter' 
+    matlab_val_name = 'allAmpSimu'   
+    mybackgroundval = -1.
+    dn = 0.06
+    shiftIcY = -12 #0*35 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    shiftIcX = -12.#*35 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    NAc = .5
+    zernikefactors[10]=.01 # defocus
+    zernikefactors[6]=-0.1  # coma X
+    zernikefactors[7]=-.1 # coma y
+    
+    
+    zernikemask=1.*(np.abs(zernikefactors)>0)
+    is_dampic=.05
+    #zernikefactors = np.array((1.5145516,  -0.4922971,  -1.6731209,   0.9618724,   0.03274873,  0.0987005, 0.45747086,  0.13862132, -0.08351833, -0.11787935, -0.29825905, -0.07494219))
+    #shiftIcY =  2.3640773
+elif(1):
+    
+    '''Spheres GOOD! '''
+    # data files for parameters and measuremets 
+    matlab_val_file = './Data/cells/uspheres_40x_1.tif_allAmp.mat'
+    matlab_par_file = './Data/cells/uspheres_40x_1.tifmyParameter.mat'
+    matlab_obj_file = './Data/cells/uspheres_40x_1.tif_mysphere.mat'
+    matlab_par_name = 'myParameter' 
+    matlab_val_name = 'allAmpSimu'   
+    mybackgroundval = -1.
+    dn = 0.1
+    shiftIcX = -3.#*35 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    shiftIcY =  3 #0*35 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    NAc = .32
+    zernikefactors = np.zeros((11,)) 
+    
+    zernikefactors[10]= -1.5 # defocus
+    zernikefactors[6]=-4.25  # coma X
+    zernikefactors[7]= 4.25 # coma y
+    zernikefactors = np.zeros((11,))
+
+    zernikemask=1.*(np.abs(zernikefactors)>0)
+    zernikemask = np.ones(zernikemask.shape)
+    zernikemask[8]=-0.00  # Trefoil X
+    zernikemask[9]=-0.00 # Trefoil y
+    zernikefactors = np.array(( 0. , 1.8749844,  -2.164156,    4.292257,    0.63288367, -0.0527322, -1.319653 ,   1.4736626,  -5.1704946 , -3.740628  ,  0.8031174 ))
+    shiftIcX = -3.62768 
+    shiftIcY = 3.7690606
+
+    #zernikemask[0]=0
+    is_dampic= .05
+    #zernikefactors = np.array((1.5145516,  -0.4922971,  -1.6731209,   0.9618724,   0.03274873,  0.0987005, 0.45747086,  0.13862132, -0.08351833, -0.11787935, -0.29825905, -0.07494219))
+    #shiftIcY =  2.3640773
 elif(0):
     # data files for parameters and measuremets 
     matlab_val_file = './Data/cells/Cell_20x_100a_150-250.tif_allAmp.mat'
