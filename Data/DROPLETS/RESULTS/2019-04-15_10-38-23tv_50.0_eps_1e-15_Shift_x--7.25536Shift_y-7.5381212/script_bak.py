@@ -37,7 +37,7 @@ mpl.rc('image', cmap='gray')
 '''Define some stuff related to infrastructure'''
 mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 basepath = './'#'/projectnb/cislidt/diederich
-is_aberration = False
+is_aberration = True
 is_padding = False
 is_optimization = True
 is_absorption = True
@@ -52,12 +52,12 @@ resultpath = 'Data/DROPLETS/RESULTS/'
 
 
 ''' Control-Parameters - Optimization '''
-my_learningrate = 1e-1  # learning rate
+my_learningrate = 1e-2  # learning rate
 NreduceLR = 1000 # when should we reduce the Learningrate? 
 
 # TV-Regularizer 
-lambda_tv = 1e1
-myepstvval = 1e-10##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+lambda_tv = 5e1
+myepstvval = 1e-15##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Control Flow 
 lambda_neg = 10000.
