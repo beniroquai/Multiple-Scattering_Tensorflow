@@ -56,8 +56,8 @@ def Reg_L2(im):
 def Reg_GR(tfin, eps1=1e-15,eps2=1e-15):
     loss=0.0
     for d in range(tfin.shape.ndims):
-        loss += tf.square(tf.manip.roll(tfin,-1,d) - tf.manip.roll(tfin,1,d))/tf.sqrt(tf.square(tfin)+Eps1)   # /4.0
-    return tf.reduce_mean(tf.cast(tf.sqrt(loss+Eps2),tf.float32))/2.0
+        loss += tf.square(tf.manip.roll(tfin,-1,d) - tf.manip.roll(tfin,1,d))/tf.sqrt(tf.square(tfin)+eps1)   # /4.0
+    return tf.reduce_mean(tf.cast(tf.sqrt(loss+eps2),tf.float32))/2.0
 
 def Reg_GS(tfin, Eps=1e-15):
     loss=0.0

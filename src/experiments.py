@@ -171,8 +171,8 @@ elif(1):
     zernikemask[8]=-0.00  # Trefoil X
     zernikemask[9]=-0.00 # Trefoil y
     zernikefactors = np.array(( 0. , 1.8749844,  -2.164156,    4.292257,    0.63288367, -0.0527322, -1.319653 ,   1.4736626,  -5.1704946 , -3.740628  ,  0.8031174 ))
-    shiftIcX = -3.62768*2
-    shiftIcY = 3.7690606*2
+    shiftIcX = -3.62768*1.5
+    shiftIcY = 3.7690606*1.5
 
     #zernikemask[0]=0
     is_dampic= .05
