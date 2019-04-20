@@ -27,9 +27,11 @@ mpl.rc('image', cmap='gray')
 #plt.switch_backend('agg')
 
 # load own functions
+import src.simulations as experiments 
 import src.model as mus
 import src.tf_generate_object as tf_go
 import src.data as data
+import src.MyParameter as paras
 
 os.environ["CUDA_VISIBLE_DEVICES"]='0'    
 os.environ["TF_CUDNN_USE_AUTOTUNE"]="0" 
@@ -59,54 +61,53 @@ psf_modell =  'BORN' # 1st Born
 #psf_modell =  'BPM' # MultiSlice
 
 
-#tf.reset_default_graph()
-
+tf.reset_default_graph()
+# need to figure out why this holds somehow true - at least produces reasonable results
+mysubsamplingIC = 0    
+   
+# Generate Test-Object
 ''' File which stores the experimental parameters from the Q-PHASE setup 
-    1.) Read in the parameters of the dataset ''' 
-matlab_par_name = 'myParameter'  #'./Data/DROPLETS/myParameterNew.mat';matname='myParameterNew'    #'./Data/DROPLETS/myParameterNew.mat'   
-matlab_par_file = './Data/DROPLETS/S19_multiple/Parameter.mat'; matname='myParameter'
-matlab_pars = data.import_parameters_mat(filename = matlab_par_file, matname=matlab_par_name)
+    2.) Read in the parameters of the dataset ''' 
+matlab_pars = paras.MyParameter()
+matlab_pars.loadmat(mymatpath = experiments.matlab_par_file, mymatname = experiments.matlab_par_name)
+matlab_pars.Nz,matlab_pars.Nx,matlab_pars.Ny =  ((128,128,128))#matlab_val.shape
+matlab_pars.mysize = (matlab_pars.Nz,matlab_pars.Nx,matlab_pars.Ny) # ordering is (Nillu, Nz, Nx, Ny)
+matlab_pars.shiftIcY=experiments.shiftIcY
+matlab_pars.shiftIcX=experiments.shiftIcX
+matlab_pars.dn = experiments.dn
+matlab_pars.NAc = experiments.NAc
 
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
-muscat.Nx,muscat.Ny = int(np.squeeze(matlab_pars['Nx'].value)), int(np.squeeze(matlab_pars['Ny'].value))
-zernikefactors = np.array((0,0,0,0,0,0,-1.5,-1.5,0,0.0,.0)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
-zernikemask = np.array(np.abs(zernikefactors)>0)*1#!= np.array((0, 0, 0, 0, 0, 0, , 1, 1, 1, 1))# mask which factors should be updated
-muscat.shiftIcX = 1  # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-muscat.shiftIcY = 1 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-muscat.NAc = .2#051
-muscat.NAo = .95
-dn =  .1 #(1.437-1.3326)#/np.pi
-#muscat.Nx = 128; muscat.Ny = 128; muscat.Nz = 128
-muscat.Nx = 50; muscat.Ny = 50; muscat.Nz = 70
 
-''' Adjust some parameters to fit it in the memory '''
-muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
-
+muscat.zernikefactors = experiments.zernikefactors
+muscat.zernikemask = experiments.zernikemask
+  
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
+
 mydiameter = 5
-if(1):
-    obj_real= tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)#)dn)
-    obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = .0, nEmbb = 0.0)
+if(0):
+    obj_real= tf_go.generateObject(mysize=matlab_pars.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = experiments.dn, nEmbb = matlab_pars.nEmbb)#)dn)
+    obj_absorption = tf_go.generateObject(mysize=matlab_pars.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = .0, nEmbb = 0.0)
 elif(0):
-    obj_real = tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='hollowsphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)#)dn)
-    obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .0)
+    obj_real = tf_go.generateObject(mysize=matlab_pars.mysize, obj_dim=1, obj_type ='hollowsphere', diameter = mydiameter, dn = experiments.dn, nEmbb = matlab_pars.nEmbb)#)dn)
+    obj_absorption = tf_go.generateObject(mysize=matlab_pars.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .0)
 elif(0):
-    obj_real= tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='twosphere', diameter = mydiameter, dn = dn, nEmbb = muscat.nEmbb)
-    obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='twosphere', diameter = mydiameter, dn = .0)
+    obj_real= tf_go.generateObject(mysize=matlab_pars.mysize, obj_dim=1, obj_type ='twosphere', diameter = mydiameter, dn = experiments.dn, nEmbb = matlab_pars.nEmbb)
+    obj_absorption = tf_go.generateObject(mysize=matlab_pars.mysize, obj_dim=muscat.dx, obj_type ='twosphere', diameter = mydiameter, dn = .0)
 elif(0):
-    obj_real= tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='foursphere', diameter = mydiameter/8, dn = dn)#)dn)
-    obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='foursphere', diameter = mydiameter/8, dn = .00)
+    obj_real= tf_go.generateObject(mysize=matlab_pars.mysize, obj_dim=muscat.dx, obj_type ='foursphere', diameter = mydiameter/8, dn = experiments.dn)#)dn)
+    obj_absorption = tf_go.generateObject(mysize=matlab_pars.mysize, obj_dim=muscat.dx, obj_type ='foursphere', diameter = mydiameter/8, dn = .00)
 elif(0):
-    obj_real= tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='eightsphere', diameter = mydiameter/8, dn = dn)#)dn)
-    obj_absorption = tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='eightsphere', diameter = mydiameter/8, dn = .01)
+    obj_real= tf_go.generateObject(mysize=matlab_pars.mysize, obj_dim=muscat.dx, obj_type ='eightsphere', diameter = mydiameter/8, dn = experiments.dn)#)dn)
+    obj_absorption = tf_go.generateObject(mysize=matlab_pars.mysize, obj_dim=muscat.dx, obj_type ='eightsphere', diameter = mydiameter/8, dn = .01)
 elif(0):
     # load a neuron
-    obj_real= np.load('./Data/NEURON/myneuron_32_32_70.npy')*dn
+    obj_real= np.load('./Data/NEURON/myneuron_32_32_70.npy')*experiments.dn
     obj_absorption = obj_real*0
 elif(0):
     # load the 3 bar example 
-    obj_real= tf_go.generateObject(mysize=muscat.mysize, obj_dim=muscat.dx, obj_type ='bars', diameter = 3, dn = dn)#)dn)
+    obj_real= tf_go.generateObject(mysize=matlab_pars.mysize, obj_dim=muscat.dx, obj_type ='bars', diameter = 3, dn = experiments.dn)#)dn)
     obj_absorption = obj_real*0
 elif(1):
     # Fake Cheek-Cell
@@ -116,16 +117,16 @@ elif(1):
 else:
     # load a phantom
     # obj_real= np.load('./Data/PHANTOM/phantom_64_64_64.npy')*dn
-    obj_real =  np.load('./Data/PHANTOM/phantom_50_50_50.npy')*dn+ muscat.nEmbb
+    obj_real =  np.load('./Data/PHANTOM/phantom_50_50_50.npy')*experiments.dn+ matlab_pars.nEmbb
     obj_absorption = obj_real*0
 
 obj = (obj_real + obj_absorption)
 #obj = np.roll(obj, shift=5, axis=0)
 
 # introduce zernike factors here
-muscat.zernikefactors = zernikefactors
+muscat.zernikefactors = experiments.zernikefactors
 #muscat.zernikefactors = np.array((0,0,0,0,0,0,.1,-1,0,0,-2)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
-muscat.zernikemask = zernikefactors*0
+muscat.zernikemask = experiments.zernikefactors*0
 
 print('Start the TF-session')
 sess = tf.Session()#config=tf.ConfigProto(log_device_placement=True))

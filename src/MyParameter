@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+# -*- coding = utf-8 -*-
+"""
+Created on Sat Apr 20 19 =05 =34 2019
+
+@author = bene
+"""
+
+class MyParameter =
+    variable = "blah"
+
+    def function(self) =
+        print("This is a message inside the class.") 
+        
+    lambda0 = 0.6500
+    magnification 40
+    nEmbb = 1.3300
+    NAc = 0.5200
+    NAo = 0.9500
+    shiftX = 0
+    shiftY = 0
+    fov_x = 93.5870
+    fov_y = 93.5870
+    Nx_orig = 2048
+    Ny_orig = 2048
+    dx_orig = 0.0457
+    dy_orig = 0.0457
+    dz = 0.7000
+    cc_center = [1424 618]
+    dz_orig = 0.7000
+    cc_size = [420 420]
+    dx = 0.2228
+    dy = 0.2228
+    Nz = 34
+    Nx = 240
+    Ny = 240
