@@ -75,7 +75,7 @@ Nsave = 50 # write info to disk
 if is_recomputemodel:
     tf.reset_default_graph()
     # need to figure out why this holds somehow true - at least produces reasonable results
-    mysubsamplingIC = 0    
+    mysubsamplingIC = 2    
    
     ''' 1.) Read in the parameters of the dataset ''' 
     if(experiments.matlab_val_file.find('mat')==-1):
@@ -129,7 +129,7 @@ if is_recomputemodel:
     if is_estimatepsf:
         obj_guess =  obj_val*experiments.dn+1j*.01*obj_val
         #obj_guess = np.random.rand(matlab_val.shape[0],matlab_val.shape[1],matlab_val.shape[2])*muscat.dn/2
-    obj_guess = obj_guess+muscat.myParamter.nEmbb # add background
+    obj_guess = obj_guess+muscat.params.nEmbb # add background
     
 
     ''' Compute the systems model'''

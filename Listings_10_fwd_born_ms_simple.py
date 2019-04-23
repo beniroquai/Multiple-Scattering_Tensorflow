@@ -38,7 +38,7 @@ os.environ["TF_CUDNN_USE_AUTOTUNE"]="0"
 
 
 '''Define some stuff related to infrastructure'''
-savepath = os.path.join('./Data/DROPLETS/RESULTS/')#, mytimestamp)
+savepath = os.path.join('./Data/Simulations/RESULTS/')#, mytimestamp)
 
 # Create directory
 try: 
@@ -58,12 +58,12 @@ mysubsamplingIC=0
 tf.reset_default_graph()
 '''Choose between Born (BORN) or BPM (BPM)'''
 psf_modell =  'BORN' # 1st Born
-#psf_modell =  'BPM' # MultiSlice
+psf_modell =  'BPM' # MultiSlice
 
 
 tf.reset_default_graph()
 # need to figure out why this holds somehow true - at least produces reasonable results
-mysubsamplingIC = 0    
+mysubsamplingIC = 2    
    
 # Generate Test-Object
 ''' File which stores the experimental parameters from the Q-PHASE setup 
@@ -75,7 +75,7 @@ matlab_pars.mysize = (matlab_pars.Nz,matlab_pars.Nx,matlab_pars.Ny) # ordering i
 matlab_pars.shiftIcY=experiments.shiftIcY
 matlab_pars.shiftIcX=experiments.shiftIcX
 matlab_pars.dn = experiments.dn
-matlab_pars.NAc = experiments.NAc
+matlab_pars.NAc = .4#experiments.NAc
 
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
@@ -84,9 +84,9 @@ muscat.zernikefactors = experiments.zernikefactors
 muscat.zernikemask = experiments.zernikemask
   
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
-
 mydiameter = 5
-if(0):
+objtype = 'cheek' # 'sphere', 'twosphere', 'slphantom'
+if(objtype == 'sphere'):
     obj_real= tf_go.generateObject(mysize=matlab_pars.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = experiments.dn, nEmbb = matlab_pars.nEmbb)#)dn)
     obj_absorption = tf_go.generateObject(mysize=matlab_pars.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = .0, nEmbb = 0.0)
 elif(0):
@@ -109,12 +109,12 @@ elif(0):
     # load the 3 bar example 
     obj_real= tf_go.generateObject(mysize=matlab_pars.mysize, obj_dim=muscat.dx, obj_type ='bars', diameter = 3, dn = experiments.dn)#)dn)
     obj_absorption = obj_real*0
-elif(1):
+elif(objtype == 'cheek'):
     # Fake Cheek-Cell
     matlab_val_file = './Data/PHANTOM/HeLa_cell_mat_obj.mat'; matname='HeLa_cell_mat'
     obj_real = data.import_realdata_h5(filename = matlab_val_file, matname=matname)
     obj_absorption = obj_real*0    
-else:
+elif(objtype == 'slphantom'):
     # load a phantom
     # obj_real= np.load('./Data/PHANTOM/phantom_64_64_64.npy')*dn
     obj_real =  np.load('./Data/PHANTOM/phantom_50_50_50.npy')*experiments.dn+ matlab_pars.nEmbb
@@ -135,15 +135,17 @@ sess = tf.Session()#config=tf.ConfigProto(log_device_placement=True))
 if psf_modell == 'BPM':
     # Define 'BPM' model    
     tf_fwd = muscat.compute_bpm(obj,is_padding=is_padding, mysubsamplingIC=mysubsamplingIC)    
-
+    
 else:
     # Define Born Model 
     tf_fwd = muscat.compute_born(obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_precompute_psf=True)
     
 ''' Evaluate the model '''
+print('Initiliaze Variables')
 sess.run(tf.global_variables_initializer())    
 
-# The first call is -unfortunately- very expensive...   
+# The first call is -unfortunately- very expensive... 
+print('Compute Result')  
 start = time.time()
 myfwd = sess.run(tf_fwd)
 end = time.time()
@@ -185,5 +187,10 @@ plt.subplot(236), plt.title('angle XY'),plt.imshow(np.angle(myfwd)[centerslice,:
 
 #%% save the resultsl
 np.save(savepath+'allAmp_simu.npy', myfwd)
-#data.export_realdata_h5(filename = './Data/DROPLETS/allAmp_simu.mat', matname = 'allAmp_red', data=myfwd)
-#data.export_realdata_h5(filename = './Data/DROPLETS/mySample.mat', matname = 'mySample', data=np.real(muscat.obj))
+data.export_realdatastack_h5(savepath+'/obj.h5', 'phase, abs', 
+                        np.stack((np.real(obj),np.imag(obj)), axis=0))
+data.export_realdatastack_h5(savepath+'/myfwd.h5', 'real, imag', 
+                        np.stack((np.real(myfwd),
+                                  np.imag(myfwd)), axis=0))
+       
+
