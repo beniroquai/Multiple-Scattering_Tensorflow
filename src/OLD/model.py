@@ -312,9 +312,8 @@ class MuScatModel(object):
         # for now orientate the dimensions as (alpha_illu, x, y, z) - because tensorflow takes the first dimension as batch size
         with tf.name_scope('Variable_assignment_general'):
             self.TF_Ic = tf.cast(tf.constant(self.Ic), tf.complex64)
-            self.TF_Ic_shift = self.TF_Ic # make the algorithm happy
             self.TF_Po = tf.cast(tf.constant(self.Po), tf.complex64)
-            if(is_debug): self.TF_Po = tf.Print(self.TF_Po, [], 'Casting TF_Po')    
+            if(is_debug): self.TF_Po = tf.Print(self.TF_Po, [], 'Casting TF_Ic')    
             
             self.TF_Zernikes = tf.convert_to_tensor(self.myzernikes, np.float32)
             self.TF_dphi = tf.cast(tf.constant(self.dphi), tf.complex64)

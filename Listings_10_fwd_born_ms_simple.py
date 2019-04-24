@@ -33,12 +33,12 @@ import src.tf_generate_object as tf_go
 import src.data as data
 import src.MyParameter as paras
 
-os.environ["CUDA_VISIBLE_DEVICES"]='0'    
+os.environ["CUDA_VISIBLE_DEVICES"]='0,1'    
 os.environ["TF_CUDNN_USE_AUTOTUNE"]="0" 
 
 
 '''Define some stuff related to infrastructure'''
-savepath = os.path.join('./Data/Simulations/RESULTS/')#, mytimestamp)
+savepath = os.path.join('./Data/DROPLETS/RESULTS/')#, mytimestamp)
 
 # Create directory
 try: 
@@ -70,12 +70,13 @@ mysubsamplingIC = 2
     2.) Read in the parameters of the dataset ''' 
 matlab_pars = paras.MyParameter()
 matlab_pars.loadmat(mymatpath = experiments.matlab_par_file, mymatname = experiments.matlab_par_name)
+dd
 matlab_pars.Nz,matlab_pars.Nx,matlab_pars.Ny =  ((128,128,128))#matlab_val.shape
 matlab_pars.mysize = (matlab_pars.Nz,matlab_pars.Nx,matlab_pars.Ny) # ordering is (Nillu, Nz, Nx, Ny)
 matlab_pars.shiftIcY=experiments.shiftIcY
 matlab_pars.shiftIcX=experiments.shiftIcX
 matlab_pars.dn = experiments.dn
-matlab_pars.NAc = .4#experiments.NAc
+matlab_pars.NAc = .52#experiments.NAc
 
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)

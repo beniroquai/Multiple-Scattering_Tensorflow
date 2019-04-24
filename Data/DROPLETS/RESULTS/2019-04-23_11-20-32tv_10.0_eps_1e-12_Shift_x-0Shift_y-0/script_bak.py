@@ -29,9 +29,9 @@ import src.MyParameter as paras
 import NanoImagingPack as nip
 
 # Optionally, tweak styles.
-mpl.rc('figure',  figsize=(9, 6))
+mpl.rc('figure',  figsize=(14, 10))
 mpl.rc('image', cmap='gray')
-plt.switch_backend('agg')
+#plt.switch_backend('agg')
 #np.set_printoptions(threshold=np.nan)
 #%load_ext autoreload
 
@@ -43,12 +43,11 @@ is_aberration = False
 is_padding = False
 is_optimization = True
 is_absorption = False
-is_obj_init_tikhonov = True 
+is_obj_init_tikhonov = False 
 is_norm = False
 is_recomputemodel = True # TODO: Make it automatic! 
 is_estimatepsf = False
 mybordersize = 20
-is_psfmodell = 'BPM' # either compute BORN or BPM ()
 
 
 #/muScat/Multiple-Scattering_Tensorflow/'
@@ -61,7 +60,7 @@ NreduceLR = 1000 # when should we reduce the Learningrate?
 
 # Regularizer 
 regularizer = 'TV'
-lambda_tv = 1e-2
+lambda_tv = 1e1
 myepstvval = 1e-12##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Control Flow 
@@ -76,7 +75,8 @@ Nsave = 50 # write info to disk
 if is_recomputemodel:
     tf.reset_default_graph()
     # need to figure out why this holds somehow true - at least produces reasonable results
-    
+    mysubsamplingIC = 0    
+   
     ''' 1.) Read in the parameters of the dataset ''' 
     if(experiments.matlab_val_file.find('mat')==-1):
         matlab_val = np.load(experiments.matlab_val_file)
@@ -114,8 +114,9 @@ if is_recomputemodel:
     #muscat.NAo = .8
     ''' Compute a first guess based on the experimental phase '''
     if(is_obj_init_tikhonov):
-        obj_guess =  np.zeros(matlab_val.shape)+muscat.params.nEmbb # np.angle(matlab_val)## 
+        obj_guess =  np.zeros(matlab_val.shape)+muscat.nEmbb # np.angle(matlab_val)## 
         obj_guess = np.load('thikonovinvse.npy')
+        obj_guess = obj_guess[:,:,:]
         #obj_guess = obj_guess-np.min(obj_guess); obj_guess = obj_guess/np.max(obj_guess)
         obj_guess = obj_guess-(np.min(np.real(obj_guess))+1j*np.min(np.imag(obj_guess)))
         if is_absorption:
@@ -129,37 +130,43 @@ if is_recomputemodel:
         obj_guess =  obj_val*experiments.dn+1j*.01*obj_val
         #obj_guess = np.random.rand(matlab_val.shape[0],matlab_val.shape[1],matlab_val.shape[2])*muscat.dn/2
     obj_guess = obj_guess+muscat.params.nEmbb # add background
-    np_meas = matlab_val
-        
     
-    ''' Define Fwd operator'''
-    if(is_psfmodell=='BORN'):
+
+    ''' Compute the systems model'''
+    # Compute the System's properties (e.g. Pupil function/Illumination Source, K-vectors, etc.)¶
+    muscat.computesys(obj=None, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BORN',is_dampic=experiments.is_dampic)
+
+    ''' Create Model Instance'''
+    muscat.computemodel()
+    
+    
+    if(1):
         # Test this Carringotn Padding to have borders at the dges where the optimizer can make pseudo-update
-        # add carrington boundary regions
-        my_border_region = np.array((matlab_val.shape[0]//2,mybordersize,mybordersize)) # border-region around the object 
+        #np_meas = np.pad(matlab_val,[(64, 64), (64, 64), (64, 64)], mode='constant', constant_values=0-1j)
+        np_meas = matlab_val
+        my_border_region = np.array((muscat.mysize[0]//2,mybordersize,mybordersize)) # border-region around the object 
         bz, bx, by = my_border_region
-        obj_guess_real = np.pad(np.real(obj_guess),[(bz, bz), (bx, bx), (by, by)], mode='constant', constant_values=np.mean(np.real(obj_guess)))
-        obj_guess_imag = np.pad(np.imag(obj_guess),[(bz, bz), (bx, bx), (by, by)], mode='constant', constant_values=np.mean(1j*np.mean(np.imag(obj_guess))))
-        obj_guess = obj_guess_real + 1j*obj_guess_imag
-
-        ''' Compute the BORN model'''
-        # Compute the System's properties (e.g. Pupil function/Illumination Source, K-vectors, etc.)¶
-        muscat.computesys(obj=None, is_padding=is_padding, mysubsamplingIC=experiments.mysubsamplingIC, is_compute_psf='BORN',is_dampic=experiments.is_dampic)
+        obj_guess = np.pad(obj_guess,[(bz, bz), (bx, bx), (by, by)], mode='constant', constant_values=np.mean(np.real(obj_guess))+1j*np.mean(np.imag(obj_guess)))
+        #muscat.tf_meas = tf.placeholder(tf.complex64, np_meas.shape, 'TF_placeholder_meas')
+        TF_real_norm = tf.Variable(1.)
         muscat.TF_obj = tf.Variable(np.real(obj_guess), dtype=tf.float32, name='Object_Variable_Real')
         muscat.TF_obj_absorption = tf.Variable(np.imag(obj_guess), dtype=tf.float32, name='Object_Variable_Imag')
+        
 
-        ''' Create Model Instance'''
-        muscat.computemodel()
-        tf_fwd = muscat.computeconvolution(muscat.TF_ASF, is_padding='border',border_region=mybordersize)
-        #tf_fwd = muscat.computeconvolution(muscat.TF_ASF, is_padding=True)    
-    if(is_psfmodell=='BPM'):
-        ''' Compute the Multiple Scattering model'''
-        muscat.computesys(obj=None, is_padding=is_padding, mysubsamplingIC=experiments.mysubsamplingIC, is_compute_psf='BPM', is_dampic=experiments.is_dampic)
-        muscat.TF_obj = tf.Variable(np.real(obj_guess), dtype=tf.float32, name='Object_Variable_Real')
-        muscat.TF_obj_absorption = tf.Variable(np.imag(obj_guess), dtype=tf.float32, name='Object_Variable_Imag')
-        tf_fwd = muscat.computemodel()
+        tf_fwd = muscat.computeconvolution(muscat.TF_ASF, is_padding='border',border_region=my_border_region)
+        
+        
+    else:
+        ''' Define Fwd operator'''
+        tf_fwd = muscat.computeconvolution(muscat.TF_ASF, is_padding=True)
+    
+    
 
-       
+    '''Define Cost-function'''
+    # VERY VERY Important to add 0. and 1. - otherwise it gets converted to float!
+    tf_glob_real = tf.Variable(0., tf.float32, name='var_phase') # (0.902339905500412
+    tf_glob_imag = tf.Variable(0., tf.float32, name='var_abs') #0.36691132
+                               
     '''REGULARIZER'''
     # Total Variation
     if(regularizer=='TV'):
@@ -242,7 +249,7 @@ if is_recomputemodel:
         print('Folder exists already')
     
     ''' Compute the ATF '''
-    if(is_psfmodell=='BORN'):
+    if(1):
         #%%
         print('We are precomputing the PSF')
         myATF = sess.run(muscat.TF_ATF)
@@ -311,11 +318,11 @@ for iterx in range(iter_last,Niter):
         
     #% This is for debbugging purposes - write the result to disk every n-iteration
     if(iterx==0 or not np.mod(iterx, Nsave)):
-        my_res, my_res_absortpion, my_loss, my_fidelity, my_negloss, my_tvloss, myfwd =  \
-            sess.run([muscat.TF_obj, muscat.TF_obj_absorption, tf_loss, tf_fidelity, tf_negsqrloss, tf_regloss, tf_fwd], \
+        my_res, my_res_absortpion, my_loss, my_fidelity, my_negloss, my_tvloss, myglobalphase, myglobalabs, myfwd =  \
+            sess.run([muscat.TF_obj, muscat.TF_obj_absorption, tf_loss, tf_fidelity, tf_negsqrloss, tf_regloss, tf_glob_real, tf_glob_imag, tf_fwd], \
                      feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:lambda_tv, muscat.tf_eps:myepstvval}) #, muscat.TF_ATF_placeholder:myATF
 
-        print('Loss@'+str(iterx)+': ' + str(my_loss) + ' - Fid: '+str(my_fidelity)+', Neg: '+str(my_negloss)+', TV: '+str(my_tvloss))
+        print('Loss@'+str(iterx)+': ' + str(my_loss) + ' - Fid: '+str(my_fidelity)+', Neg: '+str(my_negloss)+', TV: '+str(my_tvloss)+' G-Phase:'+str(myglobalphase)+' G-ABS: '+str(myglobalabs)) 
         myfwdlist.append(myfwd)
         mylosslist.append(my_loss)
         myfidelitylist.append(my_fidelity)
@@ -323,7 +330,9 @@ for iterx in range(iter_last,Niter):
         mytvlosslist.append(my_tvloss)
         result_phaselist.append(my_res)
         result_absorptionlist.append(my_res_absortpion)
-
+        globalphaselist.append(myglobalphase)
+        globalabslist.append(myglobalabs) 
+        
         #% Display recovered Pupil
         plt.figure()
         myzernikes = sess.run(muscat.TF_zernikefactors)
@@ -343,7 +352,6 @@ for iterx in range(iter_last,Niter):
     # Alternate between pure object optimization and aberration recovery
     #sess.run([tf_lossop_tv], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:lambda_tv, muscat.tf_eps:myepstvval})
 
-    # Do not optimize the object if we try to estimate the PSF (object is known!)
     if is_absorption and not is_estimatepsf:
         sess.run([tf_lossop_obj_absorption], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:lambda_tv, muscat.tf_eps:myepstvval})
     elif(not is_estimatepsf):

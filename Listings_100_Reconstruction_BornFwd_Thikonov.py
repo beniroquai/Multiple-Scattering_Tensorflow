@@ -19,8 +19,9 @@ from datetime import datetime
 # load own functions
 import src.model as mus
 import src.data as data
-import src.experiments as experiments 
-
+#import src.experiments as experiments 
+import src.simulations as experiments 
+import src.MyParameter as paras
 
 # Optionally, tweak styles.
 mpl.rc('figure',  figsize=(12, 9))
@@ -36,11 +37,17 @@ resultpath = 'Data/DROPLETS/RESULTS/'
 tf.reset_default_graph()
 
 '''START CODE'''
-
 # Generate Test-Object
 ''' File which stores the experimental parameters from the Q-PHASE setup 
-    1.) Read in the parameters of the dataset ''' 
-matlab_pars = data.import_parameters_mat(filename = experiments.matlab_par_file, matname = experiments.matlab_par_name)
+    2.) Read in the parameters of the dataset ''' 
+matlab_pars = paras.MyParameter()
+matlab_pars.loadmat(mymatpath = experiments.matlab_par_file, mymatname = experiments.matlab_par_name)
+matlab_pars.Nz,matlab_pars.Nx,matlab_pars.Ny =  ((128,128,128))#matlab_val.shape
+matlab_pars.mysize = (matlab_pars.Nz,matlab_pars.Nx,matlab_pars.Ny) # ordering is (Nillu, Nz, Nx, Ny)
+matlab_pars.shiftIcY=experiments.shiftIcY
+matlab_pars.shiftIcX=experiments.shiftIcX
+matlab_pars.dn = experiments.dn
+matlab_pars.NAc = experiments.NAc
 
 ''' 2.) Read in the parameters of the dataset ''' 
 if(experiments.matlab_val_file.find('mat')==-1):
@@ -55,28 +62,19 @@ matlab_val = (matlab_val) + experiments.mybackgroundval# - .6j
 
 ''' Create the Model'''
 muscat = mus.MuScatModel(matlab_pars, is_optimization=True)
-# Correct some values - just for the puprose of fitting in the RAM
-muscat.Nx,muscat.Ny,muscat.Nz = matlab_val.shape[1], matlab_val.shape[2], matlab_val.shape[0]
-muscat.shiftIcY=experiments.shiftIcY
-muscat.shiftIcX=experiments.shiftIcX
-muscat.NAc = experiments.NAc
-
-''' Adjust some parameters to fit it in the memory '''
-muscat.mysize = (muscat.Nz,muscat.Nx,muscat.Ny) # ordering is (Nillu, Nz, Nx, Ny)
-
 # introduce zernike factors here
 muscat.zernikefactors = experiments.zernikefactors
 muscat.zernikemask = experiments.zernikemask
 #%%
 ''' Compute a first guess based on the experimental phase '''
-obj_guess =  np.zeros(matlab_val.shape)+muscat.nEmbb# np.angle(matlab_val)## 
+obj_guess =  np.zeros(matlab_val.shape)+matlab_pars.nEmbb# np.angle(matlab_val)## 
 import src.tf_generate_object as tf_go
 mydiameter=5
-obj_guess= tf_go.generateObject(mysize=muscat.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = .05, nEmbb = 1.33)#)dn)
+obj_guess= tf_go.generateObject(mysize=matlab_pars.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = .05, nEmbb = 1.33)#)dn)
 
 ''' Compute the systems model'''
 # Compute the System's properties (e.g. Pupil function/Illumination Source, K-vectors, etc.)¶
-muscat.computesys(obj=obj_guess, is_compute_psf='BORN', is_dampic=.02)
+muscat.computesys(obj=obj_guess, is_compute_psf='BORN', is_dampic=experiments.is_dampic)
 
 ''' Create Model Instance'''
 muscat.computemodel()
@@ -105,8 +103,8 @@ plt.savefig('obj_guess.png'), plt.show()
 
 #%%
 ''' Compute the ATF '''
-if(0):
-    #%%
+if(1):
+    #%
     print('We are precomputing the PSF')
     myATF = sess.run(muscat.TF_ATF)
     myASF = sess.run(muscat.TF_ASF) 
