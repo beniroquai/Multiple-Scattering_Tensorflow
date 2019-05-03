@@ -128,7 +128,7 @@ def Reg_TV(toRegularize, BetaVals = [1,1,1], epsR = 1, epsC=1e-10, is_circ = Tru
 
     
     if(is_circ):
-        if(0): # TF>1.11
+        try: # TF>1.11
             aGradL_1 = (toRegularize - tf.roll(toRegularize, 1, 0))/BetaVals[0]
             aGradL_2 = (toRegularize - tf.roll(toRegularize, 1, 1))/BetaVals[1]
             aGradL_3 = (toRegularize - tf.roll(toRegularize, 1, 2))/BetaVals[2]
@@ -136,7 +136,7 @@ def Reg_TV(toRegularize, BetaVals = [1,1,1], epsR = 1, epsC=1e-10, is_circ = Tru
             aGradR_1 = (toRegularize - tf.roll(toRegularize, -1, 0))/BetaVals[0]
             aGradR_2 = (toRegularize - tf.roll(toRegularize, -1, 1))/BetaVals[1]
             aGradR_3 = (toRegularize - tf.roll(toRegularize, -1, 2))/BetaVals[2]
-        else:
+        except:
             aGradL_1 = (toRegularize - tf.manip.roll(toRegularize, 1, 0))/BetaVals[0]
             aGradL_2 = (toRegularize - tf.manip.roll(toRegularize, 1, 1))/BetaVals[1]
             aGradL_3 = (toRegularize - tf.manip.roll(toRegularize, 1, 2))/BetaVals[2]

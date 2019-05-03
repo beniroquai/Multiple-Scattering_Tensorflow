@@ -26,7 +26,7 @@ import src.simulations as experiments
 import src.MyParameter as paras
 
 
-import NanoImagingPack as nip
+# import NanoImagingPack as nip
 
 # Optionally, tweak styles.
 mpl.rc('figure',  figsize=(9, 6))
@@ -56,12 +56,12 @@ resultpath = 'Data/DROPLETS/RESULTS/'
 
 
 ''' Control-Parameters - Optimization '''
-my_learningrate = 1e-1  # learning rate
+my_learningrate = 1e-2  # learning rate
 NreduceLR = 1000 # when should we reduce the Learningrate? 
 
 # Regularizer 
 regularizer = 'TV'
-lambda_tv = 1e-2
+lambda_tv = 1e-3
 myepstvval = 1e-12##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Control Flow 
@@ -82,11 +82,14 @@ if is_recomputemodel:
         matlab_val = np.load(experiments.matlab_val_file)
     else:
         matlab_val = data.import_realdata_h5(filename = experiments.matlab_val_file, matname=experiments.matlab_val_name, is_complex=True)
+        
+    matlab_val  = matlab_val+np.random.rand(matlab_val.shape[0], matlab_val.shape[1], matlab_val.shape[2])*.001
     # If Z-is odd numbered
     if(np.mod(matlab_val.shape[0],2)==1):
         matlab_val = matlab_val[0:matlab_val.shape[0]-1,:,:]
     matlab_val = matlab_val[:,:,:,]
-    matlab_val = matlab_val + experiments.mybackgroundval
+    if(is_psfmodell=='BORN'):
+        matlab_val = matlab_val + experiments.mybackgroundval
     
     ''' 2.) Read referecne object for PSF calibration ''' 
     if(is_estimatepsf):
@@ -103,7 +106,8 @@ if is_recomputemodel:
     matlab_pars.shiftIcX=experiments.shiftIcX
     matlab_pars.dn = experiments.dn
     matlab_pars.NAc = experiments.NAc
-   # matlab_pars.dz = .7
+    #matlab_pars.NAo = .25
+    # matlab_pars.dz = .7
     
     ''' Create the Model'''
     muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)

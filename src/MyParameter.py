@@ -36,7 +36,12 @@ class MyParameter:
         self.lambda0 = np.squeeze(np.array(myParamter.get('lambda0')))                 # free space wavelength (µm)
         self.NAo= np.squeeze(np.array(myParamter.get('NAo'))); # Numerical aperture objective
         self.NAc= np.squeeze(np.array(myParamter.get('NAc'))); # Numerical aperture condenser
-        self.NAci = np.squeeze(np.array(myParamter.get('NAci'))); # Numerical aperture condenser
+        try:
+            self.NAci = np.squeeze(np.array(myParamter.get('NAci'))); # Numerical aperture condenser
+        except: 
+            print('No inner NA has been defined!')
+            self.NAci = 0
+                
          
         # eventually decenter the illumination source - only integer!
         self.shiftIcX = 0#int(np.squeeze(np.array(myParamter.get('shiftIcX'))))

@@ -3,6 +3,18 @@
 This is an attempt to invert multiple scattering based on Beam Propagation Method (BPM) implement in Tensorflow. 
 We're refering to this [publication.](http://www.focusonmicroscopy.org/2018/PDF/1094_Diederich.pdf)
 
+## Installation 
+# Install Tensorflow-GPU following this [guide](https://www.codingforentrepreneurs.com/blog/install-tensorflow-gpu-windows-cuda-cudnn/).
+´´´
+pip install tifffile 
+pip install matplotlib
+pip install pyyaml
+pip install scipy
+pip install scikit
+´´´
+
+## Data
+Data can be provided upon request.
 
 ## Examples
 ### 3D Sphere immersed in Water

@@ -19,6 +19,7 @@ import scipy.misc
 import numbers
 
 
+print('ATTENTION: We use unofficial Angle-fct here!')
 
 defaultTFDataType="float32"
 defaultTFCpxDataType="complex64"
@@ -193,7 +194,10 @@ def fftshift(tfin):
 
     """
     with tf.name_scope('preFFTShift'):
-        return tf.manip.roll(tfin, shift=-midPos(tfin), axis=tf.range(0, tf.size(tf.shape(tfin))))  # makes a copy which is shifted
+        try:
+            return tf.roll(tfin, shift=-midPos(tfin), axis=tf.range(0, tf.size(tf.shape(tfin))))  # makes a copy which is shifted
+        except:
+            return tf.manip.roll(tfin, shift=-midPos(tfin), axis=tf.range(0, tf.size(tf.shape(tfin))))  # makes a copy which is shifted
 
 def ifftshift(tfin):
     """
@@ -212,7 +216,10 @@ def ifftshift(tfin):
 
     """
     with tf.name_scope('postFFTShift'):
-        return tf.manip.roll(tfin, shift=midPos(tfin), axis=tf.range(0, tf.size(tf.shape(tfin))))  # makes a copy which is shifted
+        try:
+            return tf.manip.roll(tfin, shift=midPos(tfin), axis=tf.range(0, tf.size(tf.shape(tfin))))  # makes a copy which is shifted
+        except:
+            return tf.roll(tfin, shift=midPos(tfin), axis=tf.range(0, tf.size(tf.shape(tfin))))  # makes a copy which is shifted
 
 
 
@@ -275,7 +282,7 @@ def angle(z):
     Retunrs:
         Angle of z
     """
-    print('ATTENTION: We use unofficial Angle-fct here!')
+    
     if z.dtype == tf.complex128:
         dtype = tf.float64
     else:

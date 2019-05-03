@@ -45,18 +45,28 @@ class MuScatModel(object):
         self.lambdaM = self.params.lambda0/self.params.nEmbb; # wavelength in the medium
  
     #@define_scope
-    def computesys(self, obj=None, is_padding=False, is_tomo = False, mysubsamplingIC=0, is_compute_psf='BORN', is_dampic=True):
+    def computesys(self, obj=None, is_padding=False, is_tomo = False, mysubsamplingIC=0, is_compute_psf='BORN', is_dampic=True, is_mictype='BF'):
         # is_compute_psf: 'BORN', 'sep'
         """ This computes the FWD-graph of the Q-PHASE microscope;
         1.) Compute the physical dimensions
         2.) Compute the sampling for the waves
         3.) Create the illumination waves depending on System's properties
  
+        # 'is_mictype' gives the possibility to switch between different microscope types like Brightfield, Phasecontrast etc. 
+        BF - Brightfield 
+        PC - Phase-Contrast (Zernike)
+        DIC - Differential Interference Contrast
+        DPC - Differential Phase Contrast (Oblique Illumination)
+        
+        
+        
+        
         ##### IMPORTANT! ##### 
         The ordering of the channels is as follows:
             Nillu, Nz, Nx, Ny
         """
         # define whether we want to pad the experiment 
+        self.is_mictype = is_mictype
         self.is_padding = is_padding
         self.is_tomo = is_tomo
         self.mysubsamplingIC = mysubsamplingIC
@@ -122,8 +132,11 @@ class MuScatModel(object):
         # AbbeLimit=lambda0/NAo;  # Rainer's Method
         # RelFreq = rr(mysize,'freq')*AbbeLimit/dx;  # Is not generally right (dx and dy)
         self.RelFreq = np.sqrt(tf_helper.abssqr(vxx) + tf_helper.abssqr(vyy));    # spanns the frequency grid of normalized pupil coordinates
-        self.Po=self.RelFreq < 1.0;   # Create the pupil of the objective lens        
-         
+        self.Po=np.complex128(self.RelFreq < 1.0);   # Create the pupil of the objective lens        
+        
+        # Prepare the normalized spatial-frequency grid.
+        self.S = self.params.NAc/self.params.NAo;   # Coherence factor
+ 
         # Precomputing the first 9 zernike coefficients 
         self.params.Nzernikes = np.squeeze(self.zernikefactors.shape)
         self.myzernikes = np.zeros((self.Po.shape[0],self.Po.shape[1],self.params.Nzernikes))+ 1j*np.zeros((self.Po.shape[0],self.Po.shape[1],self.params.Nzernikes))
@@ -132,24 +145,47 @@ class MuScatModel(object):
             self.myzernikes[:,:,i] = np.fft.fftshift(zern.zernike(r, theta, i+1, norm=False)) # or 8 in X-direction
              
         # eventually introduce a phase factor to approximate the experimental data better
-        self.Po = np.fft.fftshift(self.Po)# Need to shift it before using as a low-pass filter    Po=np.ones((np.shape(Po)))
         print('----------> Be aware: We are taking aberrations into account!')
         # Assuming: System has coma along X-direction
         self.myaberration = np.sum(self.zernikefactors * self.myzernikes, axis=2)
-        self.Po = 1.*self.Po#*np.exp(1j*self.myaberration)
-         
-        # Prepare the normalized spatial-frequency grid.
-        self.S = self.params.NAc/self.params.NAo;   # Coherence factor
-        self.Ic = self.RelFreq <= self.S
-         
-        # Take Darkfield into account
-        if hasattr(self, 'NAci'):
-            if self.params.NAci != None and self.params.NAci > 0:
-                #print('I detected a darkfield illumination aperture!')
-                self.S_o = self.params.NAc/self.params.NAo;   # Coherence factor
-                self.S_i = self.params.NAci/self.params.NAo;   # Coherence factor
-                self.Ic = (1.*(self.RelFreq < self.S_o) * 1.*(self.RelFreq > self.S_i))>0 # Create the pupil of the condenser plane
- 
+        self.Po *= np.exp(1j*self.myaberration)
+        
+        # do individual pupil functoins according to is_mictype
+        if(self.is_mictype=='BF' or self.is_mictype=='DF'):
+            # Brightfield/Generic case
+            self.Po = self.Po
+        elif(self.is_mictype=='PC'):
+            # Anullar Phase-plate with generic absorption
+            print('We are taking a phase-ring in the Pupil plane into account!')
+            p_o = (self.params.NAc*.9)/self.params.NAo;   # Coherence factor
+            p_i = (self.params.NAci*1.1)/self.params.NAo;   # Coherence factor
+            self.myphaseplate = (1.*(self.RelFreq < p_o) * 1.*(self.RelFreq > p_i))>0 # Create the pupil of the condenser plane
+            self.Po *= np.exp(1j*np.pi/2*self.myphaseplate)
+        elif(self.is_mictype=='DIC'):
+            # DIC Phase mask from: https://github.com/mattersoflight/microlith/blob/master/%40microlith/computesys.m
+            shearangle = 45
+            shear = .48/2
+            bias = 25
+            freqGridShear=vxx*np.cos(shearangle*np.pi/180)+vyy*np.sin(shearangle*np.pi/180);
+            halfshear=shear/2;
+            halfbias=0.5*bias*np.pi/180;
+            self.Po *= 1j*np.sin(2*np.pi*freqGridShear*halfshear-halfbias)
+                    
+        self.Po = np.fft.fftshift(self.Po)# Need to shift it before using as a low-pass filter    Po=np.ones((np.shape(Po)))
+        # do individual illumination sources according to is_mictype
+        if(self.is_mictype=='BF' or self.is_mictype == 'DIC'):
+            # Brightfield/Generic case
+            self.Ic = self.RelFreq <= self.S
+        elif(self.is_mictype=='PC' or self.is_mictype=='DF'):
+        #if hasattr(self, 'NAci'):
+            # Anullar illumination e.g. for PC or DF 
+            if self.params.NAci == None or self.params.NAci < 0:
+                self.params.NAci = self.params.NAc - .1
+                print('I detected a darkfield illumination aperture, but value was not set! ')
+            self.S_o = self.params.NAc/self.params.NAo;   # Coherence factor
+            self.S_i = self.params.NAci/self.params.NAo;   # Coherence factor
+            self.Ic = (1.*(self.RelFreq < self.S_o) * 1.*(self.RelFreq > self.S_i))>0 # Create the pupil of the condenser plane
+     
         # weigh the illumination source with some cos^2 intensity weight?!
         if(0):
             myIntensityFactor = 70
@@ -164,6 +200,7 @@ class MuScatModel(object):
             print('We are not weighing our illumination!')
             self.Ic_map = np.ones((self.params.Nx, self.params.Ny))
             
+
         
         # This is experimental
         if(self.mysubsamplingIC>0):

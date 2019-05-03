@@ -42,7 +42,7 @@ tf.reset_default_graph()
     2.) Read in the parameters of the dataset ''' 
 matlab_pars = paras.MyParameter()
 matlab_pars.loadmat(mymatpath = experiments.matlab_par_file, mymatname = experiments.matlab_par_name)
-matlab_pars.Nz,matlab_pars.Nx,matlab_pars.Ny =  ((128,128,128))#matlab_val.shape
+matlab_pars.Nz,matlab_pars.Nx,matlab_pars.Ny =  experiments.mysize
 matlab_pars.mysize = (matlab_pars.Nz,matlab_pars.Nx,matlab_pars.Ny) # ordering is (Nillu, Nz, Nx, Ny)
 matlab_pars.shiftIcY=experiments.shiftIcY
 matlab_pars.shiftIcX=experiments.shiftIcX
@@ -153,7 +153,7 @@ for i in range(5):
 #alpha_i = np.array((1e-2,5e-2))
 TF_myres = muscat.computedeconv(TF_meas, alpha = 1.)
 #%%    
-if(1):
+if(0):
     for iteri in range(np.squeeze(alpha_i.shape)): 
         myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:alpha_i[iteri]})
         print('Start Displaying')
@@ -169,7 +169,7 @@ if(1):
         plt.subplot(235),plt.imshow(np.imag(myres[myres.shape[0]//2,:,:])),plt.colorbar()
         plt.subplot(236),plt.imshow(np.imag(myres[:,:,myres.shape[2]//2])),plt.colorbar()
         
-        plt.savefig('thikonov_reg_'+str(iteri)+'_'+str(alpha_i[iteri])+'.png')
+        #plt.savefig('thikonov_reg_'+str(iteri)+'_'+str(alpha_i[iteri])+'.png')
         plt.show()
 
 #%%
@@ -183,7 +183,7 @@ if(0):
 
 
 #%%
-myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:.01})
+myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:.001})
 tosave = []
 tosave.append(np.real(myres))
 tosave.append(np.imag(myres))
@@ -193,11 +193,13 @@ data.export_realdatastack_h5('./thikonov_deconv.h5', 'temp', tosave)
 
 
 #%
+print('This is the ATF')
 plt.figure()
 plt.subplot(231),plt.imshow(np.real(myres[:,myATF.shape[1]//2,:])),plt.colorbar()
 plt.subplot(232),plt.imshow(np.real(myres[myATF.shape[0]//2,:,:])),plt.colorbar()
 plt.subplot(233),plt.imshow(np.real(myres[:,:,myATF.shape[2]//2])),plt.colorbar()
 
+print('This is the deconvolved result:')
 plt.subplot(234),plt.imshow(np.imag(myres[:,myATF.shape[1]//2,:])),plt.colorbar()
 plt.subplot(235),plt.imshow(np.imag(myres[myATF.shape[0]//2,:,:])),plt.colorbar()
 plt.subplot(236),plt.imshow(np.imag(myres[:,:,myATF.shape[2]//2])),plt.colorbar()
