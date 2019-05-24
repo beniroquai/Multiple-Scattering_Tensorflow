@@ -28,9 +28,9 @@ import src.MyParameter as paras
 import NanoImagingPack as nip
 
 # Optionally, tweak styles.
-mpl.rc('figure',  figsize=(12, 9))
+mpl.rc('figure',  figsize=(9, 6))
 mpl.rc('image', cmap='gray')
-#plt.switch_backend('agg')
+plt.switch_backend('agg')
 #np.set_printoptions(threshold=np.nan)
 #%load_ext autoreload
 
@@ -41,7 +41,7 @@ basepath = './'#'/projectnb/cislidt/diederich
 is_aberration = False
 is_padding = False
 is_optimization = True
-is_absorption = True
+is_absorption = False
 is_obj_init_tikhonov = True 
 is_norm = False
 is_recomputemodel = True # TODO: Make it automatic! 
@@ -60,7 +60,7 @@ NreduceLR = 1000 # when should we reduce the Learningrate?
 
 # Regularizer 
 regularizer = 'TV'
-lambda_tv = 1e1
+lambda_tv = 1e-3
 myepstvval = 1e-12##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Control Flow 
@@ -348,10 +348,9 @@ for iterx in range(iter_last,Niter):
 
     # Do not optimize the object if we try to estimate the PSF (object is known!)
     if is_absorption and not is_estimatepsf:
-        sess.run(tf_lossop_obj_absorption  , feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:lambda_tv, muscat.tf_eps:myepstvval})
-   
+        sess.run([tf_lossop_obj_absorption], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:lambda_tv, muscat.tf_eps:myepstvval})
     elif(not is_estimatepsf):
-        sess.run(tf_lossop_obj, feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:lambda_tv, muscat.tf_eps:myepstvval})
+        sess.run([tf_lossop_obj], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:lambda_tv, muscat.tf_eps:myepstvval})
    
     # print('Attetntion: Generalized costfunction1')
     if is_aberration and (iterx > 100) or is_estimatepsf:

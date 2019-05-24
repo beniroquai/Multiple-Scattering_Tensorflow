@@ -60,6 +60,6 @@ class MyParameter:
         self.Rsim= 0.5*np.double(np.array(myParamter.get('Nx')))*self.dx; # Radius over which simulation is performed.
          
         self.Nz=int(np.double(np.array(myParamter.get('Nz'))))
-        self.Nx=np.int(np.floor((2*self.Rsim)/self.dx)+1);
-        self.Ny=np.int(np.floor((2*self.Rsim)/self.dy)+1)
+        self.Nx=np.int(np.floor((2*self.Rsim)/self.dx));
+        self.Ny=np.int(np.floor((2*self.Rsim)/self.dy))
          

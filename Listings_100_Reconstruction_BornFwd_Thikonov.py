@@ -20,7 +20,7 @@ from datetime import datetime
 import src.model as mus
 import src.data as data
 #import src.experiments as experiments 
-import src.simulations as experiments 
+import src.experiments as experiments 
 import src.MyParameter as paras
 
 # Optionally, tweak styles.
@@ -42,12 +42,17 @@ tf.reset_default_graph()
     2.) Read in the parameters of the dataset ''' 
 matlab_pars = paras.MyParameter()
 matlab_pars.loadmat(mymatpath = experiments.matlab_par_file, mymatname = experiments.matlab_par_name)
-matlab_pars.Nz,matlab_pars.Nx,matlab_pars.Ny =  experiments.mysize
+try:
+    matlab_pars.Nz,matlab_pars.Nx,matlab_pars.Ny =  experiments.mysize
+except:
+    print("We don't need to adjust the parameters here!")
+    
 matlab_pars.mysize = (matlab_pars.Nz,matlab_pars.Nx,matlab_pars.Ny) # ordering is (Nillu, Nz, Nx, Ny)
 matlab_pars.shiftIcY=experiments.shiftIcY
 matlab_pars.shiftIcX=experiments.shiftIcX
 matlab_pars.dn = experiments.dn
 matlab_pars.NAc = experiments.NAc
+
 
 ''' 2.) Read in the parameters of the dataset ''' 
 if(experiments.matlab_val_file.find('mat')==-1):
@@ -153,7 +158,7 @@ for i in range(5):
 #alpha_i = np.array((1e-2,5e-2))
 TF_myres = muscat.computedeconv(TF_meas, alpha = 1.)
 #%%    
-if(0):
+if(1):
     for iteri in range(np.squeeze(alpha_i.shape)): 
         myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:alpha_i[iteri]})
         print('Start Displaying')
@@ -183,7 +188,7 @@ if(0):
 
 
 #%%
-myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:.001})
+myres = sess.run(TF_myres, feed_dict={muscat.TF_alpha:.005})
 tosave = []
 tosave.append(np.real(myres))
 tosave.append(np.imag(myres))

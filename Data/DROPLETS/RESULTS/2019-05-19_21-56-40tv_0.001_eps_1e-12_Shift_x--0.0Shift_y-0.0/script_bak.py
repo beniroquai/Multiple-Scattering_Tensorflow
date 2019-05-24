@@ -30,7 +30,7 @@ import NanoImagingPack as nip
 # Optionally, tweak styles.
 mpl.rc('figure',  figsize=(12, 9))
 mpl.rc('image', cmap='gray')
-#plt.switch_backend('agg')
+plt.switch_backend('agg')
 #np.set_printoptions(threshold=np.nan)
 #%load_ext autoreload
 
@@ -60,7 +60,7 @@ NreduceLR = 1000 # when should we reduce the Learningrate?
 
 # Regularizer 
 regularizer = 'TV'
-lambda_tv = 1e1
+lambda_tv = 1e-3
 myepstvval = 1e-12##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Control Flow 

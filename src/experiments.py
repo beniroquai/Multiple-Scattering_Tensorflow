@@ -145,7 +145,7 @@ elif(0):
     lambda_neg = 10000.
     Niter =  300
     '''
-elif(1):
+elif(0):
     
     '''Spheres OLD! '''
     # data files for parameters and measuremets 
@@ -195,6 +195,55 @@ elif(1):
     lambda_neg = 10000.
     Niter =  300
     '''
+    
+elif(1):
+    
+    '''HeLas from PAtrick/Yashar, Imaged in Dresden! '''
+    # data files for parameters and measuremets 
+    matlab_val_file = './Data/cells/HeLa_JL1_a_zstack_dz0-3um_60planes.tif_allAmp.mat'
+    matlab_par_file = './Data/cells/HeLa_JL1_a_zstack_dz0-3um_60planes.tifmyParameter.mat'
+    matlab_par_name = 'myParameter' 
+    matlab_val_name = 'allAmpSimu'   
+    mybackgroundval = -0.
+    dn = 0.01
+    shiftIcX = -.05#*35 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    shiftIcY =  .05 #0*35 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    NAc = .22
+    zernikefactors = np.zeros((11,)) 
+    zernikefactors[10]= -1.5 # defocus
+    #zernikefactors[6]=-4.25  # coma X
+    #zernikefactors[7]= 4.25 # coma y
+    
+    zernikemask=1.*(np.abs(zernikefactors)>0)
+    zernikemask = np.ones(zernikemask.shape)
+    
+    if(0):
+        zernikefactors = 0*np.array((-1.6394907e+00, -2.7066767e-02,  9.8326124e-02,  1.1410052e+00,
+                                2.4763597e-03, -2.8212504e-03, -1.2886256e-01,  3.5430852e-02,
+                                -2.4610769e-03, -2.7273528e-04, -2.7424264e-01))
+
+    shiftIcX = -0.04220052*0
+    shiftIcY = 0.013765786*0
+
+   # zernikemask[0]=0
+    is_dampic= .02
+    mysubsamplingIC=0
+    #zernikefactors = np.array((1.5145516,  -0.4922971,  -1.6731209,   0.9618724,   0.03274873,  0.0987005, 0.45747086,  0.13862132, -0.08351833, -0.11787935, -0.29825905, -0.07494219))
+    #shiftIcY =  2.3640773
+    '''
+    #%%
+    is_absorption = False
+    is_obj_init_tikhonov = False 
+    mybordersize = 20
+    my_learningrate = 1e-2  # learning rate
+    NreduceLR = 1000 # when should we reduce the Learningrate? 
+    lambda_tv = 5e1
+    myepstvval = 1e-15##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+    lambda_neg = 10000.
+    Niter =  300
+    '''
+    
+        
 elif(0):
     
     '''Spheres GOOD! '''

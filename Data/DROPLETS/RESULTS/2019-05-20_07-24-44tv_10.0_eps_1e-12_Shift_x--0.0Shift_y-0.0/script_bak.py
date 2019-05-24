@@ -30,7 +30,7 @@ import NanoImagingPack as nip
 # Optionally, tweak styles.
 mpl.rc('figure',  figsize=(12, 9))
 mpl.rc('image', cmap='gray')
-#plt.switch_backend('agg')
+plt.switch_backend('agg')
 #np.set_printoptions(threshold=np.nan)
 #%load_ext autoreload
 
