@@ -60,7 +60,7 @@ NreduceLR = 1000 # when should we reduce the Learningrate?
 
 # Regularizer 
 regularizer = 'TV'
-lambda_tv = 1e-2
+lambda_tv = 1e-0
 myepstvval = 1e-9##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Control Flow 

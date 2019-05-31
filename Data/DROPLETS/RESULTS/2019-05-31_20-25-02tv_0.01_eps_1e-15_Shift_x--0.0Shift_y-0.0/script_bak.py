@@ -354,7 +354,7 @@ for iterx in range(iter_last,Niter):
         sess.run(tf_lossop_obj, feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:lambda_tv, muscat.tf_eps:myepstvval})
    
     # print('Attetntion: Generalized costfunction1')
-    if is_aberration and (iterx > 25) or is_estimatepsf:
+    if is_aberration and (iterx > 100) or is_estimatepsf:
         sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:lambda_tv, muscat.tf_eps:myepstvval})
 
 

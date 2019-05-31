@@ -60,8 +60,8 @@ NreduceLR = 1000 # when should we reduce the Learningrate?
 
 # Regularizer 
 regularizer = 'TV'
-lambda_tv = 1e-2
-myepstvval = 1e-9##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+lambda_tv = 1e-5
+myepstvval = 1e-12##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Control Flow 
 lambda_neg = 10000.
@@ -354,7 +354,7 @@ for iterx in range(iter_last,Niter):
         sess.run(tf_lossop_obj, feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:lambda_tv, muscat.tf_eps:myepstvval})
    
     # print('Attetntion: Generalized costfunction1')
-    if is_aberration and (iterx > 25) or is_estimatepsf:
+    if is_aberration and (iterx > 100) or is_estimatepsf:
         sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:lambda_tv, muscat.tf_eps:myepstvval})
 
 
