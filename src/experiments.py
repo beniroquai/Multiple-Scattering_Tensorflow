@@ -284,23 +284,29 @@ elif(1):
     mybackgroundval = 0.
     dn = 0.1
     NAc = .32
+    is_dampic= .005 # smaller => more damping!
+    mysubsamplingIC = 0
+    
     zernikefactors = np.zeros((11,)) 
     
-    zernikefactors[10]= -1.5 # defocus
+
     #zernikefactors[6]=-4.25  # coma X
     #zernikefactors[7]= 4.25 # coma y
+    #zernikemask[8]=-0.00  # Trefoil X
+    #zernikemask[9]=-0.00 # Trefoil y
+    zernikefactors[10]= -1.75 # defocus
     
-    
-    zernikemask=1.*(np.abs(zernikefactors)>0)
+    #zernikemask=1.*(np.abs(zernikefactors)>0)
     zernikemask = np.ones(zernikemask.shape)
-    zernikemask[8]=-0.00  # Trefoil X
-    zernikemask[9]=-0.00 # Trefoil y
+    zernikemask[0:4] = 0 # don't care about defocus, tip, tilt 
+    
     shiftIcX = -.00#-3.62768*2
     shiftIcY = .00#3.7690606*2
 
-    is_dampic= .01 # smaller => more damping!
-
-    
+    # worked with tv= 1e1, 1e-12, lr: 1e-2 - also in the git!
+    zernikefactors = np.array((0.,0.,0.,0.,0.24419421,0.13148846,1.0717771,0.9693622,-2.1087987,1.0321776,-2.6593506))
+    shiftIcX = 0.08124803 
+    shiftIcY = 0.05606132
     
 elif(0):
     # data files for parameters and measuremets 

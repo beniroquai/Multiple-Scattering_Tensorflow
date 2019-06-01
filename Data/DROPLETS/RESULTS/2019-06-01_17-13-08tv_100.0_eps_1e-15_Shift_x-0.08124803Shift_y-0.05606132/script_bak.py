@@ -38,7 +38,8 @@ mpl.rc('image', cmap='gray')
 '''Define some stuff related to infrastructure'''
 mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 basepath = './'#'/projectnb/cislidt/diederich
-is_aberration = True
+is_aberration = False
+is_aberation_iterstart = 5 # When to start optimizing for aberration?
 is_padding = False
 is_optimization = True   
 is_absorption = False
@@ -60,15 +61,15 @@ NreduceLR = 1000 # when should we reduce the Learningrate?
 
 # Regularizer 
 regularizer = 'TV'
-lambda_tv = 1e-2
-myepstvval = 1e-9##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+lambda_tv = 1e2
+myepstvval = 1e-15##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Control Flow 
 lambda_neg = 10000.
 
 # Displaying/Saving
-Niter =  300
-Nsave = 50 # write info to disk
+Niter =  150
+Nsave = 25 # write info to disk
 
 
 ''' MODELLING StARTS HERE''' 
@@ -105,8 +106,10 @@ if is_recomputemodel:
     matlab_pars.shiftIcX=experiments.shiftIcX
     matlab_pars.dn = experiments.dn
     matlab_pars.NAc = experiments.NAc
-    #matlab_pars.NAo = .25
-    # matlab_pars.dz = .7
+    
+    #matlab_pars.dz = .8
+    matlab_pars.dx /= (30/25)
+    matlab_pars.dy /= (30/25)
     
     ''' Create the Model'''
     muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
@@ -354,7 +357,7 @@ for iterx in range(iter_last,Niter):
         sess.run(tf_lossop_obj, feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:lambda_tv, muscat.tf_eps:myepstvval})
    
     # print('Attetntion: Generalized costfunction1')
-    if is_aberration and (iterx > 25) or is_estimatepsf:
+    if is_aberration and (iterx > is_aberation_iterstart) or is_estimatepsf:
         sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:my_learningrate, muscat.tf_lambda_tv:lambda_tv, muscat.tf_eps:myepstvval})
 
 

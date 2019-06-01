@@ -14,11 +14,7 @@ import tifffile as tif
 
 def import_realdata_h5(filename = None, matname = None, is_complex = False):
     ##load system data; new MATLAB v7.3 Format! 
-    if filename==None:
-        filename = 'img_noisev73.mat' 
-    if matname==None: 
-        matname = '/img_noise/data' 
-        
+
     # readin HDF5 container and extract the data matrix
     mat_matlab_data = h5py.File(filename)
     myData = mat_matlab_data[matname]
