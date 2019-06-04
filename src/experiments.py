@@ -328,7 +328,7 @@ elif(1):
     myepstvval = 1e-12 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
     
     # Control Flow 
-    lambda_neg = 10000.
+    lambda_neg = 0000.
     
 
     zernikefactors = np.zeros((11,)) 

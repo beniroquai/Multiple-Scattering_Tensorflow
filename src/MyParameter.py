@@ -16,14 +16,36 @@ class MyParameter:
     NAc = 0.5200
     NAci = 0
     NAo = 0.9500
-    shiftX = 0
-    shiftY = 0
+    shiftIcX = 0
+    shiftIcY = 0
     dx = 0.2228
     dy = 0.2228
     dz = 0.7000    
-    Nz = 34
-    Nx = 240
-    Ny = 240
+    Nz = 50
+    Nx = 120
+    Ny = 120
+    mysize = np.array((Nz, Nx, Ny))
+    zernikefactors = np.array((0,0,0,0,0,0,0,0,0,0,0))
+    zernikemask = np.zeros(zernikefactors.shape)
+    
+    def print(self):
+        '''This Function just plots all values'''
+        print('Lambda0: '+str(self.lambda0))
+        print('nEmbb: '+str(self.nEmbb))
+        print('NAc: '+str(self.NAc))
+        print('NAci: '+str(self.NAci))
+        print('NAo: '+str(self.NAo))
+        print('shiftIcX: '+str(self.shiftIcX))
+        print('shiftIcY: '+str(self.shiftIcY))
+        print('dx: '+str(self.dx))
+        print('dy: '+str(self.dy))
+        print('dz: '+str(self.dz))
+        print('Nx: '+str(self.Nx))
+        print('Ny: '+str(self.Ny))
+        print('Nz: '+str(self.Nz))   
+        print('mysize: ' +str(self.mysize))
+        print('zernikefactors: '+str(self.zernikefactors))  
+        print('zernikemask: '+str(self.zernikemask))  
     
     def loadmat(self, mymatpath='./Data/DROPLETS/S19_multiple/Parameter.mat', mymatname='myParameter'):
         # Cast the parameter-mat file into a python class

@@ -57,7 +57,7 @@ is_measurement = False
 tf.reset_default_graph()
 '''Choose between Born (BORN) or BPM (BPM)'''
 psf_modell =  'BORN' # 1st Born
-psf_modell =  'BPM' # MultiSlice
+#psf_modell =  'Born' # MultiSlice
 #psf_modell = None
 is_mictype='BF' # BF, DF, DIC, PC
 
@@ -70,7 +70,8 @@ tf.reset_default_graph()
 ''' File which stores the experimental parameters from the Q-PHASE setup 
     2.) Read in the parameters of the dataset ''' 
 myparams = paras.MyParameter()
-myparams.loadmat(mymatpath = experiments.matlab_par_file, mymatname = experiments.matlab_par_name)
+#myparams.loadmat(mymatpath = experiments.matlab_par_file, mymatname = experiments.matlab_par_name)
+myparams.print()
 
 myparams.Nz,myparams.Nx,myparams.Ny =  experiments.mysize
 myparams.mysize = (myparams.Nz,myparams.Nx,myparams.Ny) # ordering is (Nillu, Nz, Nx, Ny)
