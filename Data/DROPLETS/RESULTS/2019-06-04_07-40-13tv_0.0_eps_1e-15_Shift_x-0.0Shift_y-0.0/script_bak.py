@@ -45,7 +45,7 @@ is_optimization = True
 is_absorption = True 
 is_obj_init_tikhonov = False # intialize the 
 is_norm = False # Want to have a floating value for the background?
-is_recomputemodel = False  # TODO: Make it automatic! 
+is_recomputemodel = True  # TODO: Make it automatic! 
 is_estimatepsf = False
 mybordersize = 20
 is_psfmodell = 'BPM' # either compute BORN or BPM ()
@@ -56,12 +56,6 @@ is_debugging = False # don't write all data to disk
 Niter =  250
 Nsave = 50 # write info to disk
 NreduceLR = 1000 # when should we reduce the Learningrate? 
-
-
-'''Define some stuff related to infrastructure'''
-mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-savepath = basepath + experiments.resultpath + mytimestamp + '_' + experiments.regularizer + '_' + str(experiments.lambda_tv) + '_eps_' +str(experiments.myepstvval) + '_' +'Shift_x-'+str(experiments.shiftIcX)+'Shift_y-'+str(experiments.shiftIcY)
-tf_helper.mkdir(savepath)
 
 
 ''' MODELLING StARTS HERE''' 
@@ -238,6 +232,12 @@ if is_recomputemodel:
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
        
+    '''Define some stuff related to infrastructure'''
+    mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    savepath = basepath + experiments.resultpath + mytimestamp + 'tv_' + str(experiments.lambda_tv) + '_eps_' +str(experiments.myepstvval) + '_' +'Shift_x-'+str(experiments.shiftIcX)+'Shift_y-'+str(experiments.shiftIcY)
+    tf_helper.mkdir(savepath)
+    
+    
     ''' Compute the ATF '''
     if(is_psfmodell=='BORN'):
         #%
@@ -254,6 +254,10 @@ if is_recomputemodel:
 
 
 else:
+    '''Define some stuff related to infrastructure'''
+    mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    savepath = basepath + experiments.resultpath + mytimestamp + 'tv_' + str(experiments.lambda_tv) + '_eps_' +str(experiments.myepstvval) + '_' +'Shift_x-'+str(experiments.shiftIcX)+'Shift_y-'+str(experiments.shiftIcY)
+    tf_helper.mkdir(savepath)
     # Assign the initial guess to the object inside the fwd-model
     print('Assigning Variables')
     sess.run(tf.assign(muscat.TF_obj, np.real(obj_guess))); # assign abs of measurement as initial guess of 
@@ -361,6 +365,7 @@ print('ShiftX/Y: '+ str(sess.run(muscat.TF_shiftIcX))+' / ' + str(sess.run(musca
 
 # backup current script
 from shutil import copyfile
+import os
 src = (os.path.basename(__file__))
 copyfile(src, savepath+'/script_bak.py')
 

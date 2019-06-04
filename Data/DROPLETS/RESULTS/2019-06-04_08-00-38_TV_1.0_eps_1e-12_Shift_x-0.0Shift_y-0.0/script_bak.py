@@ -45,7 +45,7 @@ is_optimization = True
 is_absorption = True 
 is_obj_init_tikhonov = False # intialize the 
 is_norm = False # Want to have a floating value for the background?
-is_recomputemodel = False  # TODO: Make it automatic! 
+is_recomputemodel = True  # TODO: Make it automatic! 
 is_estimatepsf = False
 mybordersize = 20
 is_psfmodell = 'BPM' # either compute BORN or BPM ()
@@ -191,7 +191,7 @@ if is_recomputemodel:
     elif(experiments.regularizer=='GR'):
         # Goods roughness rgularizer
         print('We are using GR - Regularization')
-        tf_regloss += muscat.tf_lambda_tv*(reg.Reg_GR(muscat.TF_obj) + reg.Reg_GR(muscat.TF_obj_absorption))#, eps1=muscat.tf_eps, eps2=muscat.tf_eps)  #Alernatively tf_total_variation_regularization # total_variation
+         += muscat.tf_lambda_tv*(reg.Reg_GR(muscat.TF_obj) + reg.Reg_GR(muscat.TF_obj_absorption))#, eps1=muscat.tf_eps, eps2=muscat.tf_eps)  #Alernatively tf_total_variation_regularization # total_variation
     elif(experiments.regularizer=='L1'):
         # L1 rgularizer
         print('We are using GR - Regularization')

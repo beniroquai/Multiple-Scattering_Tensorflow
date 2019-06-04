@@ -37,31 +37,23 @@ mpl.rc('image', cmap='gray')
 #%%
 '''Define some stuff related to infrastructure'''
 mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-basepath = '.\\'#'/projectnb/cislidt/diederich
+basepath = './'#'/projectnb/cislidt/diederich
 is_aberration = True
 is_aberation_iterstart = 5 # When to start optimizing for aberration?
 is_padding = False
 is_optimization = True   
-is_absorption = True 
-is_obj_init_tikhonov = False # intialize the 
-is_norm = False # Want to have a floating value for the background?
-is_recomputemodel = False  # TODO: Make it automatic! 
-is_estimatepsf = False
+is_absorption = False 
+is_obj_init_tikhonov = False 
+is_norm = False
+is_recomputemodel = True  # TODO: Make it automatic! 
+is_estimatepsf = True
 mybordersize = 20
 is_psfmodell = 'BPM' # either compute BORN or BPM ()
-is_debugging = False # don't write all data to disk
-
 
 # Displaying/Saving
 Niter =  250
 Nsave = 50 # write info to disk
 NreduceLR = 1000 # when should we reduce the Learningrate? 
-
-
-'''Define some stuff related to infrastructure'''
-mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-savepath = basepath + experiments.resultpath + mytimestamp + '_' + experiments.regularizer + '_' + str(experiments.lambda_tv) + '_eps_' +str(experiments.myepstvval) + '_' +'Shift_x-'+str(experiments.shiftIcX)+'Shift_y-'+str(experiments.shiftIcY)
-tf_helper.mkdir(savepath)
 
 
 ''' MODELLING StARTS HERE''' 
@@ -238,19 +230,53 @@ if is_recomputemodel:
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
        
+    '''Define some stuff related to infrastructure'''
+    mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    savepath = basepath + experiments.resultpath + mytimestamp + 'tv_' + str(experiments.lambda_tv) + '_eps_' +str(experiments.myepstvval) + '_' +'Shift_x-'+str(experiments.shiftIcX)+'Shift_y-'+str(experiments.shiftIcY)
+   
+        # Create directory
+    try: 
+        os.mkdir(savepath)
+    except(FileExistsError): 
+        print('Folder exists already')
+    
     ''' Compute the ATF '''
     if(is_psfmodell=='BORN'):
         #%
         print('We are precomputing the PSF')
         myATF = sess.run(muscat.TF_ATF)
         myASF = sess.run(muscat.TF_ASF)    
-       
-        if(is_debugging):
-            # write Freq-Support to disk
-            tf_helper.plot_ASF_ATF(savepath, myATF, myASF)
-            tf_helper.plot_obj_fft(savepath, np_meas)
-            
+    
+        #%
+        plt.figure()    
+        plt.subplot(331), plt.imshow(np.log(1+np.abs(((myATF))**.2)[:,myATF.shape[1]//2,:])), plt.colorbar()#, plt.show()
+        plt.subplot(332), plt.imshow(np.log(1+np.abs(((myATF))**.2)[myATF.shape[0]//2,:,:])), plt.colorbar()#, plt.show()    
+        plt.subplot(333), plt.imshow(np.log(1+np.abs(((myATF))**.2)[:,:,myATF.shape[2]//2])), plt.colorbar()#, plt.show()    
+        plt.subplot(334), plt.imshow(np.real(((myASF))**.2)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(335), plt.imshow(np.real(((myASF))**.2)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+        plt.subplot(336), plt.imshow(np.real(((myASF))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar()#, plt.show()    
+        plt.subplot(337), plt.imshow(np.imag(((myASF))**.2)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(338), plt.imshow(np.imag(((myASF))**.2)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+        plt.subplot(339), plt.imshow(np.imag(((myASF))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar()#, plt.show()    
+        plt.savefig(savepath+'/ASFATF.png'), plt.show()
+        data.export_realdatastack_h5(savepath+'/myatf.h5', 'real, imag', 
+                        np.stack((np.real(myASF), np.imag(myASF)), axis=0))
+
+        plt.figure()    
+        myobjft = np.fft.fftshift(np.fft.fftn(np_meas))
+        plt.subplot(331), plt.imshow(np.log(1+np.abs(((myobjft))**.2)[:,myATF.shape[1]//2,:])), plt.colorbar()#, plt.show()
+        plt.subplot(332), plt.imshow(np.log(1+np.abs(((myobjft))**.2)[myATF.shape[0]//2,:,:])), plt.colorbar()#, plt.show()    
+        plt.subplot(333), plt.imshow(np.log(1+np.abs(((myobjft))**.2)[:,:,myATF.shape[2]//2])), plt.colorbar()#, plt.show()    
+        plt.subplot(334), plt.imshow(np.real(((np_meas))**.2)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(335), plt.imshow(np.real(((np_meas))**.2)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+        plt.subplot(336), plt.imshow(np.real(((np_meas))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar()#, plt.show()    
+        plt.subplot(337), plt.imshow(np.imag(((np_meas))**.2)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(338), plt.imshow(np.imag(((np_meas))**.2)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+        plt.subplot(339), plt.imshow(np.imag(((np_meas))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar()#, plt.show()    
+        plt.savefig(savepath+'/ATF_Support.png'), plt.show()    
         
+        data.export_realdatastack_h5(savepath+'/myatf.h5', 'real, imag', 
+                np.stack((np.abs(myATF)/np.max(np.abs(myATF)), np.abs(myobjft)/np.max(np.abs(myobjft))), axis=0))
 
 
 else:
@@ -361,6 +387,7 @@ print('ShiftX/Y: '+ str(sess.run(muscat.TF_shiftIcX))+' / ' + str(sess.run(musca
 
 # backup current script
 from shutil import copyfile
+import os
 src = (os.path.basename(__file__))
 copyfile(src, savepath+'/script_bak.py')
 

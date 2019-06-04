@@ -17,6 +17,21 @@ zernikemask = np.array(np.abs(zernikefactors)>0)*1# mask of factors that should 
 zernikemask[0]=0 # we don't want the first one to be shifting the phase!!
 is_dampic=.01
 mybackgroundval=-1j
+
+
+''' Control-Parameters - Optimization '''
+my_learningrate = 1e-2  # learning rate
+
+# Regularizer 
+regularizer = 'TV'
+lambda_tv = 1e-3
+myepstvval = 1e-12##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+
+# Control Flow 
+lambda_neg = 10000.
+
+resultpath = ".\\Data\\DROPLETS\\RESULTS\\"
+
 if(0):
     # 10mum bead
     # data files for parameters and measuremets 
@@ -254,42 +269,23 @@ elif(0):
     mybackgroundval = -0.
     dn = 0.01
     NAc = .32
-    zernikefactors = np.zeros((11,)) 
-    
-    zernikefactors[10]= -0.5 # defocus
-    #zernikefactors[6]=-4.25  # coma X
-    #zernikefactors[7]= 4.25 # coma y
-    
-    
-    zernikemask=1.*(np.abs(zernikefactors)>0)
-    zernikemask = np.ones(zernikemask.shape)
-    zernikemask[8]=-0.00  # Trefoil X
-    zernikemask[9]=-0.00 # Trefoil y
-    shiftIcX = -.00#-3.62768*2
-    shiftIcY = .00#3.7690606*2
-
-    is_dampic= .01 # smaller => more damping!
-
-        
-    
-elif(1):
-    
-    '''Droplets recent from Dresden! '''
-    # data files for parameters and measuremets 
-    matlab_val_file = './Data/cells/S0105k_zstack_dz0-2um_25C_40x_Ap0-52_Int63_sameAlignment.tif_allAmp.mat'
-    matlab_par_file = './Data/cells/S0105k_zstack_dz0-2um_25C_40x_Ap0-52_Int63_sameAlignment.tifmyParameter.mat'
-    matlab_obj_file = './Data/cells/S0105k_zstack_dz0-2um_25C_40x_Ap0-52_Int63_sameAlignment.tif_mysphere.mat'
-    matlab_par_name = 'myParameter' 
-    matlab_val_name = 'allAmpSimu'   
-    mybackgroundval = 0.
-    dn = 0.1
-    NAc = .32
     is_dampic= .005 # smaller => more damping!
     mysubsamplingIC = 0
     
-    zernikefactors = np.zeros((11,)) 
+    
+    ''' Control-Parameters - Optimization '''
+    my_learningrate = 1e-2  # learning rate
+    
+    # Regularizer 
+    regularizer = 'TV'
+    lambda_tv = 1e1
+    myepstvval = 1e-12##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+    
+    # Control Flow 
+    lambda_neg = 10000.
     
 
+    zernikefactors = np.zeros((11,))     
     #zernikefactors[6]=-4.25  # coma X
     #zernikefactors[7]= 4.25 # coma y
     #zernikemask[8]=-0.00  # Trefoil X
@@ -303,10 +299,60 @@ elif(1):
     shiftIcX = -.00#-3.62768*2
     shiftIcY = .00#3.7690606*2
 
-    # worked with tv= 1e1, 1e-12, lr: 1e-2 - also in the git!
+    # worked with tv= 1e-1, 1e-12, lr: 1e-2 - also in the git!
     zernikefactors = np.array((0.,0.,0.,0.,0.24419421,0.13148846,1.0717771,0.9693622,-2.1087987,1.0321776,-2.6593506))
     shiftIcX = 0.08124803 
     shiftIcY = 0.05606132
+elif(1):
+    
+    '''Droplets recent from Dresden! '''
+    # data files for parameters and measuremets 
+    matlab_val_file = './Data/cells/S0105k_zstack_dz0-2um_25C_40x_Ap0-52_Int63_sameAlignment.tif_allAmp.mat'
+    matlab_par_file = './Data/cells/S0105k_zstack_dz0-2um_25C_40x_Ap0-52_Int63_sameAlignment.tifmyParameter.mat'
+    matlab_obj_file = './Data/cells/S0105k_zstack_dz0-2um_25C_40x_Ap0-52_Int63_sameAlignment.tif_mysphere.mat'
+    matlab_par_name = 'myParameter' 
+    matlab_val_name = 'allAmpSimu'   
+    mybackgroundval = 0.
+    dn = 0.1
+    NAc = .32
+    is_dampic= .01 # smaller => more damping!
+    mysubsamplingIC = 0
+    
+    
+    ''' Control-Parameters - Optimization '''
+    my_learningrate = 1e-2  # learning rate
+    
+    # Regularizer 
+    regularizer = 'TV'
+    lambda_tv = 1e-1
+    myepstvval = 1e-12 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+    
+    # Control Flow 
+    lambda_neg = 10000.
+    
+
+    zernikefactors = np.zeros((11,)) 
+    
+
+    #zernikefactors[6]=-4.25  # coma X
+    #zernikefactors[7]= 4.25 # coma y
+    #zernikemask[8]=-0.00  # Trefoil X
+    #zernikemask[9]=-0.00 # Trefoil y
+    zernikefactors[10]= -1.5 # defocus
+    
+    #zernikemask=1.*(np.abs(zernikefactors)>0)
+    zernikemask = np.ones(zernikemask.shape)
+    zernikemask[0:4] = 0 # don't care about defocus, tip, tilt 
+    
+    shiftIcX = -.00#-3.62768*2
+    shiftIcY = .00#3.7690606*2
+
+    # worked with tv= 1e1, 1e-12, lr: 1e-2 - also in the git!
+    zernikefactors = 0*np.array((0.,0.,0.,0.,0.24419421,0.13148846,1.0717771,0.9693622,-2.1087987,1.0321776,-2.6593506))
+    shiftIcX = 0.#*0.08124803 
+    shiftIcY = 0.#*0.05606132
+    
+    zernikefactors = 0*np.array((0.,0.,0.,0.,0.49924508,-1.162684,-0.09952152,-0.4380897,-0.6640752,0.16908956,0.860051))
     
 elif(0):
     # data files for parameters and measuremets 

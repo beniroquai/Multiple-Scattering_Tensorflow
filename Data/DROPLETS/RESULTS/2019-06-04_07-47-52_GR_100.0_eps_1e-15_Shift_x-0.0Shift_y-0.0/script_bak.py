@@ -45,7 +45,7 @@ is_optimization = True
 is_absorption = True 
 is_obj_init_tikhonov = False # intialize the 
 is_norm = False # Want to have a floating value for the background?
-is_recomputemodel = False  # TODO: Make it automatic! 
+is_recomputemodel = True  # TODO: Make it automatic! 
 is_estimatepsf = False
 mybordersize = 20
 is_psfmodell = 'BPM' # either compute BORN or BPM ()
@@ -361,6 +361,7 @@ print('ShiftX/Y: '+ str(sess.run(muscat.TF_shiftIcX))+' / ' + str(sess.run(musca
 
 # backup current script
 from shutil import copyfile
+import os
 src = (os.path.basename(__file__))
 copyfile(src, savepath+'/script_bak.py')
 

@@ -37,31 +37,23 @@ mpl.rc('image', cmap='gray')
 #%%
 '''Define some stuff related to infrastructure'''
 mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-basepath = '.\\'#'/projectnb/cislidt/diederich
+basepath = './'#'/projectnb/cislidt/diederich
 is_aberration = True
 is_aberation_iterstart = 5 # When to start optimizing for aberration?
 is_padding = False
 is_optimization = True   
-is_absorption = True 
-is_obj_init_tikhonov = False # intialize the 
-is_norm = False # Want to have a floating value for the background?
+is_absorption = False 
+is_obj_init_tikhonov = False 
+is_norm = False
 is_recomputemodel = False  # TODO: Make it automatic! 
 is_estimatepsf = False
 mybordersize = 20
 is_psfmodell = 'BPM' # either compute BORN or BPM ()
-is_debugging = False # don't write all data to disk
-
 
 # Displaying/Saving
 Niter =  250
 Nsave = 50 # write info to disk
 NreduceLR = 1000 # when should we reduce the Learningrate? 
-
-
-'''Define some stuff related to infrastructure'''
-mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-savepath = basepath + experiments.resultpath + mytimestamp + '_' + experiments.regularizer + '_' + str(experiments.lambda_tv) + '_eps_' +str(experiments.myepstvval) + '_' +'Shift_x-'+str(experiments.shiftIcX)+'Shift_y-'+str(experiments.shiftIcY)
-tf_helper.mkdir(savepath)
 
 
 ''' MODELLING StARTS HERE''' 
@@ -100,9 +92,9 @@ if is_recomputemodel:
     matlab_pars.NAc = experiments.NAc
     
     #matlab_pars.dz = .8
-#    print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!ATTENTION weird magic number to match the pixelsize')
-#    matlab_pars.dx /= (30/25)
-#    matlab_pars.dy /= (30/25)
+    print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!ATTENTION weird magic number to match the pixelsize')
+    matlab_pars.dx /= (30/25)
+    matlab_pars.dy /= (30/25)
     
     ''' Create the Model'''
     muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
@@ -133,7 +125,7 @@ if is_recomputemodel:
         obj_guess =  np.zeros(matlab_val.shape)# np.angle(matlab_val)## 
     
     if is_estimatepsf:
-        obj_guess =  -obj_val*experiments.dn+experiments.dn+1j*.1*obj_val
+        obj_guess =  obj_val*experiments.dn+1j*.01*obj_val
         #obj_guess = np.random.rand(matlab_val.shape[0],matlab_val.shape[1],matlab_val.shape[2])*muscat.dn/2
     obj_guess = obj_guess+muscat.params.nEmbb # add background
     np_meas = matlab_val
@@ -164,13 +156,11 @@ if is_recomputemodel:
         muscat.computesys(obj=None, is_padding=is_padding, mysubsamplingIC=experiments.mysubsamplingIC, is_compute_psf='BPM', is_dampic=experiments.is_dampic)
         muscat.TF_obj = tf.Variable(np.real(obj_guess), dtype=tf.float32, name='Object_Variable_Real')
         muscat.TF_obj_absorption = tf.Variable(np.imag(obj_guess), dtype=tf.float32, name='Object_Variable_Imag')
-
         tf_fwd = muscat.computemodel()
         tf_fwd = tf_fwd + 1j
        
     '''experiments.regularizer'''
     # Total Variation
-    tf_regloss = 0.
     if(experiments.regularizer=='TV'):
         # TV experiments.regularizer
         print('We are using TV - Regularization') # (tfin, Eps=1e-15, doubleSided=False,regDataType=None)
@@ -191,15 +181,21 @@ if is_recomputemodel:
     elif(experiments.regularizer=='GR'):
         # Goods roughness rgularizer
         print('We are using GR - Regularization')
-        tf_regloss += muscat.tf_lambda_tv*(reg.Reg_GR(muscat.TF_obj) + reg.Reg_GR(muscat.TF_obj_absorption))#, eps1=muscat.tf_eps, eps2=muscat.tf_eps)  #Alernatively tf_total_variation_regularization # total_variation
+        tf_regloss =  reg.Reg_GR(muscat.TF_obj, eps1=muscat.tf_eps, eps2=muscat.tf_eps)  #Alernatively tf_total_variation_regularization # total_variation
+        tf_regloss += reg.Reg_GR(muscat.TF_obj_absorption,  eps1=muscat.tf_eps, eps2=muscat.tf_eps)  #Alernatively tf_total_variation_regularization # total_variation
+        tf_regloss *= muscat.tf_lambda_tv
     elif(experiments.regularizer=='L1'):
         # L1 rgularizer
         print('We are using GR - Regularization')
-        tf_regloss += muscat.tf_lambda_tv*(reg.Reg_L1(muscat.TF_obj)+reg.Reg_L1(muscat.TF_obj_absorption))
+        tf_regloss =  reg.Reg_L1(muscat.TF_obj)
+        tf_regloss += reg.Reg_L1(muscat.TF_obj_absorption)
+        tf_regloss *= muscat.tf_lambda_tv   
     elif(experiments.regularizer=='L2'):
         # L1 rgularizer
         print('We are using GR - Regularization')
-        tf_regloss = muscat.tf_lambda_tv*(reg.Reg_L2(muscat.TF_obj)+reg.Reg_L2(muscat.TF_obj_absorption))
+        tf_regloss =  reg.Reg_L2(muscat.TF_obj)
+        tf_regloss += reg.Reg_L2(muscat.TF_obj_absorption)
+        tf_regloss *= muscat.tf_lambda_tv   
                                                 
     '''Negativity Constraint'''                                          
     #tf_negsqrloss = reg.Reg_NegSqr(tf_helper.extract(tf.cast(muscat.TF_obj, tf.float32), muscat.mysize))#-tf.minimum(tf.reduce_min(muscat.TF_obj-1.),0) 
@@ -207,9 +203,7 @@ if is_recomputemodel:
     tf_negsqrloss += reg.Reg_NegSqr(muscat.TF_obj_absorption)
     tf_negsqrloss *= experiments.lambda_neg
     # Correc the fwd model - not good here!
-    tf_glob_real = tf.Variable(0.,'tf_glob_real')
-    tf_glob_imag = tf.Variable(0.,'tf_glob_imag')
-    tf_norm = tf.complex(tf_glob_real, tf_glob_imag)
+    #tf_norm = tf.complex(tf_glob_real, tf_glob_imag)
     
     '''Define Loss-function'''
     if(0):
@@ -217,40 +211,72 @@ if is_recomputemodel:
         tf_fidelity = tf.reduce_mean((tf.abs((muscat.tf_meas) - tf_fwd))) # allow a global phase parameter to avoid unwrapping effects
     else:
         print('-------> Losstype is L2')
-        tf_fidelity = tf.reduce_mean(tf_helper.tf_abssqr(muscat.tf_meas - tf_fwd + tf_norm)) # allow a global phase parameter to avoid unwrapping effects
+        tf_fidelity = tf.reduce_mean(tf_helper.tf_abssqr(muscat.tf_meas - tf_fwd)) # allow a global phase parameter to avoid unwrapping effects
     tf_loss = tf_fidelity + tf_negsqrloss + tf_regloss
    
     tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
     '''Define Optimizer'''
     if not is_estimatepsf:
-        # ordinary case - we want to optimize for the object                
-        tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj])
-        tf_lossop_obj_absorption = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj,muscat.TF_obj_absorption])
-        tf_lossop = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj,muscat.TF_obj_absorption, muscat.TF_shiftIcX, muscat.TF_shiftIcY, muscat.TF_zernikefactors])
-        tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_shiftIcX, muscat.TF_shiftIcY, muscat.TF_zernikefactors])
-  
+      tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj])
+      tf_lossop_obj_absorption = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj,muscat.TF_obj_absorption])
+      tf_lossop = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj,muscat.TF_obj_absorption, muscat.TF_shiftIcX, muscat.TF_shiftIcY, muscat.TF_zernikefactors])
+      tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_shiftIcX, muscat.TF_shiftIcY, muscat.TF_zernikefactors])
+    
     else:
-        #TF_zernloss = .005*reg.Reg_L2(muscat.TF_zernikefactors)+TF_zernloss 
-        # unordinary case - we want to optimize for the system only
-        tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_shiftIcX, muscat.TF_shiftIcY, muscat.TF_zernikefactors])
-        tf_lossop_norm = tf_optimizer.minimize(tf_loss, var_list = [tf_glob_real,tf_glob_imag])
+        TF_zernloss = .005*reg.Reg_L2(muscat.TF_zernikefactors)
+        tf_lossop_aberr = tf_optimizer.minimize(tf_loss+TF_zernloss, var_list = [muscat.TF_shiftIcX, muscat.TF_shiftIcY, muscat.TF_zernikefactors])
+    
     ''' Initialize the model '''
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
        
+    '''Define some stuff related to infrastructure'''
+    mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    savepath = basepath + experiments.resultpath + mytimestamp + 'tv_' + str(experiments.lambda_tv) + '_eps_' +str(experiments.myepstvval) + '_' +'Shift_x-'+str(experiments.shiftIcX)+'Shift_y-'+str(experiments.shiftIcY)
+   
+        # Create directory
+    try: 
+        os.mkdir(savepath)
+    except(FileExistsError): 
+        print('Folder exists already')
+    
     ''' Compute the ATF '''
     if(is_psfmodell=='BORN'):
         #%
         print('We are precomputing the PSF')
         myATF = sess.run(muscat.TF_ATF)
         myASF = sess.run(muscat.TF_ASF)    
-       
-        if(is_debugging):
-            # write Freq-Support to disk
-            tf_helper.plot_ASF_ATF(savepath, myATF, myASF)
-            tf_helper.plot_obj_fft(savepath, np_meas)
-            
+    
+        #%
+        plt.figure()    
+        plt.subplot(331), plt.imshow(np.log(1+np.abs(((myATF))**.2)[:,myATF.shape[1]//2,:])), plt.colorbar()#, plt.show()
+        plt.subplot(332), plt.imshow(np.log(1+np.abs(((myATF))**.2)[myATF.shape[0]//2,:,:])), plt.colorbar()#, plt.show()    
+        plt.subplot(333), plt.imshow(np.log(1+np.abs(((myATF))**.2)[:,:,myATF.shape[2]//2])), plt.colorbar()#, plt.show()    
+        plt.subplot(334), plt.imshow(np.real(((myASF))**.2)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(335), plt.imshow(np.real(((myASF))**.2)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+        plt.subplot(336), plt.imshow(np.real(((myASF))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar()#, plt.show()    
+        plt.subplot(337), plt.imshow(np.imag(((myASF))**.2)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(338), plt.imshow(np.imag(((myASF))**.2)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+        plt.subplot(339), plt.imshow(np.imag(((myASF))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar()#, plt.show()    
+        plt.savefig(savepath+'/ASFATF.png'), plt.show()
+        data.export_realdatastack_h5(savepath+'/myatf.h5', 'real, imag', 
+                        np.stack((np.real(myASF), np.imag(myASF)), axis=0))
+
+        plt.figure()    
+        myobjft = np.fft.fftshift(np.fft.fftn(np_meas))
+        plt.subplot(331), plt.imshow(np.log(1+np.abs(((myobjft))**.2)[:,myATF.shape[1]//2,:])), plt.colorbar()#, plt.show()
+        plt.subplot(332), plt.imshow(np.log(1+np.abs(((myobjft))**.2)[myATF.shape[0]//2,:,:])), plt.colorbar()#, plt.show()    
+        plt.subplot(333), plt.imshow(np.log(1+np.abs(((myobjft))**.2)[:,:,myATF.shape[2]//2])), plt.colorbar()#, plt.show()    
+        plt.subplot(334), plt.imshow(np.real(((np_meas))**.2)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(335), plt.imshow(np.real(((np_meas))**.2)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+        plt.subplot(336), plt.imshow(np.real(((np_meas))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar()#, plt.show()    
+        plt.subplot(337), plt.imshow(np.imag(((np_meas))**.2)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(338), plt.imshow(np.imag(((np_meas))**.2)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+        plt.subplot(339), plt.imshow(np.imag(((np_meas))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar()#, plt.show()    
+        plt.savefig(savepath+'/ATF_Support.png'), plt.show()    
         
+        data.export_realdatastack_h5(savepath+'/myatf.h5', 'real, imag', 
+                np.stack((np.abs(myATF)/np.max(np.abs(myATF)), np.abs(myobjft)/np.max(np.abs(myobjft))), axis=0))
 
 
 else:
@@ -258,12 +284,10 @@ else:
     print('Assigning Variables')
     sess.run(tf.assign(muscat.TF_obj, np.real(obj_guess))); # assign abs of measurement as initial guess of 
     sess.run(tf.assign(muscat.TF_obj_absorption, np.imag(obj_guess))); # assign abs of measurement as initial guess of 
-    #muscat.zernikefactors *= 0
-    #muscat.zernikefactors[10]= +1.0
-    sess.run(tf.assign(muscat.TF_zernikefactors, muscat.zernikefactors*0.))
-    #sess.run(tf.assign(muscat.TF_shiftIcX, 0.))
-    #sess.run(tf.assign(muscat.TF_shiftIcY, 0.))
-    print('ATTENTION: RESETTING the zernikes!!!!!!!!!!!!!!!')
+    muscat.zernikefactors *= 0
+    muscat.zernikefactors[10]= +1.0
+    sess.run(tf.assign(muscat.TF_zernikefactors, muscat.zernikefactors))
+    
     #TODO: THE ZERNIKES count differently for BPM
 
 # assert some memory or reset the lists
@@ -271,8 +295,8 @@ iter_last = 0
 mylosslist = []; myfidelitylist = []
 myposlosslist = []; myneglosslist = []
 mytvlosslist = []; result_phaselist = []
-result_absorptionlist = []; globareallist = []
-globalimaglist = []; myfwdlist = []
+result_absorptionlist = []; globalphaselist = []
+globalabslist = []; myfwdlist = []
 #%%
 ''' Optimize the model '''
 print('Start optimizing')
@@ -288,8 +312,8 @@ for iterx in range(iter_last,Niter):
         
     #% This is for debbugging purposes - write the result to disk every n-iteration
     if(iterx==0 or not np.mod(iterx, Nsave)):
-        my_res, my_res_absortpion, my_loss, my_fidelity, my_negloss, my_tvloss, myfwd, myglobalreal, myglobalimag =  \
-            sess.run([muscat.TF_obj, muscat.TF_obj_absorption, tf_loss, tf_fidelity, tf_negsqrloss, tf_regloss, tf_fwd, tf_glob_real, tf_glob_imag], \
+        my_res, my_res_absortpion, my_loss, my_fidelity, my_negloss, my_tvloss, myfwd =  \
+            sess.run([muscat.TF_obj, muscat.TF_obj_absorption, tf_loss, tf_fidelity, tf_negsqrloss, tf_regloss, tf_fwd], \
                      feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:experiments.my_learningrate, muscat.tf_lambda_tv:experiments.lambda_tv, muscat.tf_eps:experiments.myepstvval}) #, muscat.TF_ATF_placeholder:myATF
 
         print('Loss@'+str(iterx)+': ' + str(my_loss) + ' - Fid: '+str(my_fidelity)+', Neg: '+str(my_negloss)+', TV: '+str(my_tvloss))
@@ -300,8 +324,7 @@ for iterx in range(iter_last,Niter):
         mytvlosslist.append(my_tvloss)
         result_phaselist.append(my_res)
         result_absorptionlist.append(my_res_absortpion)
-        globareallist.append(myglobalreal)
-        globalimaglist.append(myglobalimag)
+
         #% Display recovered Pupil
         plt.figure()
         myzernikes = sess.run(muscat.TF_zernikefactors)
@@ -316,7 +339,7 @@ for iterx in range(iter_last,Niter):
         
         ''' Save Figures and Parameters '''
         muscat.saveFigures_list(savepath, myfwdlist, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, result_phaselist, result_absorptionlist, 
-                              globareallist, globalimaglist, np_meas, figsuffix='Iter'+str(iterx))
+                              globalphaselist, globalabslist, np_meas, figsuffix='Iter'+str(iterx))
         #%    
     # Alternate between pure object optimization and aberration recovery
     #sess.run([tf_lossop_tv], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:experiments.my_learningrate, muscat.tf_lambda_tv:experiments.lambda_tv, muscat.tf_eps:experiments.myepstvval})
@@ -333,9 +356,9 @@ for iterx in range(iter_last,Niter):
         sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:experiments.my_learningrate, muscat.tf_lambda_tv:experiments.lambda_tv, muscat.tf_eps:experiments.myepstvval})
 
 
-#    if is_estimatepsf:
-#        zern_error = sess.run([TF_zernloss], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:experiments.my_learningrate, muscat.tf_lambda_tv:experiments.lambda_tv, muscat.tf_eps:experiments.myepstvval})
-#        print(zern_error)
+    if is_estimatepsf:
+        zern_error = sess.run([TF_zernloss], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:experiments.my_learningrate, muscat.tf_lambda_tv:experiments.lambda_tv, muscat.tf_eps:experiments.myepstvval})
+        print(zern_error)
         
     if is_norm:
         sess.run([tf_lossop_norm], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:experiments.my_learningrate, muscat.tf_lambda_tv:experiments.lambda_tv, muscat.tf_eps:experiments.myepstvval})
@@ -346,7 +369,7 @@ for iterx in range(iter_last,Niter):
 #%%
 ''' Save Figures and Parameters '''
 muscat.saveFigures_list(savepath, myfwdlist, mylosslist, myfidelitylist, myneglosslist, mytvlosslist, result_phaselist, result_absorptionlist, 
-                              globareallist, globalimaglist, np_meas, figsuffix='FINAL')
+                              globalphaselist, globalabslist, np_meas, figsuffix='FINAL')
 
 data.export_realdatastack_h5(savepath+'/myrefractiveindex.h5', 'phase, abs', 
                         np.stack(((nip.extract(result_phaselist[-1], muscat.mysize,None,None)),
@@ -361,6 +384,7 @@ print('ShiftX/Y: '+ str(sess.run(muscat.TF_shiftIcX))+' / ' + str(sess.run(musca
 
 # backup current script
 from shutil import copyfile
+import os
 src = (os.path.basename(__file__))
 copyfile(src, savepath+'/script_bak.py')
 

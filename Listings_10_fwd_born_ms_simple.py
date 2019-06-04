@@ -78,8 +78,9 @@ myparams.shiftIcY=experiments.shiftIcY
 myparams.shiftIcX=experiments.shiftIcX
 myparams.dn = experiments.dn
 #myparams.NAo = .25
-myparams.NAc = experiments.NAc
+myparams.NAc = .1#experiments.NAc
 myparams.NAci = experiments.NAci
+
 ''' Create the Model'''
 muscat = mus.MuScatModel(myparams, is_optimization=is_optimization)
 
@@ -88,7 +89,7 @@ muscat.zernikemask = experiments.zernikemask
   
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
 mydiameter = 5
-objtype = 'cheek100' # 'sphere', 'twosphere', 'slphantom'
+objtype = 'sphere';'cheek100' # 'sphere', 'twosphere', 'slphantom'
 if(objtype == 'sphere'):
     obj_real= tf_go.generateObject(mysize=myparams.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = experiments.dn, nEmbb = myparams.nEmbb)#)dn)
     obj_absorption = tf_go.generateObject(mysize=myparams.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = .0, nEmbb = 0.0)

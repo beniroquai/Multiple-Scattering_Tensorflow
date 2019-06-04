@@ -53,11 +53,21 @@ def Reg_L2(im):
     return tf.reduce_mean(im ** 2)
 
 
-def Reg_GR(tfin, eps1=1e-15,eps2=1e-15):
+def Reg_GR(tfin, Eps1=1e-15, Eps2=1e-15):
+    """
+    Good's roughness constraint:  Sum(GrandientSquared) / (ValueSquared + Eps1)
+    :param tfin: object to regularize
+    :param Eps1: Constant to avoid division by zero
+    :param Eps2: Constant to warrant differentiability at zero
+    :param regDataType: Optionally defines the datatype to calculate the sum over all pixels in
+    :return: scalar regularisation "penalty" value
+    """
     loss=0.0
     for d in range(tfin.shape.ndims):
-        loss += tf.square(tf.manip.roll(tfin,-1,d) - tf.manip.roll(tfin,1,d))/tf.sqrt(tf.square(tfin)+eps1)   # /4.0
-    return tf.reduce_mean(tf.cast(tf.sqrt(loss+eps2),tf.float32))/2.0
+        loss += tf.square(tf.roll(tfin,-1,d) - tf.roll(tfin,1,d))/tf.sqrt(tf.square(tfin)+Eps1)   # /4.0
+    return tf.reduce_mean(tf.sqrt(loss+Eps2))/2.0
+
+
 
 def Reg_GS(tfin, Eps=1e-15):
     loss=0.0

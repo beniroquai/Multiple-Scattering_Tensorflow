@@ -17,7 +17,8 @@ import h5py
 from tensorflow.python.client import device_lib
 import scipy.misc
 import numbers
-
+import os
+import src.data as data
 
 print('ATTENTION: We use unofficial Angle-fct here!')
 
@@ -829,3 +830,49 @@ def insertPerfectAbsorber(mysample,SlabX,SlabW=1,direction=None,k0=None,N=4):
     #np.array(mysample)[0]
     
     return mysample,k0
+
+
+def mkdir(foldername):
+    # Create directory
+    try: 
+        os.mkdir(foldername)
+    except(FileExistsError): 
+        print('Folder exists already')
+        
+        
+def plot_ASF_ATF(savepath, myATF, myASF):
+    #% Write ASF and ATF to disk
+    plt.figure()    
+    plt.subplot(331), plt.imshow(np.log(1+np.abs(((myATF))**.2)[:,myATF.shape[1]//2,:])), plt.colorbar()#, plt.show()
+    plt.subplot(332), plt.imshow(np.log(1+np.abs(((myATF))**.2)[myATF.shape[0]//2,:,:])), plt.colorbar()#, plt.show()    
+    plt.subplot(333), plt.imshow(np.log(1+np.abs(((myATF))**.2)[:,:,myATF.shape[2]//2])), plt.colorbar()#, plt.show()    
+    plt.subplot(334), plt.imshow(np.real(((myASF))**.2)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
+    plt.subplot(335), plt.imshow(np.real(((myASF))**.2)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+    plt.subplot(336), plt.imshow(np.real(((myASF))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar()#, plt.show()    
+    plt.subplot(337), plt.imshow(np.imag(((myASF))**.2)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
+    plt.subplot(338), plt.imshow(np.imag(((myASF))**.2)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+    plt.subplot(339), plt.imshow(np.imag(((myASF))**.2)[:,:,myASF.shape[2]//2]), plt.colorbar()#, plt.show()    
+    plt.savefig(savepath+'/ASFATF.png'), plt.show()
+    data.export_realdatastack_h5(savepath+'/myasf.h5', 'real, imag', 
+                    np.stack((np.real(myASF), np.imag(myASF)), axis=0))
+    #data.export_realdatastack_h5(savepath+'/myatf.h5', 'real, imag', 
+    #        np.stack((np.abs(myATF)/np.max(np.abs(myATF)), np.abs(myobjft)/np.max(np.abs(myobjft))), axis=0))
+
+
+def plot_obj_fft(savepath, myObj):
+    #% Write obj and spectrum to disk
+    plt.figure()    
+    myobjft = np.fft.fftshift(np.fft.fftn(myObj))
+    plt.subplot(331), plt.imshow(np.log(1+np.abs(((myobjft))**.2)[:,myobjft.shape[1]//2,:])), plt.colorbar()#, plt.show()
+    plt.subplot(332), plt.imshow(np.log(1+np.abs(((myobjft))**.2)[myobjft.shape[0]//2,:,:])), plt.colorbar()#, plt.show()    
+    plt.subplot(333), plt.imshow(np.log(1+np.abs(((myobjft))**.2)[:,:,myobjft.shape[2]//2])), plt.colorbar()#, plt.show()    
+    plt.subplot(334), plt.imshow(np.real(((myObj))**.2)[:,myobjft.shape[1]//2,:]), plt.colorbar()#, plt.show()
+    plt.subplot(335), plt.imshow(np.real(((myObj))**.2)[myobjft.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+    plt.subplot(336), plt.imshow(np.real(((myObj))**.2)[:,:,myobjft.shape[2]//2]), plt.colorbar()#, plt.show()    
+    plt.subplot(337), plt.imshow(np.imag(((myObj))**.2)[:,myobjft.shape[1]//2,:]), plt.colorbar()#, plt.show()
+    plt.subplot(338), plt.imshow(np.imag(((myObj))**.2)[myobjft.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+    plt.subplot(339), plt.imshow(np.imag(((myObj))**.2)[:,:,myobjft.shape[2]//2]), plt.colorbar()#, plt.show()    
+    plt.savefig(savepath+'/ATF_Support.png'), plt.show()    
+    data.export_realdatastack_h5(savepath+'/myobjspectrum.h5', 'real, imag', 
+        np.stack((np.abs(myobjft)/np.max(np.abs(myobjft)), np.abs(myObj)/np.max(np.abs(myObj))), axis=0))
+
