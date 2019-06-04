@@ -377,15 +377,25 @@ class MuScatModel(object):
           
         if self.is_compute_psf is 'BPM':
             with tf.name_scope('Variable_assignment_BPM'):
-                self.TF_myAllSlicePropagator = tf.cast(tf.complex(np.real(self.myAllSlicePropagator), np.imag(self.myAllSlicePropagator)), tf.complex64)
+                
+                # Define slice-wise propagator (i.e. Fresnel kernel)
                 self.TF_myprop = tf.cast(tf.complex(np.real(np.squeeze(self.myprop)),np.imag(np.squeeze(self.myprop))), dtype=tf.complex64)
+                # A propagator for all slices (2D->3D)
+                self.TF_myAllSlicePropagator = tf.cast(tf.complex(np.real(self.myAllSlicePropagator), np.imag(self.myAllSlicePropagator)), tf.complex64)
+                
+                # This corresponds to the input illumination modes
                 self.TF_A_input =  tf.cast(tf.complex(np.real(self.A_prop),np.imag(self.A_prop)), dtype=tf.complex64)
                 self.TF_RefrEffect = tf.constant(self.RefrEffect, dtype=tf.complex64)
                 
                 if(is_debug): self.TF_A_input = tf.Print(self.TF_A_input, [], 'Casting TF_A_input')     
 
-     
-   
+                # make illuminatino decentering "learnable"
+                self.TF_xx = tf_helper.xx((self.mysize[1],self.mysize[2])) * 2 * np.pi * self.TF_shiftIcX /( self.lambdaM*self.params.nEmbb/self.params.dx)
+                self.TF_yy = tf_helper.yy((self.mysize[1],self.mysize[2])) * 2 * np.pi * self.TF_shiftIcY /( self.lambdaM*self.params.nEmbb/self.params.dy)
+                
+                TF_icshift = tf.exp(1j*tf.cast((self.TF_xx+self.TF_yy), tf.complex64))
+                self.TF_A_input  *= tf.expand_dims(TF_icshift,-1) # add global phase ramp in x/y  to decenter the source
+                
                 # TODO: Introduce the averraged RI along Z - MWeigert
                 self.TF_A_prop = tf.squeeze(self.TF_A_input);
                 self.U_z_list = []
@@ -584,42 +594,48 @@ class MuScatModel(object):
     
     
     def propslices(self):
-            # only consider object scattering if we want to use it
+        ''' Here we do the multiple scattering e.g. the forward propagation of 
+        all light modes through the 3D sample. It's basically the split-step 
+        fourier method (SSFM) beam propagation method (BPM). The last slice 
+        holds all scattering of the sample which can be used to generate a 
+        focus stack'''
         
-            TF_real_3D = self.TF_obj
-            TF_imag_3D = self.TF_obj_absorption     
-            
-            # wrapper for force-positivity on the RI-instead of penalizing it
-            if(self.is_forcepos):
-                print('----> ATTENTION: We add the PreMonotonicPos' )
-                TF_real_3D = tf_reg.PreMonotonicPos(TF_real_3D)
-                TF_imag_3D = tf_reg.PreMonotonicPos(TF_imag_3D)
-    
-            # simulate multiple scattering through object
-            with tf.name_scope('Fwd_Propagate'):
-                #print('---------ATTENTION: We are inverting the RI!')
-                for pz in range(0, self.mysize[0]):
-                    with tf.name_scope('Refract'):
-                        # beware the "i" is in TF_RefrEffect already!
-                        if(self.is_padding):
-                            tf_paddings = tf.constant([[self.mysize_old[1]//2, self.mysize_old[1]//2], [self.mysize_old[2]//2, self.mysize_old[2]//2]])
-                            TF_real = tf.pad(TF_real_3D[-pz,:,:], tf_paddings, mode='CONSTANT', name='TF_obj_real_pad')
-                            TF_imag = tf.pad(TF_imag_3D[-pz,:,:], tf_paddings, mode='CONSTANT', name='TF_obj_imag_pad')
-                        else:
-                            TF_real = (TF_real_3D[-pz,:,:])
-                            TF_imag = (TF_imag_3D[-pz,:,:])
-                            
-    
-                        self.TF_f = tf.exp(self.TF_RefrEffect*tf.complex(TF_real, TF_imag))
-                        self.TF_A_prop = self.TF_A_prop * self.TF_f  # refraction step
-                    with tf.name_scope('Propagate'):
-                        self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * self.TF_myprop) # diffraction step
-                        if(is_debug): self.TF_A_prop = tf.Print(self.TF_A_prop, [], 'Performing Slice Propagation')     
+        TF_real_3D = self.TF_obj
+        TF_imag_3D = self.TF_obj_absorption     
+        
+        # wrapper for force-positivity on the RI-instead of penalizing it
+        if(self.is_forcepos):
+            print('----> ATTENTION: We add the PreMonotonicPos' )
+            TF_real_3D = tf_reg.PreMonotonicPos(TF_real_3D)
+            TF_imag_3D = tf_reg.PreMonotonicPos(TF_imag_3D)
 
-     
+        # simulate multiple scattering through object
+        with tf.name_scope('Fwd_Propagate'):
+            #print('---------ATTENTION: We are inverting the RI!')
+            for pz in range(0, self.mysize[0]):
+                with tf.name_scope('Refract'):
+                    # beware the "i" is in TF_RefrEffect already!
+                    if(self.is_padding):
+                        tf_paddings = tf.constant([[self.mysize_old[1]//2, self.mysize_old[1]//2], [self.mysize_old[2]//2, self.mysize_old[2]//2]])
+                        TF_real = tf.pad(TF_real_3D[-pz,:,:], tf_paddings, mode='CONSTANT', name='TF_obj_real_pad')
+                        TF_imag = tf.pad(TF_imag_3D[-pz,:,:], tf_paddings, mode='CONSTANT', name='TF_obj_imag_pad')
+                    else:
+                        TF_real = (TF_real_3D[-pz,:,:])
+                        TF_imag = (TF_imag_3D[-pz,:,:])
+                        
+
+                    self.TF_f = tf.exp(self.TF_RefrEffect*tf.complex(TF_real, TF_imag))
+                    self.TF_A_prop = self.TF_A_prop * self.TF_f  # refraction step
+                with tf.name_scope('Propagate'):
+                    self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * self.TF_myprop) # diffraction step
+                    if(is_debug): self.TF_A_prop = tf.Print(self.TF_A_prop, [], 'Performing Slice Propagation')     
+
+ 
 
         
     def propangles(self, TF_A_prop):
+        ''' Here we generate a focus stack for all illumination modes independtly. 
+        it follows the routine "propslices". '''
         # TF_A_prop - Input field to propagate
         TF_allSumAmp = tf.zeros([self.mysize[0], self.params.Nx, self.params.Ny], dtype=tf.complex64)
         

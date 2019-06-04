@@ -53,7 +53,7 @@ is_debugging = False # don't write all data to disk
 
 
 # Displaying/Saving
-Niter =  500
+Niter =  250
 Nsave = 50 # write info to disk
 NreduceLR = 1000 # when should we reduce the Learningrate? 
 
@@ -262,8 +262,8 @@ else:
     #muscat.zernikefactors *= 0
     #muscat.zernikefactors[10]= +1.0
     sess.run(tf.assign(muscat.TF_zernikefactors, muscat.zernikefactors*0.))
-    sess.run(tf.assign(muscat.TF_shiftIcX, 0.))
-    sess.run(tf.assign(muscat.TF_shiftIcY, 0.))
+    #sess.run(tf.assign(muscat.TF_shiftIcX, 0.))
+    #sess.run(tf.assign(muscat.TF_shiftIcY, 0.))
     print('ATTENTION: RESETTING the zernikes!!!!!!!!!!!!!!!')
     #TODO: THE ZERNIKES count differently for BPM
 

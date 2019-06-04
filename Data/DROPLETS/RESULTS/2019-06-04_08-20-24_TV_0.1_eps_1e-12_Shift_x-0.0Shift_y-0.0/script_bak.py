@@ -48,21 +48,20 @@ is_norm = False # Want to have a floating value for the background?
 is_recomputemodel = False  # TODO: Make it automatic! 
 is_estimatepsf = False
 mybordersize = 20
-is_psfmodell = 'BPM' # either compute BORN or BPM ()
+is_psfmodell = 'BORN' # either compute BORN or BPM ()
 is_debugging = False # don't write all data to disk
 
 
 # Displaying/Saving
-Niter =  500
+Niter =  250
 Nsave = 50 # write info to disk
 NreduceLR = 1000 # when should we reduce the Learningrate? 
 
 
 '''Define some stuff related to infrastructure'''
 mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-savepath = basepath + experiments.resultpath + mytimestamp + '_' + '_PSFmodel_' + is_psfmodell + experiments.regularizer + '_' + str(experiments.lambda_tv) + '_eps_' +str(experiments.myepstvval) + '_' +'Shift_x-'+str(experiments.shiftIcX)+'Shift_y-' +str(experiments.shiftIcY) 
+savepath = basepath + experiments.resultpath + mytimestamp + '_' + experiments.regularizer + '_' + str(experiments.lambda_tv) + '_eps_' +str(experiments.myepstvval) + '_' +'Shift_x-'+str(experiments.shiftIcX)+'Shift_y-'+str(experiments.shiftIcY)
 tf_helper.mkdir(savepath)
-print('My path is: '+savepath )
 
 
 ''' MODELLING StARTS HERE''' 
@@ -262,8 +261,8 @@ else:
     #muscat.zernikefactors *= 0
     #muscat.zernikefactors[10]= +1.0
     sess.run(tf.assign(muscat.TF_zernikefactors, muscat.zernikefactors*0.))
-    sess.run(tf.assign(muscat.TF_shiftIcX, 0.))
-    sess.run(tf.assign(muscat.TF_shiftIcY, 0.))
+    #sess.run(tf.assign(muscat.TF_shiftIcX, 0.))
+    #sess.run(tf.assign(muscat.TF_shiftIcY, 0.))
     print('ATTENTION: RESETTING the zernikes!!!!!!!!!!!!!!!')
     #TODO: THE ZERNIKES count differently for BPM
 
