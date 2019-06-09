@@ -48,7 +48,7 @@ is_norm = False # Want to have a floating value for the background?
 is_recomputemodel = True  # TODO: Make it automatic! 
 is_estimatepsf = False
 mybordersize = 20
-is_psfmodell = 'BPM' # either compute BORN or BPM ()
+is_psfmodell = 'BORN' # either compute BORN or BPM ()
 is_debugging = True # don't write all data to disk
 
 
@@ -91,23 +91,22 @@ if is_recomputemodel:
     # Generate Test-Object
     ''' File which stores the experimental parameters from the Q-PHASE setup 
         3.) Read in the parameters of the dataset ''' 
-    myparas = paras.MyParameter()
-    myparas.loadmat(mymatpath = experiments.matlab_par_file, mymatname = experiments.matlab_par_name)
-    myparas.Nz,myparas.Nx,myparas.Ny = matlab_val.shape
-    myparas.mysize = (myparas.Nz,myparas.Nx,myparas.Ny) # ordering is (Nillu, Nz, Nx, Ny)
-    myparas.shiftIcY=experiments.shiftIcY
-    myparas.shiftIcX=experiments.shiftIcX
-    myparas.dn = experiments.dn
-    myparas.NAc = experiments.NAc
-
+    matlab_pars = paras.MyParameter()
+    matlab_pars.loadmat(mymatpath = experiments.matlab_par_file, mymatname = experiments.matlab_par_name)
+    matlab_pars.Nz,matlab_pars.Nx,matlab_pars.Ny = matlab_val.shape
+    matlab_pars.mysize = (matlab_pars.Nz,matlab_pars.Nx,matlab_pars.Ny) # ordering is (Nillu, Nz, Nx, Ny)
+    matlab_pars.shiftIcY=experiments.shiftIcY
+    matlab_pars.shiftIcX=experiments.shiftIcX
+    matlab_pars.dn = experiments.dn
+    matlab_pars.NAc = experiments.NAc
     
-    #myparas.dz = .1
+    #matlab_pars.dz = .1
 #    print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!ATTENTION weird magic number to match the pixelsize')
-#    myparas.dx /= (30/25)
-#    myparas.dy /= (30/25)
+#    matlab_pars.dx /= (30/25)
+#    matlab_pars.dy /= (30/25)
     
     ''' Create the Model'''
-    muscat = mus.MuScatModel(myparas, is_optimization=is_optimization)
+    muscat = mus.MuScatModel(matlab_pars, is_optimization=is_optimization)
 
     muscat.zernikefactors = experiments.zernikefactors
     muscat.zernikemask = experiments.zernikemask

@@ -48,7 +48,7 @@ is_norm = False # Want to have a floating value for the background?
 is_recomputemodel = True  # TODO: Make it automatic! 
 is_estimatepsf = False
 mybordersize = 20
-is_psfmodell = 'BPM' # either compute BORN or BPM ()
+is_psfmodell = 'BORN' # either compute BORN or BPM ()
 is_debugging = True # don't write all data to disk
 
 
