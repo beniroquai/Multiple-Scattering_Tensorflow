@@ -48,8 +48,8 @@ is_norm = False # Want to have a floating value for the background?
 is_recomputemodel = True  # TODO: Make it automatic! 
 is_estimatepsf = False
 mybordersize = 20
-is_psfmodell = 'BORN' # either compute BORN or BPM ()
-is_debugging = True # don't write all data to disk
+is_psfmodell = 'BPM' # either compute BORN or BPM ()
+is_debugging = False # don't write all data to disk
 
 
 # Displaying/Saving
@@ -362,8 +362,6 @@ data.export_realdatastack_h5(savepath+'/mymeas.h5', 'real, imag',
 print('Zernikes: ' +str(np.real(sess.run(muscat.TF_zernikefactors))))
 print('ShiftX/Y: '+ str(sess.run(muscat.TF_shiftIcX))+' / ' + str(sess.run(muscat.TF_shiftIcY)))
 
-#nip.v5(nip.cat(np.stack((np.flip(nip.extract(result_phaselist[-1], muscat.mysize,None,None),0),np.real(np_meas), np.imag(np_meas)), axis=0)))
-nip.v5(nip.cat(np.stack(((nip.extract(result_phaselist[-1], muscat.mysize,None,None)),np.real(np_meas), np.imag(np_meas)), axis=0)))
 
 # backup current script
 from shutil import copyfile

@@ -325,8 +325,8 @@ elif(1):
     matlab_val_name = 'allAmpSimu'   
     mybackgroundval = 0.
     dn = 0.1
-    NAc = .52
-    is_dampic= .051 # smaller => more damping!
+    NAc = .35
+    is_dampic= .001 # smaller => more damping!
     mysubsamplingIC = 0
     
     

@@ -13,6 +13,7 @@ import h5py
 import scipy.io
 import scipy as scipy
 import scipy.misc
+import NanoImagingPack as nip
 
 # own functions
 from src import tf_helper as tf_helper
@@ -39,7 +40,7 @@ def generateObject(mysize = [100, 100, 100], obj_dim = ((1.5, .75, .75)), obj_ty
     if(obj_type=='sphere'):
         # one spherical object inside a volume
         obj = np.zeros(mysize)+nEmbb
-        mysphere = (tf_helper.rr((mysize[0], mysize[1], mysize[2]), mode='center')*obj_dim<diameter)
+        mysphere = nip.rr(mysize=mysize, placement='center', scale=obj_dim, pixelsize=obj_dim)<diameter
         obj[mysphere] = dn+nEmbb
     if(obj_type=='hollowsphere'):
         # one spherical object inside a volume

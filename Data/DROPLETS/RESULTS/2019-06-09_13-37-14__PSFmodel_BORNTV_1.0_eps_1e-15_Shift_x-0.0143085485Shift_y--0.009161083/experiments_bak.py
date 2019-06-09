@@ -326,7 +326,7 @@ elif(1):
     mybackgroundval = 0.
     dn = 0.1
     NAc = .52
-    is_dampic= .051 # smaller => more damping!
+    is_dampic= .001 # smaller => more damping!
     mysubsamplingIC = 0
     
     

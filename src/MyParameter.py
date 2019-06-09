@@ -28,6 +28,10 @@ class MyParameter:
     zernikefactors = np.array((0,0,0,0,0,0,0,0,0,0,0))
     zernikemask = np.zeros(zernikefactors.shape)
     
+    # Reconstruciton parameters 
+    cc_center = mysize[1:-1]//2 #np.array((0,0))
+    cc_size = np.array((600,600))
+    
     def print(self):
         '''This Function just plots all values'''
         print('Lambda0: '+str(self.lambda0))
@@ -85,3 +89,27 @@ class MyParameter:
         self.Nx=np.int(np.floor((2*self.Rsim)/self.dx));
         self.Ny=np.int(np.floor((2*self.Rsim)/self.dy))
          
+
+    def preset_40x(self, dz = .3):
+        ''' This presets data for the 40x '''
+
+        print('We set the default parameters for the 40x lens from NIKON')
+        # NA of the condenser lens
+        self.NAc = .32
+        self.NAo = .95
+
+        # taken from the Q-PHase setup itself
+        self.fov_x = 93.587; # mum
+        self.fov_y = 93.587;
+        self.Nx_orig = 2048; # corresponds to reconstructed hologram.
+        self.Ny_orig = 2048;
+        self.dx_orig = self.fov_x/self.Nx_orig
+        self.dy_orig = self.fov_y/self.Ny_orig
+        self.dx = self.dx_orig
+        self.dy = self.dy_orig
+        
+        # FOV parameters
+        mysubsample = 1;
+        self.dz_orig = dz # % mum
+        self.dz = self.dz_orig*mysubsample; # % mum
+        

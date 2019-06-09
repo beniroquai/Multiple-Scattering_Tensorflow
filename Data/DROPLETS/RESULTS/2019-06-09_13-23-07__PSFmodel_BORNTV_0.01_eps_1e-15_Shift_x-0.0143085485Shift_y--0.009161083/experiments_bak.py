@@ -325,8 +325,8 @@ elif(1):
     matlab_val_name = 'allAmpSimu'   
     mybackgroundval = 0.
     dn = 0.1
-    NAc = .52
-    is_dampic= .051 # smaller => more damping!
+    NAc = .35
+    is_dampic= .01 # smaller => more damping!
     mysubsamplingIC = 0
     
     
@@ -335,7 +335,7 @@ elif(1):
     
     # Regularizer 
     regularizer = 'TV'
-    lambda_tv = 1e-0
+    lambda_tv = 1e-2
     lambda_zernike = .01
     myepstvval = 1e-15 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
     

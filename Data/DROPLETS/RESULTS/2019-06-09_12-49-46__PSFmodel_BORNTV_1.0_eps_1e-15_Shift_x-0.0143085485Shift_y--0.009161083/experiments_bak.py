@@ -313,7 +313,7 @@ elif(1):
     myFile = 'S0105k_zstack_dz0-2um_25C_40x_Ap0-52_Int63_sameAlignment.tif';
     myDarkFile = 'S0105k_zstack_dz0-2um_25C_40x_Ap0-52_Int63_sameAlignment_dark.tif';
     myBrightfieldFile = 'S0105k_zstack_dz0-2um_25C_40x_Ap0-52_Int63_sameAlignment_bright.tif';
-    roi_center = (229,295)
+    roi_center = np.array((229,295))
     dz = .2
     
 
@@ -325,8 +325,8 @@ elif(1):
     matlab_val_name = 'allAmpSimu'   
     mybackgroundval = 0.
     dn = 0.1
-    NAc = .52
-    is_dampic= .051 # smaller => more damping!
+    NAc = .2
+    is_dampic= .01 # smaller => more damping!
     mysubsamplingIC = 0
     
     

@@ -75,25 +75,29 @@ myparams.print()
 
 myparams.Nz,myparams.Nx,myparams.Ny =  experiments.mysize
 myparams.mysize = (myparams.Nz,myparams.Nx,myparams.Ny) # ordering is (Nillu, Nz, Nx, Ny)
-myparams.shiftIcY=experiments.shiftIcY
-myparams.shiftIcX=experiments.shiftIcX
+myparams.shiftIcY=0.1#experiments.shiftIcY
+myparams.shiftIcX=0.#experiments.shiftIcX
 myparams.dn = experiments.dn
 #myparams.NAo = .25
-myparams.NAc = .1#experiments.NAc
+myparams.dx = myparams.dy = .15
+myparams.dz = .3
+myparams.NAc = .15#experiments.NAc
 myparams.NAci = experiments.NAci
-
+experiments.dn = .1
 ''' Create the Model'''
 muscat = mus.MuScatModel(myparams, is_optimization=is_optimization)
-
+#experiments.zernikefactors = np.array((0,0,0,0, -1.2058168e-04, -2.3622499e-03, -7.7374041e-02 ,-1.4900701e-02,  -6.6282146e-04 ,-4.2013789e-04 , -1.2619525e+00))
+    
 muscat.zernikefactors = experiments.zernikefactors
 muscat.zernikemask = experiments.zernikemask
   
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
-mydiameter = 5
+mydiameter = 1
 objtype = 'sphere';'cheek100' # 'sphere', 'twosphere', 'slphantom'
 if(objtype == 'sphere'):
-    obj_real= tf_go.generateObject(mysize=myparams.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = experiments.dn, nEmbb = myparams.nEmbb)#)dn)
-    obj_absorption = tf_go.generateObject(mysize=myparams.mysize, obj_dim=1, obj_type ='sphere', diameter = mydiameter, dn = .0, nEmbb = 0.0)
+    obj_real= tf_go.generateObject(mysize=myparams.mysize, obj_dim=np.array((myparams.dz, myparams.dx, myparams.dy)), obj_type ='sphere', diameter = mydiameter, dn = experiments.dn, nEmbb = myparams.nEmbb)#)dn)
+    obj_absorption= tf_go.generateObject(mysize=myparams.mysize, obj_dim=np.array((myparams.dz, myparams.dx, myparams.dy)), obj_type ='sphere', diameter = mydiameter, dn = .01, nEmbb = 0.)#)dn)
+
 elif(0):
     obj_real = tf_go.generateObject(mysize=myparams.mysize, obj_dim=1, obj_type ='hollowsphere', diameter = mydiameter, dn = experiments.dn, nEmbb = myparams.nEmbb)#)dn)
     obj_absorption = tf_go.generateObject(mysize=myparams.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .0)
@@ -130,7 +134,7 @@ elif(objtype == 'slphantom'):
     obj_real =  np.load('./Data/PHANTOM/phantom_50_50_50.npy')*experiments.dn+ myparams.nEmbb
     obj_absorption = obj_real*0
 
-obj = (obj_real + obj_absorption)
+obj = (obj_real + 1j*obj_absorption)
 #obj = np.roll(obj, shift=5, axis=0)
 
 # introduce zernike factors here
@@ -214,6 +218,16 @@ plt.subplot(233), plt.title('abs XY'),plt.imshow(np.abs(myfwd)[centerslice,:,:])
 plt.subplot(234), plt.title('angle XZ'),plt.imshow(np.angle(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
 plt.subplot(235), plt.title('angle YZ'),plt.imshow(np.angle(myfwd)[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
 plt.subplot(236), plt.title('angle XY'),plt.imshow(np.angle(myfwd)[centerslice,:,:]), plt.colorbar(), plt.show()
+
+# plot the object RI distribution
+plt.figure()    
+plt.subplot(231), plt.title('obj - real XZ'),plt.imshow(np.real(obj)[:,obj.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(232), plt.title('obj - real YZ'),plt.imshow(np.real(obj)[:,:,obj.shape[2]//2]), plt.colorbar()#, plt.show()
+plt.subplot(233), plt.title('obj - real XY'),plt.imshow(np.real(obj)[centerslice,:,:]), plt.colorbar()# plt.show()
+plt.subplot(234), plt.title('obj - imag XZ'),plt.imshow(np.imag(obj)[:,obj.shape[1]//2,:]), plt.colorbar()#, plt.show()
+plt.subplot(235), plt.title('obj - imag YZ'),plt.imshow(np.imag(obj)[:,:,obj.shape[2]//2]), plt.colorbar()#, plt.show()
+plt.subplot(236), plt.title('obj - imag XY'),plt.imshow(np.imag(obj)[centerslice,:,:]), plt.colorbar(), plt.show()
+
 
 #%% save the resultsl
 np.save(savepath+'allAmp_simu.npy', myfwd)
