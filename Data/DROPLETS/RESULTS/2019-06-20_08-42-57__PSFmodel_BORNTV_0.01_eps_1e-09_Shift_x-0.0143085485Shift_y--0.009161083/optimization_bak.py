@@ -38,8 +38,8 @@ mpl.rc('image', cmap='gray')
 '''Define some stuff related to infrastructure'''
 mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 basepath = '.\\'#'/projectnb/cislidt/diederich
-is_aberration = True
-is_aberation_iterstart = 5 # When to start optimizing for aberration?
+is_aberration = False
+is_aberation_iterstart = 25 # When to start optimizing for aberration?
 is_padding = False
 is_optimization = True   
 is_absorption = True 
@@ -53,8 +53,8 @@ is_debugging = True # don't write all data to disk
 
 
 # Displaying/Saving
-Niter =  50
-Nsave = 15 # write info to disk
+Niter =  500
+Nsave = 50 # write info to disk
 NreduceLR = 1000 # when should we reduce the Learningrate? 
 
 

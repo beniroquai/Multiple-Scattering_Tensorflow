@@ -26,7 +26,7 @@ import src.qphase_helper as qh
 import NanoImagingPack as nip
 nip.setDefault('IMG_VIEWER', 'NIP_VIEW')
 
-if(0):
+if(1):
     # Optionally, tweak styles.
     mpl.rc('figure',  figsize=(12, 9))
     mpl.rc('image', cmap='gray')
@@ -64,13 +64,13 @@ if(0):
     ###
     ''' select the ROI of choice and convert it to dipimage '''
     myparas = paras.MyParameter()
-    myparas.preset_40x(dz=.3)
+    myparas.preset_40x(dz=experiments.dz)
     mysize_old = AllData.shape
     
     ''' define the area where to cut out the hologram '''
-    myparas.cc_center = np.array((637, 1418))
-    myparas.cc_size = np.array((600, 600))
-    
+    cc_center = experiments.cc_center
+    cc_size = experiments.cc_size  
+
     np.log(1+nip.ft2d(nip.DampEdge(np.squeeze(nip.image(AllData_aligned[0,:,:])), rwidth = .25, axes=(0,1))))
     
     AllAmp_roi_raw = qh.extractQPhaseCCterm(AllData_aligned, myparas.cc_center, myparas.cc_size)
@@ -87,7 +87,9 @@ if(0):
 #  0.) extract ROI for mean-calcualtion - NORMALIZE
 #  1.) subtract the estimated background - not divide!
 #  2.) normalize by dividing by its mean
-allAmp_clean = qh.QPhaseNormBackground(np.conj(allAmp_roi_sub),roi_center=experiments.roi_center,roi_size=(50,50));
+Nz=allAmp_roi_sub.shape[0]
+roi_size = 50
+allAmp_clean = qh.QPhaseNormBackground(np.conj(allAmp_roi_sub),roi_center=(Nz//2,experiments.roi_center[0],experiments.roi_center[1]),roi_size=(Nz,roi_size,roi_size));
 
 #%%
 ''' Extract ROi for later processing '''

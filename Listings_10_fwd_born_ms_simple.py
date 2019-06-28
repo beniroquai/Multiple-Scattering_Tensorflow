@@ -56,7 +56,7 @@ is_measurement = False
 
 tf.reset_default_graph()
 '''Choose between Born (BORN) or BPM (BPM)'''
-psf_modell =  'BORN' # 1st Born
+psf_modell =  'BPM' # 1st Born
 #psf_modell =  'Born' # MultiSlice
 #psf_modell = None
 is_mictype='BF' # BF, DF, DIC, PC
@@ -93,7 +93,7 @@ muscat.zernikemask = experiments.zernikemask
   
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
 mydiameter = 1
-objtype = 'sphere';'cheek100' # 'sphere', 'twosphere', 'slphantom'
+objtype ='cheek100' # 'sphere', 'twosphere', 'slphantom'
 if(objtype == 'sphere'):
     obj_real= tf_go.generateObject(mysize=myparams.mysize, obj_dim=np.array((myparams.dz, myparams.dx, myparams.dy)), obj_type ='sphere', diameter = mydiameter, dn = experiments.dn, nEmbb = myparams.nEmbb)#)dn)
     obj_absorption= tf_go.generateObject(mysize=myparams.mysize, obj_dim=np.array((myparams.dz, myparams.dx, myparams.dy)), obj_type ='sphere', diameter = mydiameter, dn = .01, nEmbb = 0.)#)dn)

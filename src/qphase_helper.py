@@ -58,48 +58,33 @@ def extractQPhaseCCterm(allholo, cc_center=None, cc_size=None):
 
 def QPhaseNormBackground(allAmp, roi_center=None, roi_size=None):
     ''' Extract empty ROI to remove its background phase and amplitude '''
-    if roi_center is None:
+    if roi_coordinates is None:
         print('we set the ROI-center to default:')
         roi_coordinates = allAmp.shape//2
         print(str(roi_coordinates))
     if roi_size is None:
         print('we set the ROI-size to default:')
-        roi_size =(allAmp.shape[0],50,50)
+        roi_size = np.array((allAmp.shape[0],50,50))
         print(str(roi_size))
-    #if len(roi_center)<3:
-    #    roi_center = np.array((allAmp.shape[0]//2, roi_center[0], roi_center[1]))
-    #if len(roi_size)<3:
-    #    roi_size = np.array((allAmp.shape[0], roi_size[0], roi_size[1]))
         
     # 1.) first get rid of the intensity scaling of the source - correct for
     # intensity fluctuations along Z
-    if(0):
-        print('1.) normalize the phases') 
-        allAmp_emptyroi = nip.extract(allAmp, roi_size, roi_center, checkComplex=False)
-        tmp_mean = np.exp(-1j*np.angle((np.mean(allAmp_emptyroi,(1, 2)))))
-        allAmp *= np.expand_dims(np.expand_dims(tmp_mean,-1),-1)
-        #allAmp_emptyroi = extract(allAmp, roi_size, (roi_center));
-        tmp_mean = np.mean(np.abs(allAmp_emptyroi),(1,2))
-        allAmp /= np.expand_dims(np.expand_dims(tmp_mean,-1),-1)
-        #allAmp = allAmp*exp(-1i*pi);
-        # This should already be enough. Intensity is scaled to 1, phase is 0
-        # bring ref-
+    allAmp_emptyroi = nip.extract(allAmp, roi_size, (roi_center), checkComplex=True) 
+    allAmp = allAmp*np.exp(-1j*np.angle((np.mean(allAmp_emptyroi,(1, 2)))))
+    #allAmp_emptyroi = extract(allAmp, roi_size, (roi_center));
+    allAmp = allAmp/np.mean(np.abs(allAmp_emptyroi),(1,2))
+    #allAmp = allAmp*exp(-1i*pi);
+    # This should already be enough. Intensity is scaled to 1, phase is 0
+    # bring ref-
     # 2.) Then subtract the mean - we want to have zero field in background
     # regions
-    
-    print('2.) normalize the real/imaginary to be one')
-    print(roi_size)
-    print(roi_center)
-    print(allAmp.shape)
-    allAmp_emptyroi = nip.extract(allAmp, roi_size, roi_center, checkComplex=False) 
+    allAmp_emptyroi = np.extract(allAmp, roi_size, roi_center)
     myBackground = np.mean(allAmp_emptyroi,(1,2))
-    allAmp = allAmp-np.expand_dims(np.expand_dims(myBackground,-1),-1)
+    allAmp = allAmp-myBackground
     
     # remove global phase and mangitude from sub-roi mean
     #; (exp(1i*(mean(angle(allAmp_emptyroi2),[],[1 2])));
     #allAmp = allAmp/(mean(abs(allAmp_emptyroi2),[],[1 2]));
     
     print('Done!\n');
-    
-    return allAmp
             

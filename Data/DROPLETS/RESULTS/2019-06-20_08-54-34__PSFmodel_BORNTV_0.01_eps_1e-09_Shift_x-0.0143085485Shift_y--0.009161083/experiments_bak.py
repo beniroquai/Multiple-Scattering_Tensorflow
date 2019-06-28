@@ -292,10 +292,10 @@ elif(1):
     my_learningrate = 1e-2  # learning rate
     
     # Regularizer 
-    regularizer = 'GR'
-    lambda_tv = 1e-3
+    regularizer = 'TV'
+    lambda_tv = 1e-2
     lambda_zernike = .01
-    myepstvval = 1e-11 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+    myepstvval = 1e-9 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
     
     # Control Flow 
     lambda_neg = 0000.
@@ -320,7 +320,7 @@ elif(1):
     shiftIcX = 0.#*0.08124803 
     shiftIcY = 0.#*0.05606132
     zernikefactors = np.array((0,0,0,0, -1.2058168e-04, -2.3622499e-03, -7.7374041e-02 ,-1.4900701e-02,  -6.6282146e-04 ,-4.2013789e-04 , -1.2619525e+00))
-    zernikefactors = np.array((0,0,0,0,0,0,0,0,0,-1.2619525e+00))
+    zernikefactors = 0*np.array((0,0,0,0,0,0,0,0,-1.2619525e+00))
         
     shiftIcX = 0.0143085485 
     shiftIcY =-0.009161083

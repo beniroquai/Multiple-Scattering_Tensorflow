@@ -292,16 +292,18 @@ elif(1):
     my_learningrate = 1e-2  # learning rate
     
     # Regularizer 
-    regularizer = 'GR'
+    regularizer = 'TV'
     lambda_tv = 1e-3
     lambda_zernike = .01
-    myepstvval = 1e-11 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+    myepstvval = 1e-9 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
     
     # Control Flow 
     lambda_neg = 0000.
     
 
     zernikefactors = np.zeros((11,)) 
+    
+
     #zernikefactors[6]=-4.25  # coma X
     #zernikefactors[7]= 4.25 # coma y
     #zernikemask[8]=-0.00  # Trefoil X
@@ -309,7 +311,7 @@ elif(1):
     zernikefactors[10]= -1.5 # defocus
     
     #zernikemask=1.*(np.abs(zernikefactors)>0)
-    zernikemask = np.ones(zernikemask.shape)
+    zernikemask = 0*np.ones(zernikemask.shape)
     zernikemask[0:4] = 0 # don't care about defocus, tip, tilt 
     
     shiftIcX = -.00#-3.62768*2
@@ -319,9 +321,8 @@ elif(1):
     zernikefactors = 0*np.array((0.,0.,0.,0.,0.24419421,0.13148846,1.0717771,0.9693622,-2.1087987,1.0321776,-2.6593506))
     shiftIcX = 0.#*0.08124803 
     shiftIcY = 0.#*0.05606132
-    zernikefactors = np.array((0,0,0,0, -1.2058168e-04, -2.3622499e-03, -7.7374041e-02 ,-1.4900701e-02,  -6.6282146e-04 ,-4.2013789e-04 , -1.2619525e+00))
-    zernikefactors = np.array((0,0,0,0,0,0,0,0,0,-1.2619525e+00))
-        
+    zernikefactors = 0*np.array((0,0,0,0, -1.2058168e-04, -2.3622499e-03, -7.7374041e-02 ,-1.4900701e-02,  -6.6282146e-04 ,-4.2013789e-04 , -1.2619525e+00))
+    
     shiftIcX = 0.0143085485 
     shiftIcY =-0.009161083
 elif(0):

@@ -259,32 +259,18 @@ elif(0):
     '''
     
     
-elif(1):
+elif(0):
     
     '''HeLas from PAtrick/Yashar, Imaged in Dresden! '''
-    
-    ''' Hologram Reconstruction Parameters '''
-    myFolder = 'W:\\diederichbenedict\\Q-PHASE\\PATRICK\\';
-    myFile = 'S0105k_zstack_dz0-2um_25C_40x_Ap0-52_Int63_sameAlignment.tif';
-    myDarkFile = 'S0105k_zstack_dz0-2um_25C_40x_Ap0-52_Int63_sameAlignment_dark.tif';
-    myBrightfieldFile = 'S0105k_zstack_dz0-2um_25C_40x_Ap0-52_Int63_sameAlignment_bright.tif';
-    roi_center = (229,295)
-    cc_center = np.array((637, 1418))
-    cc_size = np.array((600, 600))
-    dz = .2
-    
-    
     # data files for parameters and measuremets 
     matlab_val_file = './Data/cells/HeLa_JL1_a_zstack_dz0-3um_60planes.tif_allAmp.mat'
     matlab_par_file = './Data/cells/HeLa_JL1_a_zstack_dz0-3um_60planes.tifmyParameter.mat'
     matlab_par_name = 'myParameter' 
     matlab_val_name = 'allAmpSimu'   
     mybackgroundval = -0.
-    mybackgroundval = 0.
-    dn = 0.1
-    NAc = .25
-    
-    is_dampic= .051 # smaller => more damping!
+    dn = 0.01
+    NAc = .32
+    is_dampic= .005 # smaller => more damping!
     mysubsamplingIC = 0
     
     
@@ -292,21 +278,20 @@ elif(1):
     my_learningrate = 1e-2  # learning rate
     
     # Regularizer 
-    regularizer = 'GR'
-    lambda_tv = 1e-3
-    lambda_zernike = .01
-    myepstvval = 1e-11 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+    regularizer = 'TV'
+    lambda_tv = 1e1
+    myepstvval = 1e-12##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
     
     # Control Flow 
-    lambda_neg = 0000.
+    lambda_neg = 10000.
     
 
-    zernikefactors = np.zeros((11,)) 
+    zernikefactors = np.zeros((11,))     
     #zernikefactors[6]=-4.25  # coma X
     #zernikefactors[7]= 4.25 # coma y
     #zernikemask[8]=-0.00  # Trefoil X
     #zernikemask[9]=-0.00 # Trefoil y
-    zernikefactors[10]= -1.5 # defocus
+    zernikefactors[10]= -1.75 # defocus
     
     #zernikemask=1.*(np.abs(zernikefactors)>0)
     zernikemask = np.ones(zernikemask.shape)
@@ -315,16 +300,11 @@ elif(1):
     shiftIcX = -.00#-3.62768*2
     shiftIcY = .00#3.7690606*2
 
-    # worked with tv= 1e1, 1e-12, lr: 1e-2 - also in the git!
-    zernikefactors = 0*np.array((0.,0.,0.,0.,0.24419421,0.13148846,1.0717771,0.9693622,-2.1087987,1.0321776,-2.6593506))
-    shiftIcX = 0.#*0.08124803 
-    shiftIcY = 0.#*0.05606132
-    zernikefactors = np.array((0,0,0,0, -1.2058168e-04, -2.3622499e-03, -7.7374041e-02 ,-1.4900701e-02,  -6.6282146e-04 ,-4.2013789e-04 , -1.2619525e+00))
-    zernikefactors = np.array((0,0,0,0,0,0,0,0,0,-1.2619525e+00))
-        
-    shiftIcX = 0.0143085485 
-    shiftIcY =-0.009161083
-elif(0):
+    # worked with tv= 1e-1, 1e-12, lr: 1e-2 - also in the git!
+    zernikefactors = np.array((0.,0.,0.,0.,0.24419421,0.13148846,1.0717771,0.9693622,-2.1087987,1.0321776,-2.6593506))
+    shiftIcX = 0.08124803 
+    shiftIcY = 0.05606132
+elif(1):
     
     '''Droplets recent from Dresden! '''
     
@@ -334,12 +314,9 @@ elif(0):
     myDarkFile = 'S0105k_zstack_dz0-2um_25C_40x_Ap0-52_Int63_sameAlignment_dark.tif';
     myBrightfieldFile = 'S0105k_zstack_dz0-2um_25C_40x_Ap0-52_Int63_sameAlignment_bright.tif';
     roi_center = (229,295)
-    cc_center = np.array((637, 1418))
-    cc_size = np.array((600, 600))
-   
     dz = .2
     
-    ''' Reconstruction Parameters '''
+
     # data files for parameters and measuremets 
     matlab_val_file = './Data/cells/S0105k_zstack_dz0-2um_25C_40x_Ap0-52_Int63_sameAlignment.tif_allAmp.mat'
     matlab_par_file = './Data/cells/S0105k_zstack_dz0-2um_25C_40x_Ap0-52_Int63_sameAlignment.tifmyParameter.mat'
