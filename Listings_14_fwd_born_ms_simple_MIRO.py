@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 import time
 from datetime import datetime
 import os
-
+import NanoImagingPack as nip
 
 # change the following to %matplotlib notebook for interactive plotting
 # %matplotlib inline
@@ -57,7 +57,7 @@ is_measurement = False
 tf.reset_default_graph()
 '''Choose between Born (BORN) or BPM (BPM)'''
 psf_modell =  'BPM' # 1st Born
-psf_modell =  'Born' # MultiSlice
+#psf_modell =  'Born' # MultiSlice
 #psf_modell = None
 is_mictype='BF' # BF, DF, DIC, PC
 
@@ -69,78 +69,22 @@ tf.reset_default_graph()
 # Generate Test-Object
 ''' File which stores the experimental parameters from the Q-PHASE setup 
     2.) Read in the parameters of the dataset ''' 
-myparams = paras.MyParameter()
+myparams = paras.MyParameter(Nx=128, Ny=128, NAc=.25, Nz=2, dz=3)
+
 #myparams.loadmat(mymatpath = experiments.matlab_par_file, mymatname = experiments.matlab_par_name)
 myparams.print()
 
-myparams.Nz,myparams.Nx,myparams.Ny =  experiments.mysize
-myparams.mysize = (myparams.Nz,myparams.Nx,myparams.Ny) # ordering is (Nillu, Nz, Nx, Ny)
-myparams.shiftIcY=0.1#experiments.shiftIcY
-myparams.shiftIcX=0.#experiments.shiftIcX
-myparams.dn = experiments.dn
-#myparams.NAo = .25
-myparams.dx = myparams.dy = .15
-myparams.dz = .3
-myparams.NAc = .15#experiments.NAc
-myparams.NAci = experiments.NAci
-experiments.dn = .1
 ''' Create the Model'''
 muscat = mus.MuScatModel(myparams, is_optimization=is_optimization)
 #experiments.zernikefactors = np.array((0,0,0,0, -1.2058168e-04, -2.3622499e-03, -7.7374041e-02 ,-1.4900701e-02,  -6.6282146e-04 ,-4.2013789e-04 , -1.2619525e+00))
     
-muscat.zernikefactors = experiments.zernikefactors
-muscat.zernikemask = experiments.zernikemask
-  
-''' Create a 3D Refractive Index Distributaton as a artificial sample'''
-mydiameter = 1
-objtype = 'sphere'#'cheek100' # 'sphere', 'twosphere', 'slphantom'
-if(objtype == 'sphere'):
-    obj_real= tf_go.generateObject(mysize=myparams.mysize, obj_dim=np.array((myparams.dz, myparams.dx, myparams.dy)), obj_type ='sphere', diameter = mydiameter, dn = experiments.dn, nEmbb = myparams.nEmbb)#)dn)
-    obj_absorption= tf_go.generateObject(mysize=myparams.mysize, obj_dim=np.array((myparams.dz, myparams.dx, myparams.dy)), obj_type ='sphere', diameter = mydiameter, dn = .01, nEmbb = 0.)#)dn)
-
-elif(0):
-    obj_real = tf_go.generateObject(mysize=myparams.mysize, obj_dim=1, obj_type ='hollowsphere', diameter = mydiameter, dn = experiments.dn, nEmbb = myparams.nEmbb)#)dn)
-    obj_absorption = tf_go.generateObject(mysize=myparams.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .0)
-elif(0):
-    obj_real= tf_go.generateObject(mysize=myparams.mysize, obj_dim=1, obj_type ='twosphere', diameter = mydiameter, dn = experiments.dn, nEmbb = myparams.nEmbb)
-    obj_absorption = tf_go.generateObject(mysize=myparams.mysize, obj_dim=muscat.dx, obj_type ='twosphere', diameter = mydiameter, dn = .0)
-elif(0):
-    obj_real= tf_go.generateObject(mysize=myparams.mysize, obj_dim=muscat.dx, obj_type ='foursphere', diameter = mydiameter/8, dn = experiments.dn)#)dn)
-    obj_absorption = tf_go.generateObject(mysize=myparams.mysize, obj_dim=muscat.dx, obj_type ='foursphere', diameter = mydiameter/8, dn = .00)
-elif(0):
-    obj_real= tf_go.generateObject(mysize=myparams.mysize, obj_dim=muscat.dx, obj_type ='eightsphere', diameter = mydiameter/8, dn = experiments.dn)#)dn)
-    obj_absorption = tf_go.generateObject(mysize=myparams.mysize, obj_dim=muscat.dx, obj_type ='eightsphere', diameter = mydiameter/8, dn = .01)
-elif(0):
-    # load a neuron
-    obj_real= np.load('./Data/NEURON/myneuron_32_32_70.npy')*experiments.dn
-    obj_absorption = obj_real*0
-elif(0):
-    # load the 3 bar example 
-    obj_real= tf_go.generateObject(mysize=myparams.mysize, obj_dim=muscat.dx, obj_type ='bars', diameter = 3, dn = experiments.dn)#)dn)
-    obj_absorption = obj_real*0
-elif(objtype == 'cheek'):
-    # Fake Cheek-Cell
-    matlab_val_file = './Data/PHANTOM/HeLa_cell_mat_obj.mat'; matname='HeLa_cell_mat'
-    obj_real = data.import_realdata_h5(filename = matlab_val_file, matname=matname)
-    obj_absorption = obj_real*0  
-elif(objtype == 'cheek100'):
-    # Fake Cheek-Cell
-    matlab_val_file = './Data/PHANTOM/HeLa_cell_mat_obj_100.mat'; matname='HeLa_cell_mat'
-    obj_real = data.import_realdata_h5(filename = matlab_val_file, matname=matname)
-    obj_absorption = obj_real*0
-elif(objtype == 'slphantom'):
-    # load a phantom
-    # obj_real= np.load('./Data/PHANTOM/phantom_64_64_64.npy')*dn
-    obj_real =  np.load('./Data/PHANTOM/phantom_50_50_50.npy')*experiments.dn+ myparams.nEmbb
-    obj_absorption = obj_real*0
+obj_real = np.zeros(myparams.mysize)
+obj_real[0,:,:] = 1.33+.01*tf_go.generateSpeckle(mysize=myparams.Nx, D=20)
+obj_real[1,:,:]=1.33+myparams.dn*(nip.rr(mysize=(myparams.Nx,myparams.Ny))<10)*(nip.rr(mysize=(myparams.Nx,myparams.Ny),freq='ftfreq'))
+obj_absorption = obj_real*0
 
 obj = (obj_real + 1j*obj_absorption)
 #obj = np.roll(obj, shift=5, axis=0)
-
-# introduce zernike factors here
-muscat.zernikefactors = experiments.zernikefactors
-#muscat.zernikefactors = np.array((0,0,0,0,0,0,.1,-1,0,0,-2)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
-muscat.zernikemask = experiments.zernikefactors*0
 
 print('Start the TF-session')
 sess = tf.Session()#config=tf.ConfigProto(log_device_placement=True))
@@ -148,7 +92,7 @@ sess = tf.Session()#config=tf.ConfigProto(log_device_placement=True))
 ''' Compute the systems model'''
 if psf_modell == 'BPM':
     # Define 'BPM' model    
-    tf_fwd = muscat.compute_bpm(obj,is_padding=is_padding, mysubsamplingIC=experiments.mysubsamplingIC)    
+    tf_fwd = muscat.compute_bpm(obj,is_padding=is_padding, mysubsamplingIC=myparams.mysubsamplingIC)    
     
 elif psf_modell == 'BORN':
     # Define Born Model 
@@ -163,10 +107,6 @@ else:
 
     # Define Fwd operator
     tf_fwd = muscat.computeconvolution(TF_ASF=TF_ASF, is_padding=is_padding)
-    
-
-
-
     
     is_mictype='BF'
 ''' Evaluate the model '''

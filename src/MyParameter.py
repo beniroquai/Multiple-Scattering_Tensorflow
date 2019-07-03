@@ -20,18 +20,50 @@ class MyParameter:
     shiftIcY = 0
     dx = 0.2228
     dy = 0.2228
-    dz = 0.7000    
+    dz = 0.7000  
+    dn = .1
     Nz = 50
     Nx = 120
     Ny = 120
     mysize = np.array((Nz, Nx, Ny))
     zernikefactors = np.array((0,0,0,0,0,0,0,0,0,0,0))
     zernikemask = np.zeros(zernikefactors.shape)
+    mysubsamplingIC = 0
     
     # Reconstruciton parameters 
     cc_center = mysize[1:-1]//2 #np.array((0,0))
     cc_size = np.array((600,600))
     
+    def __init__(self, lambda0 = 0.65, nEmbb = 1.33, NAc = 0.52, NAci = 0, 
+                 NAo=.95, shiftIcX = 0, shiftIcY = 0,
+                 dx = 0.2228, dy = 0.2228, dz = 0.2228, dn = .1,
+                 Nx = 120, Ny = 120, Nz = 50, mysubsamplingIC=0):
+        
+        # Parameter class for all the system's parameters
+        self.lambda0 = lambda0
+        self.nEmbb = nEmbb
+        self.NAc = NAc
+        self.NAci = NAci
+        self.NAo = NAo
+        self.shiftIcX = shiftIcX
+        self.shiftIcY = shiftIcY
+        self.dx = dx
+        self.dy = dy
+        self.dz = dz
+        self.Nz = Nz
+        self.Nx = Nx
+        self.Ny = Ny
+        self.dn = dn
+        self.mysize = np.array((Nz, Nx, Ny))
+        self.zernikefactors = np.array((0,0,0,0,0,0,0,0,0,0,0))
+        self.zernikemask = np.zeros(self.zernikefactors.shape)
+        self.mysubsamplingIC = mysubsamplingIC
+        
+        # Reconstruciton parameters 
+        self.cc_center = self.mysize[1:-1]//2 #np.array((0,0))
+        self.cc_size = np.array((600,600))
+        
+        
     def print(self):
         '''This Function just plots all values'''
         print('Lambda0: '+str(self.lambda0))
@@ -113,3 +145,4 @@ class MyParameter:
         self.dz_orig = dz # % mum
         self.dz = self.dz_orig*mysubsample; # % mum
         
+    

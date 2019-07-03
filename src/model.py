@@ -507,7 +507,7 @@ class MuScatModel(object):
 
 
 
-    def computepsf(self):
+    def computepsf_working(self):
 
         # here we only want to gather the partially coherent transfer function PTF
         # which is the correlation of the PTF_c and PTF_i 
@@ -534,12 +534,58 @@ class MuScatModel(object):
 
         # I wish I could use this here - but not a good idea!
         #self.normfac = tf.sqrt(tf.reduce_sum(tf.abs(TF_ASF[self.mysize[0]//2,:,:])))
-        self.normfac = tf.sqrt(tf.reduce_sum(tf.abs(TF_ASF)))
-        #self.normfac = 1.
+        #self.normfac = tf.sqrt(tf.reduce_sum(tf.abs(TF_ASF)))
+        #self.normfac = tf.sqrt(tf.reduce_max(tf.abs(TF_ASF)))
+        #self.normfac = tf.sqrt(tf.reduce_sum(tf.abs(TF_ASF),0))
+        
+        self.normfac = 1.
         TF_ASF = TF_ASF/tf.complex(self.normfac,0.) # TODO: norm Tensorflow?! 
 
         # 4.) precompute ATF - just im case
         TF_ATF = tf_helper.my_ft3d(TF_ASF)
+        #normfac = tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(TF_ATF[self.mysize[0]//2,:,:])))
+        return TF_ASF, TF_ATF 
+    
+    
+    def computepsf(self):
+
+        # here we only want to gather the partially coherent transfer function PTF
+        # which is the correlation of the PTF_c and PTF_i 
+        # we compute it as the slice propagation of the pupil function
+
+        # 1. + 2.) Define the input field as the BFP and effective pupil plane of the condenser 
+        # Compute the ASF for the Condenser and Imaging Pupil
+        # Rainer suggests to normalize everyhing to be within range of one - so why not using NA coordinates?
+        self.TF_xx = tf_helper.xx((self.mysize[1],self.mysize[2])) * 2 * np.pi * self.TF_shiftIcX /( self.lambdaM*self.params.nEmbb/self.params.dx)
+        self.TF_yy = tf_helper.yy((self.mysize[1],self.mysize[2])) * 2 * np.pi * self.TF_shiftIcY /( self.lambdaM*self.params.nEmbb/self.params.dy)
+    
+        TF_icshift = tf.exp(1j*tf.cast((self.TF_xx+self.TF_yy), tf.complex64))
+        self.TF_Ic_shift = tf_helper.my_ift2d(tf_helper.my_ft2d(self.TF_Ic)*TF_icshift)
+
+        
+        h_det = tf_helper.my_ift2d(self.TF_myAllSlicePropagator_psf * tf_helper.fftshift2d(self.TF_Po_aberr*1j))#* self.TF_Po_aberr))
+        h_illu = tf_helper.my_ift2d(self.TF_myAllSlicePropagator_psf * self.TF_Ic_shift * 1j)#self.TF_Ic*1j)
+        
+        # does not make any sense, but this way at least roughly same values compared to BPM appear
+        h_res = tf.conj(h_det) * h_illu 
+
+        # 3.) correlation of the pupil function to get the APTF
+        dfx = 1/self.mysize[1]/self.params.dx
+        dfy = 1/self.mysize[2]/self.params.dy
+        
+        TF_ATF = (2.0*tf_helper.my_ft2d(1.0j*h_res*dfx*dfy))
+        ax = 2
+        TF_ATF = tf.transpose(TF_ATF, [1,2,0])
+        TF_ATF = tf.spectral.fft(TF_ATF)
+        TF_ATF = tf.transpose(TF_ATF, [2,0,1])*self.params.dz
+        
+        total_source = tf.reduce_sum(self.TF_Ic_shift*self.TF_Po_aberr*tf.conj(self.TF_Po_aberr))*dfx*dfy
+        TF_ATF = TF_ATF/total_source
+        TF_ASF = tf_helper.my_ift3d(TF_ATF)
+        
+        
+        # 4.) precompute ATF - just im case
+        
         #normfac = tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(TF_ATF[self.mysize[0]//2,:,:])))
         return TF_ASF, TF_ATF 
 

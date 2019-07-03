@@ -118,3 +118,19 @@ def generateObject(mysize = [100, 100, 100], obj_dim = ((1.5, .75, .75)), obj_ty
 
 
             
+def generateSpeckle(mysize=128, D=40):
+
+    img = np.zeros((mysize, mysize));
+    pad = mysize//2; # padding
+    for k in range(pad-D,D+pad):
+      for l in range(pad-D,D+pad):
+        if np.abs((pad-k)**2+(pad-l)^2) < mysize**2/4 : 
+          img[k,l] = np.exp(1j*np.random.uniform(-np.pi,np.pi))
+
+    mfft = np.fft.fft2(img)
+    img = nip.abssqr(mfft)
+    subimg = nip.extract(np.abs(img), mysize)
+    subimg -= np.min(subimg)
+    subimg /= np.max(subimg)
+    return subimg
+    

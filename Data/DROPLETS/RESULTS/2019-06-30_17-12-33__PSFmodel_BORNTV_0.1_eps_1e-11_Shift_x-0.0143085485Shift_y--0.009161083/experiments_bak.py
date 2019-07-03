@@ -325,8 +325,8 @@ elif(1):
     zernikefactors = np.array((0,0,0,0, -1.2058168e-04, -2.3622499e-03, -7.7374041e-02 ,-1.4900701e-02,  -6.6282146e-04 ,-4.2013789e-04 , -1.2619525e+00))
     zernikefactors = 0*np.array((0,0,0,0,0,0,0,0,0,0,-1.2619525e+00))
         
-    shiftIcX = 0*0.0143085485 
-    shiftIcY = -0.009161083*0
+    shiftIcX = 0.0143085485 
+    shiftIcY =-0.009161083
 elif(0):
     
     '''Droplets recent from Dresden! '''

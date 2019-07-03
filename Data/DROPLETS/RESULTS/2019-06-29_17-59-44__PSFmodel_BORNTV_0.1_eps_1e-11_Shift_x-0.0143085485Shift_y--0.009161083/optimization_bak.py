@@ -196,20 +196,14 @@ if is_recomputemodel:
         tf_regloss += muscat.tf_lambda_tv*(reg.Reg_GR(muscat.TF_obj) + reg.Reg_GR(muscat.TF_obj_absorption))#, eps1=muscat.tf_eps, eps2=muscat.tf_eps)  #Alernatively tf_total_variation_regularization # total_variation
     elif(experiments.regularizer=='L1'):
         # L1 rgularizer
-        print('We are using L1 - Regularization')
+        print('We are using GR - Regularization')
         tf_regloss += muscat.tf_lambda_tv*(reg.Reg_L1(muscat.TF_obj)+reg.Reg_L1(muscat.TF_obj_absorption))
     elif(experiments.regularizer=='L2'):
         # L1 rgularizer
-        print('We are using L2 - Regularization')
+        print('We are using GR - Regularization')
         tf_regloss = muscat.tf_lambda_tv*(reg.Reg_L2(muscat.TF_obj)+reg.Reg_L2(muscat.TF_obj_absorption))
-    
-    tf_zernloss = experiments.lambda_zernike*reg.Reg_L2(muscat.TF_zernikefactors) # general loss on the zernike modes - don't over estimate them by value!
-    tf_icshiftloss = experiments.lambda_icshift*reg.Reg_L2(muscat.TF_shiftIcX+muscat.TF_shiftIcY)
-    
-    # fuse all loss functions
+    tf_zernloss = experiments.lambda_zernike*reg.Reg_L2(muscat.TF_zernikefactors+10*(muscat.TF_shiftIcX+muscat.TF_shiftIcY)) # general loss on the zernike modes - don't over estimate them by value!
     tf_regloss += tf_zernloss
-    tf_regloss += tf_icshiftloss
-    
     '''Define Optimizer'''
                                             
     '''Negativity Constraint'''                                          
