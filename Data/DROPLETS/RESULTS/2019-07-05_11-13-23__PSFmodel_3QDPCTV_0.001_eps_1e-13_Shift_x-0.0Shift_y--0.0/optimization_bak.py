@@ -50,13 +50,13 @@ is_estimatepsf = False
 mybordersize = 20
 psf_model = 'BPM'
 psf_model = '3QDPC'
-psf_model = 'BORN' # either compute BORN or BPM ()
+#psf_model = 'BORN' # either compute BORN or BPM ()
 is_debugging = True # don't write all data to disk
 
 
 # Displaying/Saving
 Niter =  50
-Nsave = 10 # write info to disk
+Nsave = 15 # write info to disk
 NreduceLR = 1000 # when should we reduce the Learningrate? 
 
 
@@ -163,8 +163,7 @@ if is_recomputemodel:
         muscat.computemodel()
         tf_fwd = muscat.computeconvolution(muscat.TF_ASF, is_padding='border',border_region=my_border_region)
         #tf_fwd = muscat.computeconvolution(muscat.TF_ASF, is_padding=True)    
-
-    elif(psf_model=='BPM'):
+    if(psf_model=='BPM'):
         ''' Compute the Multiple Scattering model'''
         muscat.computesys(obj=None, is_padding=is_padding, mysubsamplingIC=experiments.mysubsamplingIC, is_compute_psf='BPM', is_dampic=experiments.is_dampic)
         muscat.TF_obj = tf.Variable(np.real(obj_guess), dtype=tf.float32, name='Object_Variable_Real')
@@ -374,10 +373,8 @@ print('ShiftX/Y: '+ str(sess.run(muscat.TF_shiftIcX))+' / ' + str(sess.run(musca
 
 #nip.v5(nip.cat(np.stack((np.flip(nip.extract(result_phaselist[-1], muscat.mysize,None,None),0),np.real(np_meas), np.imag(np_meas)), axis=0)))
 nip.v5(nip.cat(np.stack(((nip.extract(result_phaselist[-1], muscat.mysize,None,None)),np.real(np_meas), np.imag(np_meas)), axis=0)))
-nip.v5(nip.cat(np.stack(((nip.extract(result_absorptionlist[-1], muscat.mysize,None,None)),np.real(np_meas), np.imag(np_meas)), axis=0)))
+nip.v5(nip.cat(np.stack(((nip.extract(result_phaselist[-1], muscat.mysize,None,None)),np.real(np_meas), np.imag(np_meas)), axis=0)))
 
-import tifffile as tif
-tif.write
 # backup current script
 from shutil import copyfile
 src = (os.path.basename(__file__))
@@ -385,3 +382,6 @@ folder = os.path.dirname
 copyfile(src, savepath+'/optimization_bak.py')
 copyfile('./src/experiments.py', savepath+'/experiments_bak.py')
 
+
+#%
+plt.imshow(np.fft.ifftshift(np.angle(sess.run(muscat.TF_Po_aberr))))

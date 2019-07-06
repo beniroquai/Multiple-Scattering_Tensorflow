@@ -293,12 +293,12 @@ elif(1):
     my_learningrate = 1e-2  # learning rate
     
     # Regularizer 
-    regularizer = 'GR'
+    regularizer = 'TV'
     lambda_tv = 1e-1
-    lambda_zernike = 0*1.
-    lambda_icshift = 0*1.
+    lambda_zernike = .01
+    lambda_icshift = 100.
     lambda_neg = 0*100.
-    myepstvval = 1e-9 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+    myepstvval = 1e-11 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
     
     # Control Flow 
     

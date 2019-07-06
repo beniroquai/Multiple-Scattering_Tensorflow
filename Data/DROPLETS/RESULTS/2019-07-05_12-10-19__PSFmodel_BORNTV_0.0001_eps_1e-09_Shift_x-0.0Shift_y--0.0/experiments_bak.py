@@ -293,8 +293,8 @@ elif(1):
     my_learningrate = 1e-2  # learning rate
     
     # Regularizer 
-    regularizer = 'GR'
-    lambda_tv = 1e-1
+    regularizer = 'TV'
+    lambda_tv = 1e-4
     lambda_zernike = 0*1.
     lambda_icshift = 0*1.
     lambda_neg = 0*100.

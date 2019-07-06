@@ -58,6 +58,8 @@ tf.reset_default_graph()
 '''Choose between Born (BORN) or BPM (BPM)'''
 psf_modell =  'BPM' # 1st Born
 #psf_modell =  'Born' # MultiSlice
+psf_modell = '3QDPC'
+
 #psf_modell = None
 is_mictype='BF' # BF, DF, DIC, PC
 
@@ -99,7 +101,7 @@ elif psf_modell == 'BORN':
     tf_fwd = muscat.compute_born(obj, is_padding=is_padding, mysubsamplingIC=experiments.mysubsamplingIC, is_precompute_psf=True)
 else:
     # This function is a wrapper to compute the Born fwd-model (convolution)
-    muscat.computesys(obj, is_padding=False, mysubsamplingIC=experiments.mysubsamplingIC, is_compute_psf='BORN',is_dampic=experiments.is_dampic, is_mictype=is_mictype)
+    muscat.computesys(obj, is_padding=False, mysubsamplingIC=experiments.mysubsamplingIC, is_compute_psf=psf_modell,is_dampic=experiments.is_dampic, is_mictype=is_mictype)
         
     # Create Model Instance
     muscat.computemodel()

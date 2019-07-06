@@ -17,6 +17,8 @@ import time
 from datetime import datetime
 import os
 
+import NanoImagingPack as nip
+
 
 # change the following to %matplotlib notebook for interactive plotting
 # %matplotlib inline
@@ -56,9 +58,11 @@ is_measurement = False
 
 tf.reset_default_graph()
 '''Choose between Born (BORN) or BPM (BPM)'''
-psf_modell =  'BPM' # 1st Born
-psf_modell =  'Born' # MultiSlice
-#psf_modell = None
+
+psf_model =  'BORN' # MultiSlice
+psf_model =  '3QDPC' # MultiSlice
+#psf_model =  'BPM' # 1st Born
+#psf_model = None
 is_mictype='BF' # BF, DF, DIC, PC
 
 
@@ -146,16 +150,22 @@ print('Start the TF-session')
 sess = tf.Session()#config=tf.ConfigProto(log_device_placement=True))
 
 ''' Compute the systems model'''
-if psf_modell == 'BPM':
+if psf_model == 'BPM':
     # Define 'BPM' model    
     tf_fwd = muscat.compute_bpm(obj,is_padding=is_padding, mysubsamplingIC=experiments.mysubsamplingIC)    
     
-elif psf_modell == 'BORN':
+elif psf_model == 'BORN':
     # Define Born Model 
     tf_fwd = muscat.compute_born(obj, is_padding=is_padding, mysubsamplingIC=experiments.mysubsamplingIC, is_precompute_psf=True)
+
+elif psf_model == '3QDPC':
+    # Define Born Model 
+    tf_fwd = muscat.compute_3qdpc(obj, is_padding=is_padding, mysubsamplingIC=experiments.mysubsamplingIC, is_precompute_psf=True)
+        
+    
 else:
     # This function is a wrapper to compute the Born fwd-model (convolution)
-    muscat.computesys(obj, is_padding=False, mysubsamplingIC=experiments.mysubsamplingIC, is_compute_psf='BORN',is_dampic=experiments.is_dampic, is_mictype=is_mictype)
+    muscat.computesys(obj, is_padding=False, mysubsamplingIC=experiments.mysubsamplingIC, is_compute_psf=psf_model,is_dampic=experiments.is_dampic, is_mictype=is_mictype)
         
     # Create Model Instance
     muscat.computemodel()
@@ -180,10 +190,13 @@ myfwd = sess.run(tf_fwd)
 end = time.time()
 print(end - start)
 
+
+#nip.v5(muscat.A_input)
 #%% display the results
 centerslice = myfwd.shape[0]//2
 
-if(psf_modell is 'BORN'):
+if(psf_model is 'BORN' or psf_model is '3QDPC'):
+    #%%
     plt.figure()    
     plt.subplot(231), plt.title('real XZ'), plt.imshow(np.real(((muscat.myASF)))[:,muscat.myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
     plt.subplot(233), plt.title('real XZ'), plt.imshow(np.real(((muscat.myASF)))[centerslice,:,:]), plt.colorbar()#, plt.show()    
@@ -199,10 +212,10 @@ if(psf_modell is 'BORN'):
     plt.subplot(236), plt.title('imag XZ'), plt.imshow(np.imag(((muscat.myATF))**.2)[centerslice,:,:]), plt.colorbar()#, plt.show()    
     plt.subplot(235), plt.title('imag XZ'), plt.imshow(np.imag(((muscat.myATF))**.2)[:,:,muscat.myASF.shape[2]//2]), plt.colorbar(), plt.show()    
 
-# Display Apertures
+#%% Display Apertures
 plt.subplot(131), plt.title('Ic'),plt.imshow(muscat.Ic), plt.colorbar()#, plt.show()
-plt.subplot(132), plt.title('Abs Po'),plt.imshow(np.fft.fftshift(np.abs(muscat.Po))), plt.colorbar()#, plt.show()
-plt.subplot(133), plt.title('Angle Po'),plt.imshow(np.fft.fftshift(np.angle(muscat.Po))), plt.colorbar()# plt.show()
+plt.subplot(132), plt.title('Abs Po'),plt.imshow(np.abs(muscat.Po)), plt.colorbar()#, plt.show()
+plt.subplot(133), plt.title('Angle Po'),plt.imshow(np.angle(muscat.Po)), plt.colorbar()# plt.show()
 
 #%%
 plt.figure()    
