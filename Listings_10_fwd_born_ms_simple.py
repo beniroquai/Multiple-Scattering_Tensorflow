@@ -18,7 +18,7 @@ from datetime import datetime
 import os
 
 import NanoImagingPack as nip
-
+import src.tf_helper as tf_helper
 
 # change the following to %matplotlib notebook for interactive plotting
 # %matplotlib inline
@@ -60,7 +60,7 @@ tf.reset_default_graph()
 '''Choose between Born (BORN) or BPM (BPM)'''
 
 psf_model =  'BORN' # MultiSlice
-psf_model =  '3QDPC' # MultiSlice
+#psf_model =  '3QDPC' # MultiSlice
 #psf_model =  'BPM' # 1st Born
 #psf_model = None
 is_mictype='BF' # BF, DF, DIC, PC
@@ -195,23 +195,11 @@ print(end - start)
 #%% display the results
 centerslice = myfwd.shape[0]//2
 
-if(psf_model is 'BORN' or psf_model is '3QDPC'):
-    #%%
-    plt.figure()    
-    plt.subplot(231), plt.title('real XZ'), plt.imshow(np.real(((muscat.myASF)))[:,muscat.myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
-    plt.subplot(233), plt.title('real XZ'), plt.imshow(np.real(((muscat.myASF)))[centerslice,:,:]), plt.colorbar()#, plt.show()    
-    plt.subplot(232), plt.title('real XZ'), plt.imshow(np.real(((muscat.myASF)))[:,:,muscat.myASF.shape[2]//2]), plt.colorbar()#
-    plt.subplot(234), plt.title('imag XZ'), plt.imshow(np.imag(((muscat.myASF)))[:,muscat.myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
-    plt.subplot(236), plt.title('imag XZ'), plt.imshow(np.imag(((muscat.myASF)))[centerslice,:,:]), plt.colorbar()#, plt.show()    
-    plt.subplot(235), plt.title('imag XZ'), plt.imshow(np.imag(((muscat.myASF)))[:,:,muscat.myASF.shape[2]//2]), plt.colorbar(), plt.show()    
-    
-    plt.subplot(231), plt.title('real XZ'), plt.imshow(np.real(((muscat.myATF))**.2)[:,muscat.myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
-    plt.subplot(233), plt.title('real XZ'), plt.imshow(np.real(((muscat.myATF))**.2)[centerslice,:,:]), plt.colorbar()#, plt.show()    
-    plt.subplot(232), plt.title('real XZ'), plt.imshow(np.real(((muscat.myATF))**.2)[:,:,muscat.myASF.shape[2]//2]), plt.colorbar()#
-    plt.subplot(234), plt.title('imag XZ'), plt.imshow(np.imag(((muscat.myATF))**.2)[:,muscat.myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
-    plt.subplot(236), plt.title('imag XZ'), plt.imshow(np.imag(((muscat.myATF))**.2)[centerslice,:,:]), plt.colorbar()#, plt.show()    
-    plt.subplot(235), plt.title('imag XZ'), plt.imshow(np.imag(((muscat.myATF))**.2)[:,:,muscat.myASF.shape[2]//2]), plt.colorbar(), plt.show()    
-
+if(psf_model == 'BORN' or psf_model == '3QDPC'):
+    #% write Freq-Support to disk
+    tf_helper.plot_ASF_ATF(savepath, muscat.myATF, muscat.myASF)
+    tf_helper.plot_obj_fft(savepath, myfwd)
+#%%
 #%% Display Apertures
 plt.subplot(131), plt.title('Ic'),plt.imshow(muscat.Ic), plt.colorbar()#, plt.show()
 plt.subplot(132), plt.title('Abs Po'),plt.imshow(np.abs(muscat.Po)), plt.colorbar()#, plt.show()

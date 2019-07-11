@@ -97,7 +97,7 @@ class MuScatModel(object):
         # Decide whether we wan'T to optimize or simply execute the model
         if (self.is_optimization):
             # assign training variables 
-            self.tf_lambda_tv = tf.placeholder(tf.float32, [])
+            self.tf_lambda_reg = tf.placeholder(tf.float32, [])
             self.tf_eps = tf.placeholder(tf.float32, [])
             self.tf_meas = tf.placeholder(dtype=tf.complex64, shape=self.mysize_old)
             self.tf_learningrate = tf.placeholder(tf.float32, []) 
@@ -557,11 +557,14 @@ class MuScatModel(object):
         
         
         # I wish I could use this here - but not a good idea!
-        #self.normfac = tf.sqrt(tf.reduce_sum(tf.abs(TF_ASF[self.mysize[0]//2,:,:])))
-        #self.normfac = tf.sqrt(tf.reduce_sum(tf.abs(TF_ASF)))
-        #self.normfac = tf.complex(tf.sqrt(tf.reduce_max(tf.abs(TF_ASF))),0.)
-        self.TF_normfac = tf.complex(tf.sqrt(tf.reduce_sum(tf.abs(TF_h_res),0)),1.) # THIS IS THE ONE!
-        #normfac = tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(TF_ATF[self.mysize[0]//2,:,:])))
+        #self.TF_normfac = tf.sqrt(tf.reduce_sum(tf.abs(TF_ASF[self.mysize[0]//2,:,:])))
+        #self.TF_normfac = tf.sqrt(tf.reduce_sum(tf.abs(TF_ASF)))
+        #self.TF_normfac = tf.complex(tf.sqrt(tf.reduce_max(tf.abs(TF_ASF))),0.)
+        self.TF_normfac = tf.complex(tf.sqrt(tf.reduce_sum(tf.abs(TF_h_res),0)),0.) # THIS IS THE ONE!
+        
+        ''' ATTENTION: NEVER do tf.complex(X, 0.) - > by normalizing, the imaginary part is scaled by infitiny!!  '''
+    
+        #TF_normfac = tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(TF_ATF[self.mysize[0]//2,:,:])))
         
         #self.normfac = 1.
         #self.normfac = tf.reduce_sum(self.TF_Ic_shift*self.TF_Po_aberr*tf.conj(self.TF_Po_aberr))
@@ -807,7 +810,7 @@ class MuScatModel(object):
                 lambda0 = float(self.params.lambda0),
                 lambdaM = float(self.lambdaM),
                 learningrate = mylr, 
-                lambda_tv = mytv, 
+                lambda_reg = mytv, 
                 eps_tv = myeps) 
                 #zernikfactors = float(self.zernikefactors))
  

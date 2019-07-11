@@ -24,14 +24,13 @@ my_learningrate = 1e-2  # learning rate
 
 # Regularizer 
 regularizer = 'TV'
-lambda_reg = 1e-3
+lambda_tv = 1e-3
 lambda_zernike = .5
 lambda_icshift = 0.
 myepstvval = 1e-12##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Control Flow 
 lambda_neg = 10000.
-lambda_pos = 10000.
 
 resultpath = ".\\Data\\DROPLETS\\RESULTS\\"
 
@@ -158,7 +157,7 @@ elif(0):
     mybordersize = 20
     my_learningrate = 1e-2  # learning rate
     NreduceLR = 1000 # when should we reduce the Learningrate? 
-    lambda_reg = 5e1
+    lambda_tv = 5e1
     myepstvval = 1e-15##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
     lambda_neg = 10000.
     Niter =  300
@@ -208,7 +207,7 @@ elif(0):
     mybordersize = 20
     my_learningrate = 1e-2  # learning rate
     NreduceLR = 1000 # when should we reduce the Learningrate? 
-    lambda_reg = 5e1
+    lambda_tv = 5e1
     myepstvval = 1e-15##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
     lambda_neg = 10000.
     Niter =  300
@@ -254,14 +253,14 @@ elif(0):
     mybordersize = 20
     my_learningrate = 1e-1  # learning rate
     NreduceLR = 1000 # when should we reduce the Learningrate? 
-    lambda_reg = 1e-1
+    lambda_tv = 1e-1
     myepstvval = 1e-8##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
     lambda_neg = 10000.
     Niter =  300
     '''
     
     
-elif(1):
+elif(0):
     
     '''HeLas from PAtrick/Yashar, Imaged in Dresden! '''
     
@@ -293,23 +292,15 @@ elif(1):
     ''' Control-Parameters - Optimization '''
     my_learningrate = 1e-2  # learning rate
     
-    if(0):
-        # Regularizer 
-        regularizer = 'GR'
-        lambda_reg = 1e-1
-        lambda_zernike = 0*1.
-        lambda_icshift = 0*1.
-        lambda_neg = 0*100.
-        myepstvval = 1e-9 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
-    else:
-        # Regularizer 
-        regularizer = 'TV'
-        lambda_reg = 1e-1
-        lambda_zernike = 0*1.
-        lambda_icshift = 0*1.
-        lambda_neg = 0*100.
-        myepstvval = 1e-9 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+    # Regularizer 
+    regularizer = 'GR'
+    lambda_tv = 1e-1
+    lambda_zernike = 0*1.
+    lambda_icshift = 0*1.
+    lambda_neg = 0*100.
+    myepstvval = 1e-9 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
     
+    # Control Flow 
     
     
 
@@ -332,7 +323,7 @@ elif(1):
     shiftIcX = 0.#*0.08124803 
     shiftIcY = 0.#*0.05606132
     zernikefactors = np.array((0,0,0,0, -1.2058168e-04, -2.3622499e-03, -7.7374041e-02 ,-1.4900701e-02,  -6.6282146e-04 ,-4.2013789e-04 , -1.2619525e+00))
-    zernikefactors = np.array((0,0,0,0,0,0,0,0,0,0,1.2619525e+00))
+    zernikefactors = 0*np.array((0,0,0,0,0,0,0,0,0,0,-1.2619525e+00))
         
     shiftIcX = 0*0.0143085485 
     shiftIcY = -0.009161083*0
@@ -371,7 +362,7 @@ elif(1):
     
     # Regularizer 
     regularizer = 'TV'
-    lambda_reg = 1e-1
+    lambda_tv = 1e-1
     lambda_zernike = .01
     myepstvval = 1e-15 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
     
@@ -386,23 +377,29 @@ elif(1):
     #zernikefactors[7]= 4.25 # coma y
     #zernikemask[8]=-0.00  # Trefoil X
     #zernikemask[9]=-0.00 # Trefoil y
-    #zernikefactors[10]= -1.5 # defocus
+    zernikefactors[10]= -1.5 # defocus
     
     #zernikemask=1.*(np.abs(zernikefactors)>0)
     zernikemask = np.ones(zernikemask.shape)
     zernikemask[0:4] = 0 # don't care about defocus, tip, tilt 
+    
+    shiftIcX = -.00#-3.62768*2
+    shiftIcY = .00#3.7690606*2
 
     # worked with tv= 1e1, 1e-12, lr: 1e-2 - also in the git!
-    zernikefactors = 0*np.array((0,0,0,0, -1.2058168e-04, -2.3622499e-03, -7.7374041e-02 ,-1.4900701e-02,  -6.6282146e-04 ,-4.2013789e-04 , -1.2619525e+00))
+    zernikefactors = 0*np.array((0.,0.,0.,0.,0.24419421,0.13148846,1.0717771,0.9693622,-2.1087987,1.0321776,-2.6593506))
+    shiftIcX = 0.#*0.08124803 
+    shiftIcY = 0.#*0.05606132
+    zernikefactors = np.array((0,0,0,0, -1.2058168e-04, -2.3622499e-03, -7.7374041e-02 ,-1.4900701e-02,  -6.6282146e-04 ,-4.2013789e-04 , -1.2619525e+00))
     
-    shiftIcX = 0.0143085485*0 
-    shiftIcY =-0.009161083*0
+    shiftIcX = 0.0143085485 
+    shiftIcY =-0.009161083
     #zernikefactors = 0*np.array((0.,0.,0.,0.,0.49924508,-1.162684,-0.09952152,-0.4380897,-0.6640752,0.16908956,0.860051))
     
     
     if(1):
         dn = 0.1
-        NAc = .5
+        NAc = .25
         
         is_dampic= .051 # smaller => more damping!
         mysubsamplingIC = 0
@@ -413,11 +410,11 @@ elif(1):
         
         # Regularizer 
         regularizer = 'TV'
-        lambda_reg = 1e1
+        lambda_tv = 1e-0
         lambda_zernike = 0*1.
         lambda_icshift = 0*1.
         lambda_neg = 0*100.
-        myepstvval = 1e-15 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+        myepstvval = 1e-13 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
         
 
 elif(0):

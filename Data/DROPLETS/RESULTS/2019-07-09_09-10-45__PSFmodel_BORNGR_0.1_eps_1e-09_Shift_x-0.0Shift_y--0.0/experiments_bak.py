@@ -24,14 +24,13 @@ my_learningrate = 1e-2  # learning rate
 
 # Regularizer 
 regularizer = 'TV'
-lambda_reg = 1e-3
+lambda_tv = 1e-3
 lambda_zernike = .5
 lambda_icshift = 0.
 myepstvval = 1e-12##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
 
 # Control Flow 
 lambda_neg = 10000.
-lambda_pos = 10000.
 
 resultpath = ".\\Data\\DROPLETS\\RESULTS\\"
 
@@ -158,7 +157,7 @@ elif(0):
     mybordersize = 20
     my_learningrate = 1e-2  # learning rate
     NreduceLR = 1000 # when should we reduce the Learningrate? 
-    lambda_reg = 5e1
+    lambda_tv = 5e1
     myepstvval = 1e-15##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
     lambda_neg = 10000.
     Niter =  300
@@ -208,7 +207,7 @@ elif(0):
     mybordersize = 20
     my_learningrate = 1e-2  # learning rate
     NreduceLR = 1000 # when should we reduce the Learningrate? 
-    lambda_reg = 5e1
+    lambda_tv = 5e1
     myepstvval = 1e-15##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
     lambda_neg = 10000.
     Niter =  300
@@ -254,7 +253,7 @@ elif(0):
     mybordersize = 20
     my_learningrate = 1e-1  # learning rate
     NreduceLR = 1000 # when should we reduce the Learningrate? 
-    lambda_reg = 1e-1
+    lambda_tv = 1e-1
     myepstvval = 1e-8##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
     lambda_neg = 10000.
     Niter =  300
@@ -293,23 +292,15 @@ elif(1):
     ''' Control-Parameters - Optimization '''
     my_learningrate = 1e-2  # learning rate
     
-    if(0):
-        # Regularizer 
-        regularizer = 'GR'
-        lambda_reg = 1e-1
-        lambda_zernike = 0*1.
-        lambda_icshift = 0*1.
-        lambda_neg = 0*100.
-        myepstvval = 1e-9 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
-    else:
-        # Regularizer 
-        regularizer = 'TV'
-        lambda_reg = 1e-1
-        lambda_zernike = 0*1.
-        lambda_icshift = 0*1.
-        lambda_neg = 0*100.
-        myepstvval = 1e-9 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+    # Regularizer 
+    regularizer = 'GR'
+    lambda_tv = 1e-1
+    lambda_zernike = 0*1.
+    lambda_icshift = 0*1.
+    lambda_neg = 0*100.
+    myepstvval = 1e-9 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
     
+    # Control Flow 
     
     
 
@@ -371,7 +362,7 @@ elif(1):
     
     # Regularizer 
     regularizer = 'TV'
-    lambda_reg = 1e-1
+    lambda_tv = 1e-1
     lambda_zernike = .01
     myepstvval = 1e-15 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
     
@@ -413,7 +404,7 @@ elif(1):
         
         # Regularizer 
         regularizer = 'TV'
-        lambda_reg = 1e1
+        lambda_tv = 1e1
         lambda_zernike = 0*1.
         lambda_icshift = 0*1.
         lambda_neg = 0*100.
