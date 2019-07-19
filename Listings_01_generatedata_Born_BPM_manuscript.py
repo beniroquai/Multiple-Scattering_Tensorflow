@@ -78,7 +78,7 @@ muscat = mus.MuScatModel(myparams, is_optimization=is_optimization)
   
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
 mydiameter = 1
-objtype = 'cheek100'#'cheek100' # 'sphere', 'twosphere', 'slphantom'
+objtype = 'sphere'#'cheek100' # 'sphere', 'twosphere', 'slphantom'
 if(objtype == 'sphere'):
     obj_real= tf_go.generateObject(mysize=myparams.mysize, obj_dim=np.array((myparams.dz, myparams.dx, myparams.dy)), obj_type ='sphere', diameter = mydiameter, dn = experiments.dn, nEmbb = myparams.nEmbb)#)dn)
     obj_absorption= tf_go.generateObject(mysize=myparams.mysize, obj_dim=np.array((myparams.dz, myparams.dx, myparams.dy)), obj_type ='sphere', diameter = mydiameter, dn = .01, nEmbb = 0.)#)dn)
@@ -134,7 +134,7 @@ if(psf_model == 'BORN' or psf_model == '3QDPC'):
 plt.subplot(131), plt.title('Ic'),plt.imshow(muscat.Ic), plt.colorbar()#, plt.show()
 plt.subplot(132), plt.title('Abs Po'),plt.imshow(np.abs(muscat.Po)), plt.colorbar()#, plt.show()
 plt.subplot(133), plt.title('Angle Po'),plt.imshow(np.angle(muscat.Po)), plt.colorbar()# plt.show()
-asdfreturn
+
 #%%
 plt.figure()    
 plt.subplot(231), plt.title('real XZ'),plt.imshow(np.real(myfwd)[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()

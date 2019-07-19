@@ -545,8 +545,10 @@ class MuScatModel(object):
         self.TF_xx = tf_helper.xx((self.mysize[1],self.mysize[2])) * 2 * np.pi * self.TF_shiftIcX /( self.lambdaM*self.params.nEmbb/self.params.dx)
         self.TF_yy = tf_helper.yy((self.mysize[1],self.mysize[2])) * 2 * np.pi * self.TF_shiftIcY /( self.lambdaM*self.params.nEmbb/self.params.dy)
     
+        # Making sure the illumination shift can be achieved
         TF_icshift = tf.exp(1j*tf.cast((self.TF_xx+self.TF_yy), tf.complex64))
-        self.TF_Ic_shift = tf_helper.my_ift2d(tf_helper.my_ft2d(self.TF_Ic)*TF_icshift)
+        self.TF_Ic_shift = tf.complex(tf.real(tf_helper.my_ift2d(tf_helper.my_ft2d(self.TF_Ic)*TF_icshift)),0.)
+        #self.TF_Ic_shift = tf_helper.my_ift2d(tf_helper.my_ft2d(self.TF_Ic)*TF_icshift)
 
         
         TF_h_det = tf_helper.my_ift2d(self.TF_myAllSlicePropagator_psf * self.TF_Po_aberr*1j)#* self.TF_Po_aberr))
@@ -561,8 +563,9 @@ class MuScatModel(object):
         #self.TF_normfac = tf.complex(tf.reduce_sum(tf.real(TF_h_res)),tf.reduce_sum(tf.imag(TF_h_res)))
         #self.TF_normfac = tf.complex(tf.sqrt(tf.reduce_max(tf.abs(TF_ASF))),0.)
         #self.TF_normfac = tf.complex(tf.sqrt(tf.reduce_sum(tf.abs(TF_h_res),0)),0.) # not THIS IS THE ONE!
-        self.TF_normfac = tf.complex(self.S,0.)#tf.complex(tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(TF_h_res))),0.) # THIS IS THE ONE!
-        #self.TF_normfac = tf.sqrt(tf.reduce_sum(self.TF_Ic*self.TF_Po_aberr*tf.conj(self.TF_Po_aberr)))
+        self.TF_normfac = tf.complex(self.S,0.) # This could be the one!! Scaling with the coherence factor makes most sense!
+        
+        self.TF_normfac = tf.reduce_sum(self.TF_Ic_shift*self.TF_Po_aberr*tf.conj(self.TF_Po_aberr))
 
         
         ''' ATTENTION: NEVER do tf.complex(X, 0.) - > by normalizing, the imaginary part is scaled by infitiny!!  '''
@@ -628,7 +631,7 @@ class MuScatModel(object):
         k02 = (2*np.pi*self.params.nEmbb/self.params.lambda0)**2
         #self.TF_V = (k02/(4*np.pi))*(self.TF_nr**2-self.TF_no**2)
         #self.TF_V = (k02)*(self.TF_nr**2-self.TF_no**2)
-        self.TF_V = 1/(4*np.pi)*(k02)*(self.TF_nr**2-self.TF_no**2)        
+        self.TF_V = (4*np.pi)*(k02)*(self.TF_nr**2-self.TF_no**2)        
         
         # We need to have a placeholder because the ATF is computed afterwards...
         if (TF_ASF is None):
