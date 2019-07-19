@@ -58,7 +58,7 @@ is_measurement = False
 '''Choose between Born (BORN) or BPM (BPM)'''
 psf_model =  'BORN' # MultiSlice
 #psf_model =  '3QDPC' # MultiSlice
-#psf_model =  'BPM' # 1st Born
+psf_model =  'BPM' # 1st Born
 
 '''Choose your microscope type, Brightfield, Darkfield, etc. '''
 is_mictype='BF' # BF, DF, DIC, PC

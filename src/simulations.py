@@ -35,6 +35,9 @@ if(0):
 
 # In-Silica Stuff for Manuscript - Compare BPM and BORN 
 elif(1):
+    ''' ***********************************************************************
+    Experimental -Parameters - Optimization 
+     ***********************************************************************'''
     # sample parameters
     print('We are taking the in-silica for manuscript parameters')
     dn = .1
@@ -65,6 +68,25 @@ elif(1):
     matlab_par_file = './Data/cells/ArtificialCheek_myParameter.mat'
     matlab_par_name='myParameter'
     matlab_val_file = './Data/DROPLETS/RESULTS/allAmp_simu.npy'
+    
+    # results after fwd model:
+    result_fwd_bpm = './Data/Simulations/allAmp_simu_BPM.npy'
+    result_fwd_born = './Data/Simulations/allAmp_simu_BORN.npy'
+    
+    
+    ''' ***********************************************************************
+    Control-Parameters - Optimization 
+     ***********************************************************************'''
+    my_learningrate = 1e-3  # learning rate
+    
+    # Regularizer 
+    regularizer = 'TV'
+    lambda_reg = 5e1
+    lambda_zernike = 0*1.
+    lambda_icshift = 0*1.
+    lambda_neg = 0*100.
+    myepstvval = 1e-11 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+    
              
 # Miroslav stuff
 elif(0):
