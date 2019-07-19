@@ -476,15 +476,15 @@ elif(1):
      
         
         ''' Control-Parameters - Optimization '''
-        my_learningrate = 1e-3  # learning rate
+        my_learningrate = 1e-2  # learning rate
         
         # Regularizer 
         regularizer = 'TV'
-        lambda_reg = 5e1
+        lambda_reg = 1e3
         lambda_zernike = 0*1.
         lambda_icshift = 0*1.
         lambda_neg = 0*100.
-        myepstvval = 1e-11 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+        myepstvval = 1e-15 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
         
 
 elif(0):

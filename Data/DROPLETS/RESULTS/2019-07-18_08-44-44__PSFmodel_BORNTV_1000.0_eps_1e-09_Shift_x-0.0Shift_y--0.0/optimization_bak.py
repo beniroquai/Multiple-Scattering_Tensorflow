@@ -39,10 +39,10 @@ mpl.rc('image', cmap='gray')
 mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 basepath = '.\\'#'/projectnb/cislidt/diederich
 is_aberration = True
-is_aberation_iterstart = 0 # When to start optimizing for aberration?
+is_aberation_iterstart = 15 # When to start optimizing for aberration?
 is_padding = False
 is_optimization = True   
-is_absorption = False
+is_absorption = True
 is_obj_init_tikhonov = False # intialize the 
 is_norm = False # Want to have a floating value for the background?
 is_recomputemodel = True  # TODO: Make it automatic! 
@@ -55,8 +55,8 @@ is_debugging = True # don't write all data to disk
 
 
 # Displaying/Saving
-Niter =  150
-Nsave = 25 # write info to disk
+Niter =  60
+Nsave = 15 # write info to disk
 NreduceLR = 1000 # when should we reduce the Learningrate? 
 
 

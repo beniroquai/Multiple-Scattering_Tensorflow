@@ -8,13 +8,18 @@ Created on Fri Mar 22 11:39:44 2019
 import numpy as np
 
 # Default
-if(1):
+if(0):
+    # sample parameters
+    dn = .051
+
+    # Generic Microscope Parameters
+    NAo = .5
+    NAc = .3
+    lambda0 = .65 
+
+    # Systematic parametres for microscpe 
     shiftIcY = 0*4 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
     shiftIcX = 0*4 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-    dn = .051
-    # Generic Microscope Parameters
-    NAc = .95
-    NAci = .3
     
     zernikefactors = np.array((0,0,0,0,0,0,0,-.0,-.0,0,0,0.0,.0))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
     zernikemask = np.array(np.abs(zernikefactors)>0)*1# mask of factors that should be updated
@@ -22,14 +27,47 @@ if(1):
     is_dampic=1
     mybackgroundval= .3+1.1j
     mysubsamplingIC = 0 #
-    mysize = ((100,100,100))
+    mysize = ((128,128,128)) # Z, X, Y
     
     matlab_par_file = './Data/cells/ArtificialCheek_myParameter.mat'
     matlab_par_name='myParameter'
     matlab_val_file = './Data/DROPLETS/RESULTS/allAmp_simu.npy'
-        
+
+# In-Silica Stuff for Manuscript - Compare BPM and BORN 
+elif(1):
+    # sample parameters
+    print('We are taking the in-silica for manuscript parameters')
+    dn = .1
+    nEmbb = 1.33
+
+    # Generic Microscope Parameters
+    NAo = .75
+    NAc = .1
+    lambda0 = .65 
+
+    # Systematic parametres for microscpe 
+    shiftIcY = 0. # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    shiftIcX = 0. # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    
+    
+    zernikefactors = np.array((0,0,0,0,0,0,0,-.0,-.0,0,0,0.0,.0))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
+    zernikemask = np.array(np.abs(zernikefactors)>0)*1# mask of factors that should be updated
+    zernikemask[0]=0 # we don't want the first one to be shifting the phase!!
+    is_dampic=1
+    mybackgroundval= .3+1.1j
+    mysubsamplingIC = 0 #
+    mysize = ((60,70,70)) # Z, X, Y
+    # mysize = ((128,128,128)) # Z, X, Y    
+    
+    # Path's 
+    mysavepath = './Data/Simulations/'
+    
+    matlab_par_file = './Data/cells/ArtificialCheek_myParameter.mat'
+    matlab_par_name='myParameter'
+    matlab_val_file = './Data/DROPLETS/RESULTS/allAmp_simu.npy'
+             
 # Miroslav stuff
-else:
+elif(0):
     shiftIcY = 0*4 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
     shiftIcX = 0*4 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
     dn = .051

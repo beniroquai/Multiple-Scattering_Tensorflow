@@ -146,3 +146,20 @@ class MyParameter:
         self.dz = self.dz_orig*mysubsample; # % mum
         
     
+    
+    def loadExperiment(self, experiments):
+        # quick-load experimental parameter from python file
+        # Adjust parameters for in-silicon experiment
+        self.Nz,self.Nx,self.Ny =  experiments.mysize
+        self.mysize = experiments.mysize # ordering is (Nillu, Nz, Nx, Ny)
+        self.shiftIcY = experiments.shiftIcY
+        self.shiftIcX = experiments.shiftIcY
+        self.dn = experiments.dn
+        self.NAo = experiments.NAo
+        self.NAc = experiments.NAc
+        self.lambda0 = experiments.lambda0
+        self.dx = self.dy = self.lambda0/4
+        self.dz = self.lambda0
+        self.nEmbb = experiments.nEmbb
+
+        

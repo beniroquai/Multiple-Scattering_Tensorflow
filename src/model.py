@@ -455,7 +455,7 @@ class MuScatModel(object):
             self.computesys(obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BPM', is_dampic=is_dampic)
         
         # Compute Model
-        return self.computemodel()
+        return self.computemodel() #*tf.exp(np.complex64(-1j*np.pi)) # subtracting the background field!
 
     
     def compute_born(self, obj, is_padding=False, mysubsamplingIC=0, is_precompute_psf=True, is_dampic=True):
@@ -558,25 +558,26 @@ class MuScatModel(object):
         
         # I wish I could use this here - but not a good idea!
         #self.TF_normfac = tf.sqrt(tf.reduce_sum(tf.abs(TF_ASF[self.mysize[0]//2,:,:])))
-        #self.TF_normfac = tf.sqrt(tf.reduce_sum(tf.abs(TF_ASF)))
+        #self.TF_normfac = tf.complex(tf.reduce_sum(tf.real(TF_h_res)),tf.reduce_sum(tf.imag(TF_h_res)))
         #self.TF_normfac = tf.complex(tf.sqrt(tf.reduce_max(tf.abs(TF_ASF))),0.)
-        self.TF_normfac = tf.complex(tf.sqrt(tf.reduce_sum(tf.abs(TF_h_res),0)),0.) # THIS IS THE ONE!
+        #self.TF_normfac = tf.complex(tf.sqrt(tf.reduce_sum(tf.abs(TF_h_res),0)),0.) # not THIS IS THE ONE!
+        self.TF_normfac = tf.complex(self.S,0.)#tf.complex(tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(TF_h_res))),0.) # THIS IS THE ONE!
+        #self.TF_normfac = tf.sqrt(tf.reduce_sum(self.TF_Ic*self.TF_Po_aberr*tf.conj(self.TF_Po_aberr)))
+
         
         ''' ATTENTION: NEVER do tf.complex(X, 0.) - > by normalizing, the imaginary part is scaled by infitiny!!  '''
     
-        #TF_normfac = tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(TF_ATF[self.mysize[0]//2,:,:])))
-        
-        #self.normfac = 1.
-        #self.normfac = tf.reduce_sum(self.TF_Ic_shift*self.TF_Po_aberr*tf.conj(self.TF_Po_aberr))
         TF_h_res = TF_h_res/self.TF_normfac #/ # TODO: norm Tensorflow?! 
         
         # 4.) precompute ATF - just im case
         TF_H_res = tf_helper.my_ft3d(TF_h_res)
+        #TF_H_res = TF_H_res/tf.complex(tf.sqrt(tf.reduce_max(tf.abs(TF_H_res))),0.)
+        #TF_h_res = tf_helper.my_ift3d(TF_H_res)
         return TF_h_res, TF_H_res
     
     
-    def computepsf_3dqdpc(self):
-
+    def computepsf_3dqpc(self):
+        # Borrowed from: https://github.com/Waller-Lab/3DQuantitativeDPC/blob/master/python_code/algorithm_3ddpc.py
         # here we only want to gather the partially coherent transfer function PTF
         # which is the correlation of the PTF_c and PTF_i 
         # we compute it as the slice propagation of the pupil function
@@ -598,15 +599,15 @@ class MuScatModel(object):
         TF_h_res = tf.conj(TF_h_det) * TF_h_illu 
 
         # 3.) correlation of the pupil function to get the APTF
-        dfx = 1.#/self.mysize[1]/self.params.dx
-        dfy = 1.#/self.mysize[2]/self.params.dy
+        dfx = self.mysize[1]/self.params.dx
+        dfy = self.mysize[2]/self.params.dy
         
         TF_H_res = (2.0*tf_helper.my_ft2d(1.0j*TF_h_res*dfx*dfy))
 
         # do 1D fft along Z
         TF_H_res = tf.transpose(TF_H_res, [1,2,0])
         TF_H_res = tf.manip.roll(tf.spectral.fft(tf.manip.roll(TF_H_res,self.mysize[0]//2,-1)),self.mysize[0]//2,-1)
-        TF_H_res = tf.transpose(TF_H_res, [2,0,1])#*self.params.dz
+        TF_H_res = tf.transpose(TF_H_res, [2,0,1])*self.params.dz
         
         #self.total_source = tf.reduce_sum(self.TF_Ic_shift*self.TF_Po_aberr*tf.conj(self.TF_Po_aberr))*dfx*dfy
         self.total_source = tf.complex(tf.sqrt(tf.reduce_sum(tf.abs(TF_h_res),0)),0.) # THIS IS THE ONE!
@@ -625,8 +626,10 @@ class MuScatModel(object):
         self.TF_nr = tf.complex(self.TF_obj, self.TF_obj_absorption)
         self.TF_no = tf.cast(self.params.nEmbb+0j, tf.complex64)
         k02 = (2*np.pi*self.params.nEmbb/self.params.lambda0)**2
-        self.TF_V = (k02/(4*np.pi))*(self.TF_nr**2-self.TF_no**2)
-
+        #self.TF_V = (k02/(4*np.pi))*(self.TF_nr**2-self.TF_no**2)
+        #self.TF_V = (k02)*(self.TF_nr**2-self.TF_no**2)
+        self.TF_V = 1/(4*np.pi)*(k02)*(self.TF_nr**2-self.TF_no**2)        
+        
         # We need to have a placeholder because the ATF is computed afterwards...
         if (TF_ASF is None):
             # Here we allow sideloading from 3rd party sources
@@ -656,8 +659,9 @@ class MuScatModel(object):
             
             
         print('ATTENTION: WEIRD MAGIC NUMBER for background field!!')
+        #myfac = 1
         #return tf.squeeze(TF_res+(myfac-1j*myfac))/np.sqrt(2)
-        return tf.squeeze(TF_res)#-1j) # add the background
+        return tf.squeeze(TF_res - 1j) # add the background
            
     
     def computedeconv(self, ain, alpha = 5e-2):

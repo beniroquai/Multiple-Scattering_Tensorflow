@@ -843,9 +843,9 @@ def mkdir(foldername):
 def plot_ASF_ATF(savepath, myATF, myASF):
     #% Write ASF and ATF to disk
     plt.figure()    
-    plt.subplot(331), plt.imshow(np.log(1+np.abs(((myATF))**.2)[:,myATF.shape[1]//2,:])), plt.colorbar()#, plt.show()
-    plt.subplot(332), plt.imshow(np.log(1+np.abs(((myATF))**.2)[myATF.shape[0]//2,:,:])), plt.colorbar()#, plt.show()    
-    plt.subplot(333), plt.imshow(np.log(1+np.abs(((myATF))**.2)[:,:,myATF.shape[2]//2])), plt.colorbar()#, plt.show()    
+    plt.subplot(331), plt.imshow(np.log(1+np.abs(((myATF)))[:,myATF.shape[1]//2,:])), plt.colorbar()#, plt.show()
+    plt.subplot(332), plt.imshow(np.log(1+np.abs(((myATF)))[myATF.shape[0]//2,:,:])), plt.colorbar()#, plt.show()    
+    plt.subplot(333), plt.imshow(np.log(1+np.abs(((myATF)))[:,:,myATF.shape[2]//2])), plt.colorbar()#, plt.show()    
     plt.subplot(334), plt.imshow(np.real(myASF)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
     plt.subplot(335), plt.imshow(np.real(myASF)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
     plt.subplot(336), plt.imshow(np.real(myASF)[:,:,myASF.shape[2]//2]), plt.colorbar()#, plt.show()    
@@ -863,9 +863,9 @@ def plot_obj_fft(savepath, myObj):
     #% Write obj and spectrum to disk
     plt.figure()    
     myobjft = np.fft.fftshift(np.fft.fftn(myObj))
-    plt.subplot(331), plt.imshow(np.log(1+np.abs(((myobjft))**.2)[:,myobjft.shape[1]//2,:])), plt.colorbar()#, plt.show()
-    plt.subplot(332), plt.imshow(np.log(1+np.abs(((myobjft))**.2)[myobjft.shape[0]//2,:,:])), plt.colorbar()#, plt.show()    
-    plt.subplot(333), plt.imshow(np.log(1+np.abs(((myobjft))**.2)[:,:,myobjft.shape[2]//2])), plt.colorbar()#, plt.show()    
+    plt.subplot(331), plt.imshow(np.log(1+np.abs(((myobjft)))[:,myobjft.shape[1]//2,:])), plt.colorbar()#, plt.show()
+    plt.subplot(332), plt.imshow(np.log(1+np.abs(((myobjft)))[myobjft.shape[0]//2,:,:])), plt.colorbar()#, plt.show()    
+    plt.subplot(333), plt.imshow(np.log(1+np.abs(((myobjft)))[:,:,myobjft.shape[2]//2])), plt.colorbar()#, plt.show()    
     plt.subplot(334), plt.imshow(np.real(((myObj)))[:,myobjft.shape[1]//2,:]), plt.colorbar()#, plt.show()
     plt.subplot(335), plt.imshow(np.real(((myObj)))[myobjft.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
     plt.subplot(336), plt.imshow(np.real(((myObj)))[:,:,myobjft.shape[2]//2]), plt.colorbar()#, plt.show()    
