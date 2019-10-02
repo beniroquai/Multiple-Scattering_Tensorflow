@@ -6,6 +6,7 @@ Created on Fri Mar 22 11:39:44 2019
 @author: bene
 """
 import numpy as np
+import os 
 
 # Default
 if(0):
@@ -44,9 +45,13 @@ elif(1):
     nEmbb = 1.33
 
     # Generic Microscope Parameters
-    NAo = .75
-    NAc = .1
+    NAo = .95
+    NAc = .15
+    NAci = .0
     lambda0 = .65 
+    dx = .15
+    dy = .15
+    dz = .3
 
     # Systematic parametres for microscpe 
     shiftIcY = 0. # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
@@ -64,28 +69,26 @@ elif(1):
     
     # Path's 
     mysavepath = './Data/Simulations/'
-    
-    matlab_par_file = './Data/cells/ArtificialCheek_myParameter.mat'
     matlab_par_name='myParameter'
-    matlab_val_file = './Data/DROPLETS/RESULTS/allAmp_simu.npy'
+    savepath_simu = mysavepath+'allAmp_simu.npy'
     
     # results after fwd model:
-    result_fwd_bpm = './Data/Simulations/allAmp_simu_BPM.npy'
-    result_fwd_born = './Data/Simulations/allAmp_simu_BORN.npy'
+    result_fwd_bpm = os.path.join(mysavepath, 'allAmp_simu_BPM.npy')
+    result_fwd_born = os.path.join(mysavepath, 'allAmp_simu_BORN.npy')
     
     
     ''' ***********************************************************************
     Control-Parameters - Optimization 
      ***********************************************************************'''
-    my_learningrate = 1e-3  # learning rate
+    my_learningrate = 1e-2  # learning rate
     
     # Regularizer 
     regularizer = 'TV'
-    lambda_reg = 5e1
+    lambda_reg = 5e-9
     lambda_zernike = 0*1.
     lambda_icshift = 0*1.
     lambda_neg = 0*100.
-    myepstvval = 1e-11 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+    myepstvval = 1e-6 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
     
              
 # Miroslav stuff

@@ -58,7 +58,7 @@ tf.reset_default_graph()
 '''Choose between Born (BORN) or BPM (BPM)'''
 psf_modell =  'BPM' # 1st Born
 #psf_modell =  'Born' # MultiSlice
-psf_modell = '3QDPC'
+#psf_modell = '3QDPC'
 
 #psf_modell = None
 is_mictype='BF' # BF, DF, DIC, PC

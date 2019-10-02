@@ -22,7 +22,7 @@ import src.model as mus
 import src.tf_helper as tf_helper
 import src.data as data
 import src.tf_regularizers as reg
-import src.experiments as experim<<<ents 
+import src.experiments as experiments 
 import src.MyParameter as paras
 
 import NanoImagingPack as nip
@@ -269,8 +269,6 @@ if is_recomputemodel:
             tf_helper.plot_ASF_ATF(savepath, myATF, myASF)
             tf_helper.plot_obj_fft(savepath, np_meas)
             #%%
-            
-            
         
 
 

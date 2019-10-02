@@ -8,6 +8,7 @@ Created on Wed Nov 29 12:53:08 2017
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 import h5py 
 import scipy.io
 import time
@@ -843,15 +844,15 @@ def mkdir(foldername):
 def plot_ASF_ATF(savepath, myATF, myASF):
     #% Write ASF and ATF to disk
     plt.figure()    
-    plt.subplot(331), plt.imshow(np.log(1+np.abs(((myATF)))[:,myATF.shape[1]//2,:])), plt.colorbar()#, plt.show()
-    plt.subplot(332), plt.imshow(np.log(1+np.abs(((myATF)))[myATF.shape[0]//2,:,:])), plt.colorbar()#, plt.show()    
-    plt.subplot(333), plt.imshow(np.log(1+np.abs(((myATF)))[:,:,myATF.shape[2]//2])), plt.colorbar()#, plt.show()    
-    plt.subplot(334), plt.imshow(np.real(myASF)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
-    plt.subplot(335), plt.imshow(np.real(myASF)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
-    plt.subplot(336), plt.imshow(np.real(myASF)[:,:,myASF.shape[2]//2]), plt.colorbar()#, plt.show()    
-    plt.subplot(337), plt.imshow(np.imag(myASF)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
-    plt.subplot(338), plt.imshow(np.imag(myASF)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
-    plt.subplot(339), plt.imshow(np.imag(myASF)[:,:,myASF.shape[2]//2]), plt.colorbar()#, plt.show()    
+    plt.subplot(331), plt.title('myATF'), plt.imshow(np.abs(myATF)[:,myATF.shape[1]//2,:], norm=LogNorm()), plt.colorbar()#, plt.show()
+    plt.subplot(332), plt.title('myATF'), plt.imshow(np.abs(myATF)[myATF.shape[0]//2,:,:], norm=LogNorm()), plt.colorbar()#, plt.show()    
+    plt.subplot(333), plt.title('myATF'), plt.imshow(np.abs(myATF)[:,:,myATF.shape[2]//2], norm=LogNorm()), plt.colorbar()#, plt.show()    
+    plt.subplot(334), plt.title('real myASF'), plt.imshow(np.real(myASF)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
+    plt.subplot(335), plt.title('real myASF'), plt.imshow(np.real(myASF)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+    plt.subplot(336), plt.title('real myASF'), plt.imshow(np.real(myASF)[:,:,myASF.shape[2]//2]), plt.colorbar()#, plt.show()    
+    plt.subplot(337), plt.title('imag myASF'), plt.imshow(np.imag(myASF)[:,myASF.shape[1]//2,:]), plt.colorbar()#, plt.show()
+    plt.subplot(338), plt.title('imag myASF'), plt.imshow(np.imag(myASF)[myASF.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+    plt.subplot(339), plt.title('imag myASF'), plt.imshow(np.imag(myASF)[:,:,myASF.shape[2]//2]), plt.colorbar()#, plt.show()
     plt.savefig(savepath+'/ASFATF.png'), plt.show()
     data.export_realdatastack_h5(savepath+'/myasf.h5', 'real, imag', 
                     np.stack((np.real(myASF), np.imag(myASF)), axis=0))
@@ -863,15 +864,15 @@ def plot_obj_fft(savepath, myObj):
     #% Write obj and spectrum to disk
     plt.figure()    
     myobjft = np.fft.fftshift(np.fft.fftn(myObj))
-    plt.subplot(331), plt.imshow(np.log(1+np.abs(((myobjft)))[:,myobjft.shape[1]//2,:])), plt.colorbar()#, plt.show()
-    plt.subplot(332), plt.imshow(np.log(1+np.abs(((myobjft)))[myobjft.shape[0]//2,:,:])), plt.colorbar()#, plt.show()    
-    plt.subplot(333), plt.imshow(np.log(1+np.abs(((myobjft)))[:,:,myobjft.shape[2]//2])), plt.colorbar()#, plt.show()    
-    plt.subplot(334), plt.imshow(np.real(((myObj)))[:,myobjft.shape[1]//2,:]), plt.colorbar()#, plt.show()
-    plt.subplot(335), plt.imshow(np.real(((myObj)))[myobjft.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
-    plt.subplot(336), plt.imshow(np.real(((myObj)))[:,:,myobjft.shape[2]//2]), plt.colorbar()#, plt.show()    
-    plt.subplot(337), plt.imshow(np.imag(((myObj)))[:,myobjft.shape[1]//2,:]), plt.colorbar()#, plt.show()
-    plt.subplot(338), plt.imshow(np.imag(((myObj)))[myobjft.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
-    plt.subplot(339), plt.imshow(np.imag(((myObj)))[:,:,myobjft.shape[2]//2]), plt.colorbar()#, plt.show()    
+    plt.subplot(331), plt.title('abs FT obj'), plt.imshow(np.abs(myobjft)[:,myobjft.shape[1]//2,:], norm=LogNorm()), plt.colorbar()#, plt.show()
+    plt.subplot(332), plt.title('abs FT obj'), plt.imshow(np.abs(myobjft)[myobjft.shape[0]//2,:,:], norm=LogNorm()), plt.colorbar()#, plt.show()    
+    plt.subplot(333), plt.title('abs FT obj'), plt.imshow(np.abs(myobjft)[:,:,myobjft.shape[2]//2], norm=LogNorm()), plt.colorbar()#, plt.show()    
+    plt.subplot(334), plt.title('real obj'), plt.imshow(np.real(((myObj)))[:,myobjft.shape[1]//2,:]), plt.colorbar()#, plt.show()
+    plt.subplot(335), plt.title('real obj'), plt.imshow(np.real(((myObj)))[myobjft.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+    plt.subplot(336), plt.title('real obj'), plt.imshow(np.real(((myObj)))[:,:,myobjft.shape[2]//2]), plt.colorbar()#, plt.show()    
+    plt.subplot(337), plt.title('imag obj'), plt.imshow(np.imag(((myObj)))[:,myobjft.shape[1]//2,:]), plt.colorbar()#, plt.show()
+    plt.subplot(338), plt.title('imag obj'), plt.imshow(np.imag(((myObj)))[myobjft.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+    plt.subplot(339), plt.title('imag obj'), plt.imshow(np.imag(((myObj)))[:,:,myobjft.shape[2]//2]), plt.colorbar()#, plt.show()    
     plt.savefig(savepath+'/ATF_Support.png'), plt.show()    
     data.export_realdatastack_h5(savepath+'/myobjspectrum.h5', 'real, imag', 
         np.stack((np.abs(myobjft)/np.max(np.abs(myobjft)), np.abs(myObj)/np.max(np.abs(myObj))), axis=0))

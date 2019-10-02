@@ -24,22 +24,27 @@ import src.data as data
 import src.tf_regularizers as reg
 import src.simulations as experiments 
 import src.MyParameter as paras
-
 import NanoImagingPack as nip
 
 # Optionally, tweak styles.
 mpl.rc('figure',  figsize=(8, 6))
 mpl.rc('image', cmap='gray')
 
-
-for var_tv in (1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e-0, 1e1, 1e2):
-    for var_tvc in (1e-10, 1e-8, 1e-6, 1e-4, 1e-2):
-        
+if(1):
+    if(1):
+        var_tvc = 1e-9
+        var_tv =  1e-4
+#for var_tv in (1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e-0, 1e1, 1e2):
+    #for var_tvc in (1e-10, 1e-8, 1e-6, 1e-4, 1e-2):
+        np_meas_file = './Data/PHANTOM/HeLa_cell_mat_obj_100.mat'; matname='HeLa_cell_mat'
+        obj_real = data.import_realdata_h5(filename = np_meas_file, matname=matname)
+        obj_absorption = obj_real*0
+        obj_guess = (obj_real + 1j*obj_absorption)
         #%%
         '''Define some stuff related to infrastructure'''
         mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         basepath = ""
-        is_aberration = True
+        is_aberration = False
         is_aberation_iterstart = 0 # When to start optimizing for aberration?
         is_padding = False
         is_optimization = True   
@@ -55,7 +60,7 @@ for var_tv in (1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e-0, 1e1, 1e2):
         
         
         # Displaying/Saving
-        Niter =  150
+        Niter =  250
         Nsave = 25 # write info to disk
         NreduceLR = 1000 # when should we reduce the Learningrate? 
         
@@ -64,19 +69,15 @@ for var_tv in (1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e-0, 1e1, 1e2):
         
         '''Define some stuff related to infrastructure'''
         mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        savepath = basepath + experiments.mysavepath + mytimestamp + '_' + '_PSFmodel_' + psf_model + experiments.regularizer + '_' + str(experiments.lambda_reg) + '_eps_' +str(experiments.myepstvval) + '_' +'Shift_x-'+str(experiments.shiftIcX)+'Shift_y-' +str(experiments.shiftIcY) 
+        savepath = experiments.mysavepath +  mytimestamp + '_' + '_PSFmodel_' + psf_model + experiments.regularizer + '_' + str(experiments.lambda_reg) + '_eps_' +str(experiments.myepstvval) + '_' +'Shift_x-'+str(experiments.shiftIcX)+'Shift_y-' +str(experiments.shiftIcY) 
         tf_helper.mkdir(savepath)
         print('My path is: '+savepath )
+
         
         
         ''' 1.) Read in the parameters of the dataset ''' 
         experiments.result_fwd_bpm = '.\Data\Simulations\allAmp_simu_BPM.npy'
-        matlab_val = np.load('./Data/Simulations/allAmp_simu_BPM.npy')
-        
-        #matlab_val  = matlab_val+np.random.rand(matlab_val.shape[0], matlab_val.shape[1], matlab_val.shape[2])*.001
-        #matlab_val = matlab_val + experiments.mybackgroundval
-        
-        
+        np_meas = np.load(experiments.savepath_simu)
         
         # Generate Test-Object
         ''' File which stores the experimental parameters from the Q-PHASE setup 
@@ -88,14 +89,12 @@ for var_tv in (1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e-0, 1e1, 1e2):
         ''' MODELLING StARTS HERE''' 
         tf.reset_default_graph()
         
-        
         ''' Create the Model'''
         muscat = mus.MuScatModel(myparams, is_optimization=is_optimization)
         
         muscat.zernikefactors = experiments.zernikefactors
         muscat.zernikemask = experiments.zernikemask
           
-        #muscat.NAo = .8
         ''' Compute a first guess based on the experimental phase '''
         if(is_obj_init_tikhonov):
             print('Object is initialized with precomputed RI-distribution')
@@ -105,7 +104,7 @@ for var_tv in (1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e-0, 1e1, 1e2):
                 obj_guess_filename = 'myrefractiveindex.h5'
                 obj_guess = data.import_realdata_h5(filename = obj_guess_filename, matname='phase, abs0', is_complex=False)
             else:
-                 obj_guess =  np.zeros(matlab_val.shape)+muscat.params.nEmbb # np.angle(matlab_val)## 
+                 obj_guess =  np.zeros(np_meas.shape)+muscat.params.nEmbb # np.angle(np_meas)## 
                  obj_guess = np.load('thikonovinvse.npy')
             
             #obj_guess = obj_guess-np.min(obj_guess); obj_guess = obj_guess/np.max(obj_guess)
@@ -115,20 +114,22 @@ for var_tv in (1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e-0, 1e1, 1e2):
             else:
                 obj_guess = experiments.dn*np.real(obj_guess)/np.max(np.real(obj_guess))
         else:
-            obj_guess =  np.zeros(matlab_val.shape)# np.angle(matlab_val)## 
+            obj_guess =  np.zeros(np_meas.shape)# np.angle(np_meas)## 
+            #obj_guess = obj_guess
         
         if is_estimatepsf:
             obj_guess =  -obj_val*experiments.dn+experiments.dn+1j*.1*obj_val
-            #obj_guess = np.random.rand(matlab_val.shape[0],matlab_val.shape[1],matlab_val.shape[2])*muscat.dn/2
+            #obj_guess = np.random.rand(np_meas.shape[0],np_meas.shape[1],np_meas.shape[2])*muscat.dn/2
         obj_guess = obj_guess+muscat.params.nEmbb # add background
-        np_meas = matlab_val
+        
+        np_meas = np_meas
             
         
         ''' Define Fwd operator'''
         if(psf_model=='BORN'):
             # Test this Carringotn Padding to have borders at the dges where the optimizer can make pseudo-update
             # add carrington boundary regions
-            my_border_region = np.array((matlab_val.shape[0]//2,mybordersize,mybordersize)) # border-region around the object 
+            my_border_region = np.array((np_meas.shape[0]//2,mybordersize,mybordersize)) # border-region around the object 
             bz, bx, by = my_border_region
             obj_guess_real = np.pad(np.real(obj_guess),[(bz, bz), (bx, bx), (by, by)], mode='constant', constant_values=np.mean(np.real(obj_guess)))
             obj_guess_imag = np.pad(np.imag(obj_guess),[(bz, bz), (bx, bx), (by, by)], mode='constant', constant_values=np.mean(1j*np.mean(np.imag(obj_guess))))
@@ -204,8 +205,8 @@ for var_tv in (1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e-0, 1e1, 1e2):
         
         
         # Correc the fwd model - not good here!
-        tf_glob_real = tf.Variable(0.,'tf_glob_real')
-        tf_glob_imag = tf.Variable(0.,'tf_glob_imag')
+        tf_glob_real = tf.constant(0.,name='tf_glob_real')
+        tf_glob_imag = tf.constant(0.,name='tf_glob_imag')
         tf_norm = tf.complex(tf_glob_real, tf_glob_imag) 
         
         '''Define Loss-function'''
@@ -215,12 +216,24 @@ for var_tv in (1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e-0, 1e1, 1e2):
         elif(0):
             print('-------> Losstype mixed L2 ')
             tf_fidelity = tf.reduce_mean(tf_helper.tf_abssqr(tf.real(muscat.tf_meas) - tf.real(tf_fwd))+tf_helper.tf_abssqr(tf.imag(muscat.tf_meas) - tf.imag(tf_fwd))) # allow a global phase parameter to avoid unwrapping effects
-        else:
+        elif(1):
             print('-------> Losstype is L2')
             tf_fidelity = tf.reduce_mean(tf_helper.tf_abssqr(muscat.tf_meas - tf_fwd + tf_norm)) # allow a global phase parameter to avoid unwrapping effects
+        elif(0):
+            print('-------> Losstype is L2')
+            tf_fidelity_real = tf.reduce_mean(tf.losses.mean_squared_error(tf.real(muscat.tf_meas), tf.real(tf_fwd))) # allow a global phase parameter to avoid unwrapping effects
+            tf_fidelity_imag = tf.reduce_mean(tf.losses.mean_squared_error(tf.imag(muscat.tf_meas), tf.imag(tf_fwd))) # allow a global phase parameter to avoid unwrapping effects
+            tf_fidelity = tf_fidelity_real + tf_fidelity_imag 
+        else:
+            print('-------> Losstype is L2')
+            tf_fidelity_real = tf.reduce_mean(tf.losses.mean_squared_error(tf.abs(muscat.tf_meas), tf.abs(tf_fwd))) # allow a global phase parameter to avoid unwrapping effects
+            tf_fidelity_imag = tf.reduce_mean(tf.losses.mean_squared_error(tf_helper.angle(muscat.tf_meas), tf_helper.angle(tf_fwd))) # allow a global phase parameter to avoid unwrapping effects
+            tf_fidelity = tf_fidelity_real + tf_fidelity_imag 
+        
         tf_loss = tf_fidelity + tf_negsqrloss + tf_regloss
            
-        tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
+        #tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
+        tf_optimizer = tf.train.MomentumOptimizer(1e1, .9, use_nesterov=True)
         if not is_estimatepsf:
             # ordinary case - we want to optimize for the object                
             tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj])
@@ -262,7 +275,7 @@ for var_tv in (1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e-0, 1e1, 1e2):
         ''' Optimize the model '''
         print('Start optimizing')
         #import scipy.io
-        #scipy.io.savemat('ExperimentAsfObj.mat', dict(asf=np.array(myASF), obj=np.array(matlab_val)))
+        #scipy.io.savemat('ExperimentAsfObj.mat', dict(asf=np.array(myASF), obj=np.array(np_meas)))
         
         for iterx in range(iter_last,Niter):
             

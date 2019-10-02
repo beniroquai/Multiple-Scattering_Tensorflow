@@ -541,7 +541,7 @@ else:
     matlab_par_file = './Data/DROPLETS/S19_multiple/Parameter.mat'; matlab_par_name='myParameter'
     matlab_val_file = './Data/DROPLETS/RESULTS/allAmp_simu.npy'
     mybackgroundval = 0
-
+    NAc = .2
     
 
 

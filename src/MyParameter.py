@@ -158,8 +158,11 @@ class MyParameter:
         self.NAo = experiments.NAo
         self.NAc = experiments.NAc
         self.lambda0 = experiments.lambda0
-        self.dx = self.dy = self.lambda0/4
-        self.dz = self.lambda0
         self.nEmbb = experiments.nEmbb
-
+        self.shiftIcY=experiments.shiftIcY
+        self.shiftIcX=experiments.shiftIcX
+        self.dx = experiments.dx
+        self.dy = experiments.dy
+        self.dz = experiments.dz
+        self.NAci = experiments.NAci
         

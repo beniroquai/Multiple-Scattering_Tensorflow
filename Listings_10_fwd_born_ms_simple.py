@@ -30,6 +30,7 @@ mpl.rc('image', cmap='gray')
                                                     
 # load own functions
 import src.simulations as experiments 
+
 import src.model as mus
 import src.tf_generate_object as tf_go
 import src.data as data
@@ -61,7 +62,7 @@ tf.reset_default_graph()
 
 psf_model =  'BORN' # MultiSlice
 #psf_model =  '3QDPC' # MultiSlice
-#psf_model =  'BPM' # 1st Born
+psf_model =  'BPM' # 1st Born
 #psf_model = None
 is_mictype='BF' # BF, DF, DIC, PC
 
@@ -75,19 +76,12 @@ tf.reset_default_graph()
     2.) Read in the parameters of the dataset ''' 
 myparams = paras.MyParameter()
 #myparams.loadmat(mymatpath = experiments.matlab_par_file, mymatname = experiments.matlab_par_name)
+myparams.loadExperiment(experiments)
 myparams.print()
-
 myparams.Nz,myparams.Nx,myparams.Ny =  experiments.mysize
 myparams.mysize = (myparams.Nz,myparams.Nx,myparams.Ny) # ordering is (Nillu, Nz, Nx, Ny)
-myparams.shiftIcY=0.1#experiments.shiftIcY
-myparams.shiftIcX=0.#experiments.shiftIcX
-myparams.dn = experiments.dn
-#myparams.NAo = .25
-myparams.dx = myparams.dy = .15
-myparams.dz = .3
-myparams.NAc = .15#experiments.NAc
-myparams.NAci = experiments.NAci
-experiments.dn = .1
+
+#experiments.dn = .1
 ''' Create the Model'''
 muscat = mus.MuScatModel(myparams, is_optimization=is_optimization)
 #experiments.zernikefactors = np.array((0,0,0,0, -1.2058168e-04, -2.3622499e-03, -7.7374041e-02 ,-1.4900701e-02,  -6.6282146e-04 ,-4.2013789e-04 , -1.2619525e+00))
@@ -97,11 +91,10 @@ muscat.zernikemask = experiments.zernikemask
   
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
 mydiameter = 1
-objtype = 'sphere'#'cheek100' # 'sphere', 'twosphere', 'slphantom'
+objtype = 'cheek100'#'cheek100' # 'sphere', 'twosphere', 'slphantom'
 if(objtype == 'sphere'):
     obj_real= tf_go.generateObject(mysize=myparams.mysize, obj_dim=np.array((myparams.dz, myparams.dx, myparams.dy)), obj_type ='sphere', diameter = mydiameter, dn = experiments.dn, nEmbb = myparams.nEmbb)#)dn)
     obj_absorption= tf_go.generateObject(mysize=myparams.mysize, obj_dim=np.array((myparams.dz, myparams.dx, myparams.dy)), obj_type ='sphere', diameter = mydiameter, dn = .01, nEmbb = 0.)#)dn)
-
 elif(0):
     obj_real = tf_go.generateObject(mysize=myparams.mysize, obj_dim=1, obj_type ='hollowsphere', diameter = mydiameter, dn = experiments.dn, nEmbb = myparams.nEmbb)#)dn)
     obj_absorption = tf_go.generateObject(mysize=myparams.mysize, obj_dim=muscat.dx, obj_type ='sphere', diameter = mydiameter, dn = .0)
@@ -231,7 +224,7 @@ plt.subplot(236), plt.title('obj - imag XY'),plt.imshow(np.imag(obj)[centerslice
 
 
 #%% save the resultsl
-np.save(savepath+'allAmp_simu.npy', myfwd)
+np.save(experiments.savepath_simu, myfwd)
 data.export_realdatastack_h5(savepath+'/obj.h5', 'phase, abs', 
                         np.stack((np.real(obj),np.imag(obj)), axis=0))
 data.export_realdatastack_h5(savepath+'/myfwd.h5', 'real, imag', 

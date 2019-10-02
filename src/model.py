@@ -9,6 +9,7 @@ This
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 import yaml
 from skimage.transform import warp, AffineTransform
 
@@ -18,7 +19,8 @@ from src import zernike as zern
 from src import data as data
 from src import tf_regularizers as tf_reg
 from src import poisson_disk as pd
- 
+
+
 is_debug = False 
 
 class MuScatModel(object):
@@ -563,7 +565,7 @@ class MuScatModel(object):
         #self.TF_normfac = tf.complex(tf.reduce_sum(tf.real(TF_h_res)),tf.reduce_sum(tf.imag(TF_h_res)))
         #self.TF_normfac = tf.complex(tf.sqrt(tf.reduce_max(tf.abs(TF_ASF))),0.)
         #self.TF_normfac = tf.complex(tf.sqrt(tf.reduce_sum(tf.abs(TF_h_res),0)),0.) # not THIS IS THE ONE!
-        self.TF_normfac = tf.complex(self.S,0.) # This could be the one!! Scaling with the coherence factor makes most sense!
+        self.TF_normfac = tf.complex(np.float32(self.S),np.float32(0.)) # This could be the one!! Scaling with the coherence factor makes most sense!
         
         self.TF_normfac = tf.reduce_sum(self.TF_Ic_shift*self.TF_Po_aberr*tf.conj(self.TF_Po_aberr))
 
@@ -664,7 +666,7 @@ class MuScatModel(object):
         print('ATTENTION: WEIRD MAGIC NUMBER for background field!!')
         #myfac = 1
         #return tf.squeeze(TF_res+(myfac-1j*myfac))/np.sqrt(2)
-        return tf.squeeze(TF_res - 1j) # add the background
+        return tf.squeeze(TF_res - 1j) # add the background to make it equivalent to BPM
            
     
     def computedeconv(self, ain, alpha = 5e-2):
@@ -877,9 +879,9 @@ class MuScatModel(object):
         plt.subplot(334), plt.title('Residual Imag XZ'),plt.imshow((np.imag(myfwd)-np.imag(mymeas))[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
         plt.subplot(335), plt.title('Residual Imag XZ'),plt.imshow((np.imag(myfwd)-np.imag(mymeas))[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
         plt.subplot(336), plt.title('Residual Imag XY'),plt.imshow((np.imag(myfwd)-np.imag(mymeas))[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
-        plt.subplot(337), plt.title('Residual abssqr XZ'), plt.imshow((((myresi))**.2)[:,myresi.shape[1]//2,:]), plt.colorbar()#, plt.show()
-        plt.subplot(338), plt.title('Residual abssqr XY'), plt.imshow((((myresi))**.2)[:,:,myresi.shape[2]//2]), plt.colorbar()#, plt.show()    
-        plt.subplot(339), plt.title('Residual abssqr Yz'), plt.imshow((((myresi))**.2)[myresi.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+        plt.subplot(337), plt.title('Residual abssqr XZ'), plt.imshow((((myresi)))[:,myresi.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(338), plt.title('Residual abssqr XY'), plt.imshow((((myresi)))[:,:,myresi.shape[2]//2]), plt.colorbar()#, plt.show()    
+        plt.subplot(339), plt.title('Residual abssqr Yz'), plt.imshow((((myresi)))[myresi.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
         
 
         plt.savefig(savepath+'/res_myresidual'+figsuffix+'.png'), plt.show()
