@@ -46,12 +46,12 @@ elif(1):
 
     # Generic Microscope Parameters
     NAo = .95
-    NAc = .15
+    NAc = .1
     NAci = .0
     lambda0 = .65 
     dx = .15
     dy = .15
-    dz = .3
+    dz = .5
 
     # Systematic parametres for microscpe 
     shiftIcY = 0. # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
@@ -65,7 +65,7 @@ elif(1):
     mybackgroundval= .3+1.1j
     mysubsamplingIC = 0 #
     mysize = ((60,70,70)) # Z, X, Y
-    # mysize = ((128,128,128)) # Z, X, Y    
+    mysize = ((128,128,128)) # Z, X, Y    
     
     # Path's 
     mysavepath = './Data/Simulations/'

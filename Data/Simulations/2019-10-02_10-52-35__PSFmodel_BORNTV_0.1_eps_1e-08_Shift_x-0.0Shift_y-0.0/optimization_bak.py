@@ -55,7 +55,7 @@ if(1):
         is_estimatepsf = False
         mybordersize = 20
         psf_model = 'BPM'
-        #psf_model = 'BORN' # either compute BORN or BPM ()
+        psf_model = 'BORN' # either compute BORN or BPM ()
         is_debugging = True # don't write all data to disk
         
         

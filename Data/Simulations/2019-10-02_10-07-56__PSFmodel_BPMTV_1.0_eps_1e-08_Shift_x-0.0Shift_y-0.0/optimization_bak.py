@@ -33,7 +33,7 @@ mpl.rc('image', cmap='gray')
 if(1):
     if(1):
         var_tvc = 1e-8
-        var_tv =  1e-1
+        var_tv =  1e-0
 #for var_tv in (1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e-0, 1e1, 1e2):
     #for var_tvc in (1e-10, 1e-8, 1e-6, 1e-4, 1e-2):
         np_meas_file = './Data/PHANTOM/HeLa_cell_mat_obj_100.mat'; matname='HeLa_cell_mat'
