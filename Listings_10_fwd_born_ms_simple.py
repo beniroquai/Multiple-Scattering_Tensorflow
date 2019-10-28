@@ -62,9 +62,8 @@ tf.reset_default_graph()
 
 psf_model =  'BORN' # MultiSlice
 #psf_model =  '3QDPC' # MultiSlice
-psf_model =  'BPM' # 1st Born
+#psf_model =  'BPM' # 1st Born
 #psf_model = None
-is_mictype='BF' # BF, DF, DIC, PC
 
 
 tf.reset_default_graph()
@@ -91,7 +90,7 @@ muscat.zernikemask = experiments.zernikemask
   
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
 mydiameter = 1
-objtype = 'cheek'#'cheek100' # 'sphere', 'twosphere', 'slphantom'
+objtype = 'sphere'#'cheek100' # 'sphere', 'twosphere', 'slphantom'
 if(objtype == 'sphere'):
     obj_real= tf_go.generateObject(mysize=myparams.mysize, obj_dim=np.array((myparams.dz, myparams.dx, myparams.dy)), obj_type ='sphere', diameter = mydiameter, dn = experiments.dn, nEmbb = myparams.nEmbb)#)dn)
     obj_absorption= tf_go.generateObject(mysize=myparams.mysize, obj_dim=np.array((myparams.dz, myparams.dx, myparams.dy)), obj_type ='sphere', diameter = mydiameter, dn = .01, nEmbb = 0.)#)dn)
@@ -131,7 +130,7 @@ elif(objtype == 'slphantom'):
     obj_real =  np.load('./Data/PHANTOM/phantom_50_50_50.npy')*experiments.dn+ myparams.nEmbb
     obj_absorption = obj_real*0
 
-obj = (obj_real + 1j*obj_absorption)
+obj = (obj_real)# + 1j*obj_absorption)
 #obj = np.roll(obj, shift=5, axis=0)
 
 # introduce zernike factors here
@@ -145,20 +144,19 @@ sess = tf.Session()#config=tf.ConfigProto(log_device_placement=True))
 ''' Compute the systems model'''
 if psf_model == 'BPM':
     # Define 'BPM' model    
-    tf_fwd = muscat.compute_bpm(obj,is_padding=is_padding, mysubsamplingIC=experiments.mysubsamplingIC)    
+    tf_fwd = muscat.compute_bpm(obj,is_padding=is_padding, mysubsamplingIC=experiments.mysubsamplingIC, is_mictype=myparams.is_mictype)    
     
 elif psf_model == 'BORN':
     # Define Born Model 
-    tf_fwd = muscat.compute_born(obj, is_padding=is_padding, mysubsamplingIC=experiments.mysubsamplingIC, is_precompute_psf=True)
+    tf_fwd = muscat.compute_born(obj, is_padding=is_padding, mysubsamplingIC=experiments.mysubsamplingIC, is_precompute_psf=True, is_mictype=myparams.is_mictype)
 
 elif psf_model == '3QDPC':
     # Define Born Model 
-    tf_fwd = muscat.compute_3qdpc(obj, is_padding=is_padding, mysubsamplingIC=experiments.mysubsamplingIC, is_precompute_psf=True)
-        
-    
+    tf_fwd = muscat.compute_3qdpc(obj, is_padding=is_padding, mysubsamplingIC=experiments.mysubsamplingIC, is_precompute_psf=True, is_mictype=myparams.is_mictype)
+
 else:
     # This function is a wrapper to compute the Born fwd-model (convolution)
-    muscat.computesys(obj, is_padding=False, mysubsamplingIC=experiments.mysubsamplingIC, is_compute_psf=psf_model,is_dampic=experiments.is_dampic, is_mictype=is_mictype)
+    muscat.computesys(obj, is_padding=False, mysubsamplingIC=experiments.mysubsamplingIC, is_compute_psf=psf_model,is_dampic=experiments.is_dampic, is_mictype=myparams.is_mictype)
         
     # Create Model Instance
     muscat.computemodel()
@@ -167,11 +165,8 @@ else:
     # Define Fwd operator
     tf_fwd = muscat.computeconvolution(TF_ASF=TF_ASF, is_padding=is_padding)
     
-
-
-
     
-    is_mictype='BF'
+
 ''' Evaluate the model '''
 print('Initiliaze Variables')
 sess.run(tf.global_variables_initializer())    
@@ -187,7 +182,7 @@ print(end - start)
 #nip.v5(muscat.A_input)
 #%% display the results
 centerslice = myfwd.shape[0]//2
-
+#myfwd = myfwd_old + 1j
 if(psf_model == 'BORN' or psf_model == '3QDPC'):
     #% write Freq-Support to disk
     tf_helper.plot_ASF_ATF(savepath, muscat.myATF, muscat.myASF)

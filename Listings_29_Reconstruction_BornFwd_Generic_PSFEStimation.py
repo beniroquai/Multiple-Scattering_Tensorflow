@@ -22,7 +22,7 @@ import src.model as mus
 import src.tf_helper as tf_helper
 import src.data as data
 import src.tf_regularizers as reg
-import src.experiments as experim<<<ents 
+import src.experiments as experiments 
 import src.MyParameter as paras
 
 import NanoImagingPack as nip
@@ -38,11 +38,11 @@ mpl.rc('image', cmap='gray')
 '''Define some stuff related to infrastructure'''
 mytimestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 basepath = '.\\'#'/projectnb/cislidt/diederich
-is_aberration = True
+is_aberration = False
 is_aberation_iterstart = 0 # When to start optimizing for aberration?
 is_padding = False
 is_optimization = True   
-is_absorption = True
+is_absorption = False
 is_obj_init_tikhonov = False # intialize the 
 is_norm = False # Want to have a floating value for the background?
 is_recomputemodel = True  # TODO: Make it automatic! 
@@ -103,18 +103,18 @@ if is_recomputemodel:
     myparas.NAc = experiments.NAc
 
     
-    myparas.dz = 1.2
-#    print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!ATTENTION weird magic number to match the pixelsize')
+
+    print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!ATTENTION weird magic number to match the pixelsize')
     myparas.dx /= (35/25)
     myparas.dy /= (35/25)
-   
+    myparas.dz = 1.2   
+    
     ''' Create the Model'''
     muscat = mus.MuScatModel(myparas, is_optimization=is_optimization)
 
     muscat.zernikefactors = experiments.zernikefactors
     muscat.zernikemask = experiments.zernikemask
   
-    #muscat.NAo = .8
     ''' Compute a first guess based on the experimental phase '''
     if(is_obj_init_tikhonov):
         print('Object is initialized with precomputed RI-distribution')
@@ -179,20 +179,20 @@ if is_recomputemodel:
     if(experiments.regularizer=='TV'):
         # TV experiments.regularizer
         print('We are using TV - Regularization') # (tfin, Eps=1e-15, doubleSided=False,regDataType=None)
-       # TF_obj_tmp = tf_helper.extract(tf.cast(muscat.TF_obj, tf.float32), muscat.mysize)
+        #TF_obj_tmp = tf_helper.extract(tf.cast(muscat.TF_obj, tf.float32), muscat.mysize)
         #TF_obj_absorption_tmp = tf_helper.extract(tf.cast(muscat.TF_obj_absorption, tf.float32), muscat.mysize)
         
         #tf_regloss =  muscat.tf_lambda_reg*reg.Reg_TV_RH(muscat.TF_obj, Eps=muscat.tf_eps)  #Alernatively tf_total_variation_regularization # total_variation
         #tf_regloss += muscat.tf_lambda_reg*reg.Reg_TV_RH(muscat.TF_obj_absorption, Eps=muscat.tf_eps)  #Alernatively tf_total_variation_regularization # total_variation
          
         #  [muscat.dx,muscat.dy,muscat.dz]
-        mysqrt_real = reg.Reg_TV(muscat.TF_obj, BetaVals = [1,1,1], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
-        tf_regloss_real = tf.reduce_mean(mysqrt_real)
-        mysqrt_imag = reg.Reg_TV(muscat.TF_obj_absorption, BetaVals = [1,1,1], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
-        tf_regloss_imag = tf.reduce_mean(mysqrt_imag)
-        tf_regloss = muscat.tf_lambda_reg*(tf_regloss_real + tf_regloss_imag)
-        #tf_regloss += muscat.tf_lambda_reg*reg.Reg_TV(muscat.TF_obj_absorption, BetaVals = [1,1,1], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
-        #lkk 
+        if(1):
+            mysqrt_real = reg.Reg_TV(muscat.TF_obj, BetaVals = [1,1,1], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
+            tf_regloss_real = tf.reduce_mean(mysqrt_real)
+            mysqrt_imag = reg.Reg_TV(muscat.TF_obj_absorption, BetaVals = [1,1,1], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
+            tf_regloss_imag = tf.reduce_mean(mysqrt_imag)
+            tf_regloss = muscat.tf_lambda_reg*(tf_regloss_real + tf_regloss_imag)
+
     elif(experiments.regularizer=='GR'):
         # Goods roughness rgularizer
         print('We are using GR - Regularization')
@@ -213,8 +213,6 @@ if is_recomputemodel:
     tf_regloss += tf_zernloss
     tf_regloss += tf_icshiftloss
     
-    '''Define Optimizer'''
-                                            
     '''Negativity Constraint'''                                          
     #tf_negsqrloss = reg.Reg_NegSqr(tf_helper.extract(tf.cast(muscat.TF_obj, tf.float32), muscat.mysize))#-tf.minimum(tf.reduce_min(muscat.TF_obj-1.),0) 
     tf_negsqrloss = reg.Reg_NegSqr(muscat.TF_obj-myparas.nEmbb-myparas.dn)#-tf.minimum(tf.reduce_min(muscat.TF_obj-1.),0) 
@@ -239,7 +237,20 @@ if is_recomputemodel:
         tf_fidelity = tf.reduce_mean(tf_helper.tf_abssqr(muscat.tf_meas - tf_fwd + tf_norm)) # allow a global phase parameter to avoid unwrapping effects
     tf_loss = tf_fidelity + tf_negsqrloss + tf_regloss
    
-    tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
+    
+    '''Define Optimizer'''     
+    if(0):
+        print('Using ADAM optimizer')            
+        tf_optimizer = tf.train.AdamOptimizer(muscat.tf_learningrate)
+    elif(0):
+        print('Using ADAM optimizer')            
+        tf_optimizer = tf.train.AdadeltaOptimizer(1e-1)
+    else:
+        print('Using Momen Based optimizer')
+        tf_optimizer = tf.train.MomentumOptimizer(muscat.tf_learningrate, momentum=.9, use_nesterov=False)
+            
+            
+            
     if not is_estimatepsf:
         # ordinary case - we want to optimize for the object                
         tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj])
@@ -248,10 +259,10 @@ if is_recomputemodel:
         tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_shiftIcX, muscat.TF_shiftIcY, muscat.TF_zernikefactors])
   
     else:
-        
         # unordinary case - we want to optimize for the system only
         tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_shiftIcX, muscat.TF_shiftIcY, muscat.TF_zernikefactors])
         tf_lossop_norm = tf_optimizer.minimize(tf_loss, var_list = [tf_glob_real,tf_glob_imag])
+    
     ''' Initialize the model '''
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
@@ -268,10 +279,6 @@ if is_recomputemodel:
             #% write Freq-Support to disk
             tf_helper.plot_ASF_ATF(savepath, myATF, myASF)
             tf_helper.plot_obj_fft(savepath, np_meas)
-            #%%
-            
-            
-        
 
 
 else:
@@ -294,6 +301,7 @@ myposlosslist = []; myneglosslist = []
 mytvlosslist = []; result_phaselist = []
 result_absorptionlist = []; globareallist = []
 globalimaglist = []; myfwdlist = []
+
 #%%
 ''' Optimize the model '''
 print('Start optimizing')

@@ -30,10 +30,14 @@ import NanoImagingPack as nip
 mpl.rc('figure',  figsize=(8, 6))
 mpl.rc('image', cmap='gray')
 
+os.environ["CUDA_VISIBLE_DEVICES"]='0'    
+#os.environ["TF_CUDNN_USE_AUTOTUNE"]="0" 
+
 if(1):
     if(1):
-        var_tvc = 1e-8
-        var_tv =  1e-1
+        var_tvc = 1e-15
+        var_tv =  1e0
+        
 #for var_tv in (1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e-0, 1e1, 1e2):
     #for var_tvc in (1e-10, 1e-8, 1e-6, 1e-4, 1e-2):
         np_meas_file = './Data/PHANTOM/HeLa_cell_mat_obj_100.mat'; matname='HeLa_cell_mat'
@@ -48,20 +52,20 @@ if(1):
         is_aberation_iterstart = 0 # When to start optimizing for aberration?
         is_padding = False
         is_optimization = True   
-        is_absorption = False
+        is_absorption = 0
         is_obj_init_tikhonov = False # intialize the 
         is_norm = False # Want to have a floating value for the background?
         is_recomputemodel = True  # TODO: Make it automatic! 
         is_estimatepsf = False
         mybordersize = 20
         psf_model = 'BPM'
-        #psf_model = 'BORN' # either compute BORN or BPM ()
+        psf_model = 'BORN' # either compute BORN or BPM ()
         is_debugging = True # don't write all data to disk
         
         
         # Displaying/Saving
-        Niter =  250
-        Nsave = 25 # write info to disk
+        Niter =  500
+        Nsave = 50 # write info to disk
         NreduceLR = 1000 # when should we reduce the Learningrate? 
         
         experiments.lambda_reg = var_tv
@@ -104,7 +108,7 @@ if(1):
                 obj_guess_filename = 'myrefractiveindex.h5'
                 obj_guess = data.import_realdata_h5(filename = obj_guess_filename, matname='phase, abs0', is_complex=False)
             else:
-                 obj_guess =  np.zeros(np_meas.shape)+muscat.params.nEmbb # np.angle(np_meas)## 
+                 obj_guess =  np.zeros(np_meas.shape)+myparams.nEmbb # np.angle(np_meas)## 
                  obj_guess = np.load('thikonovinvse.npy')
             
             #obj_guess = obj_guess-np.min(obj_guess); obj_guess = obj_guess/np.max(obj_guess)
@@ -120,8 +124,8 @@ if(1):
         if is_estimatepsf:
             obj_guess =  -obj_val*experiments.dn+experiments.dn+1j*.1*obj_val
             #obj_guess = np.random.rand(np_meas.shape[0],np_meas.shape[1],np_meas.shape[2])*muscat.dn/2
-        obj_guess = obj_guess+muscat.params.nEmbb # add background
-        
+        obj_guess = obj_guess+myparams.nEmbb # add background
+       # obj_guess = obj
         np_meas = np_meas
             
         
@@ -143,7 +147,7 @@ if(1):
         
             ''' Create Model Instance'''
             muscat.computemodel()
-            tf_fwd = muscat.computeconvolution(muscat.TF_ASF, is_padding='border',border_region=my_border_region)
+            tf_fwd = muscat.compute_convolution(muscat.TF_ASF, is_padding='border',border_region=my_border_region)
             #tf_fwd = muscat.computeconvolution(muscat.TF_ASF, is_padding=True)    
         
         elif(psf_model=='BPM'):
@@ -157,7 +161,7 @@ if(1):
            
         '''experiments.regularizer'''
         # Total Variation
-        tf_regloss = 0.
+        tf_regloss = tf.constant(0., tf.float32)
         if(experiments.regularizer=='TV'):
             # TV experiments.regularizer
             print('We are using TV - Regularization') # (tfin, Eps=1e-15, doubleSided=False,regDataType=None)
@@ -168,13 +172,16 @@ if(1):
             #tf_regloss += muscat.tf_lambda_reg*reg.Reg_TV_RH(muscat.TF_obj_absorption, Eps=muscat.tf_eps)  #Alernatively tf_total_variation_regularization # total_variation
              
             #  [muscat.dx,muscat.dy,muscat.dz]
-            mysqrt_real = reg.Reg_TV(muscat.TF_obj, BetaVals = [1,1,1], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
-            tf_regloss_real = tf.reduce_mean(mysqrt_real)
-            mysqrt_imag = reg.Reg_TV(muscat.TF_obj_absorption, BetaVals = [1,1,1], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
-            tf_regloss_imag = tf.reduce_mean(mysqrt_imag)
-            tf_regloss = muscat.tf_lambda_reg*(tf_regloss_real + tf_regloss_imag)
-            #tf_regloss += muscat.tf_lambda_reg*reg.Reg_TV(muscat.TF_obj_absorption, BetaVals = [1,1,1], epsR=muscat.tf_eps, is_circ = True)  #Alernatively tf_total_variation_regularization # total_variation
-            #lkk 
+#            tf_regloss += muscat.tf_lambda_reg*reg.Reg_TV(muscat.TF_obj, BetaVals = [muscat.myparams.dz,muscat.myparams.dx,muscat.myparams.dy], epsR=muscat.tf_eps, is_circ = True, is_xy=False)  #Alernatively tf_total_variation_regularization # total_variation
+#            if(is_absorption):
+#                tf_regloss += muscat.tf_lambda_reg*reg.Reg_TV(muscat.TF_obj_absorption, BetaVals = [muscat.myparams.dz,muscat.myparams.dx,muscat.myparams.dy], epsR=muscat.tf_eps, is_circ = True, is_xy=False)  #Alernatively tf_total_variation_regularization # total_variation
+ 
+            tf_tv_loss, tf_my_tv_loss_map = reg.Reg_TV_RH(muscat.TF_obj, Eps=muscat.tf_eps)  #Alernatively tf_total_variation_regularization # total_variation
+            tf_regloss += muscat.tf_lambda_reg*tf_tv_loss
+            if(is_absorption):
+                tf_regloss += muscat.tf_lambda_reg*reg.Reg_TV_RH(muscat.TF_obj_absorption, Eps=muscat.tf_eps)  
+           
+
         elif(experiments.regularizer=='GR'):
             # Goods roughness rgularizer
             print('We are using GR - Regularization')
@@ -188,21 +195,22 @@ if(1):
             print('We are using L2 - Regularization')
             tf_regloss = muscat.tf_lambda_reg*(reg.Reg_L2(muscat.TF_obj)+reg.Reg_L2(muscat.TF_obj_absorption))
         
-        tf_zernloss = experiments.lambda_zernike*reg.Reg_L2(muscat.TF_zernikefactors) # general loss on the zernike modes - don't over estimate them by value!
-        tf_icshiftloss = experiments.lambda_icshift*reg.Reg_L2(muscat.TF_shiftIcX+muscat.TF_shiftIcY)
-        
-        # fuse all loss functions
-        tf_regloss += tf_zernloss
-        tf_regloss += tf_icshiftloss
-        
+        if(0):
+            tf_zernloss = experiments.lambda_zernike*reg.Reg_L2(muscat.TF_zernikefactors) # general loss on the zernike modes - don't over estimate them by value!
+            tf_icshiftloss = experiments.lambda_icshift*reg.Reg_L2(muscat.TF_shiftIcX+muscat.TF_shiftIcY)
+            
+            # fuse all loss functions
+            tf_regloss += tf_zernloss
+            tf_regloss += tf_icshiftloss
+            
         '''Define Optimizer'''
-                                                
-        '''Negativity Constraint'''                                          
-        #tf_negsqrloss = reg.Reg_NegSqr(tf_helper.extract(tf.cast(muscat.TF_obj, tf.float32), muscat.mysize))#-tf.minimum(tf.reduce_min(muscat.TF_obj-1.),0) 
-        tf_negsqrloss = reg.Reg_NegSqr(muscat.TF_obj-myparams.nEmbb-myparams.dn)#-tf.minimum(tf.reduce_min(muscat.TF_obj-1.),0) 
-        tf_negsqrloss += reg.Reg_NegSqr(muscat.TF_obj_absorption)
-        tf_negsqrloss *= experiments.lambda_neg
-        
+        if(0):                                        
+            '''Negativity Constraint'''                                          
+            #tf_negsqrloss = reg.Reg_NegSqr(tf_helper.extract(tf.cast(muscat.TF_obj, tf.float32), muscat.mysize))#-tf.minimum(tf.reduce_min(muscat.TF_obj-1.),0) 
+            tf_negsqrloss = reg.Reg_NegSqr(muscat.TF_obj-myparams.nEmbb-myparams.dn)#-tf.minimum(tf.reduce_min(muscat.TF_obj-1.),0) 
+            tf_negsqrloss += reg.Reg_NegSqr(muscat.TF_obj_absorption)
+            tf_negsqrloss *= experiments.lambda_neg
+        tf_negsqrloss = tf.constant(0.)
         
         # Correc the fwd model - not good here!
         tf_glob_real = tf.constant(0.,name='tf_glob_real')
@@ -216,18 +224,22 @@ if(1):
         elif(0):
             print('-------> Losstype mixed L2 ')
             tf_fidelity = tf.reduce_mean(tf_helper.tf_abssqr(tf.real(muscat.tf_meas) - tf.real(tf_fwd))+tf_helper.tf_abssqr(tf.imag(muscat.tf_meas) - tf.imag(tf_fwd))) # allow a global phase parameter to avoid unwrapping effects
-        elif(1):
+        elif(0):
             print('-------> Losstype is L2')
-            tf_fidelity = tf.reduce_mean(tf_helper.tf_abssqr(muscat.tf_meas - tf_fwd + tf_norm)) # allow a global phase parameter to avoid unwrapping effects
+            tf_fidelity = tf.log(1+tf.reduce_mean(tf_helper.tf_abssqr(muscat.tf_meas - tf_fwd + tf_norm))) # allow a global phase parameter to avoid unwrapping effects
         elif(0):
             print('-------> Losstype is L2')
             tf_fidelity_real = tf.reduce_mean(tf.losses.mean_squared_error(tf.real(muscat.tf_meas), tf.real(tf_fwd))) # allow a global phase parameter to avoid unwrapping effects
             tf_fidelity_imag = tf.reduce_mean(tf.losses.mean_squared_error(tf.imag(muscat.tf_meas), tf.imag(tf_fwd))) # allow a global phase parameter to avoid unwrapping effects
             tf_fidelity = tf_fidelity_real + tf_fidelity_imag 
+        elif(0):
+            print('-------> Losstype is Huber')
+            tf_fidelity = tf.losses.huber_loss(muscat.tf_meas, tf_fwd) # allow a global phase parameter to avoid unwrapping effects
+        
         else:
             print('-------> Losstype is L2')
-            tf_fidelity_real = tf.reduce_mean(tf.losses.mean_squared_error(tf.abs(muscat.tf_meas), tf.abs(tf_fwd))) # allow a global phase parameter to avoid unwrapping effects
-            tf_fidelity_imag = tf.reduce_mean(tf.losses.mean_squared_error(tf_helper.angle(muscat.tf_meas), tf_helper.angle(tf_fwd))) # allow a global phase parameter to avoid unwrapping effects
+            tf_fidelity_real = tf.reduce_mean(tf_helper.tf_abssqr(tf.real(muscat.tf_meas) - tf.real(tf_fwd))) # allow a global phase parameter to avoid unwrapping effects
+            tf_fidelity_imag = tf.reduce_mean(tf_helper.tf_abssqr(tf.imag(muscat.tf_meas) - tf.imag(tf_fwd)))
             tf_fidelity = tf_fidelity_real + tf_fidelity_imag 
         
         tf_loss = tf_fidelity + tf_negsqrloss + tf_regloss
@@ -247,7 +259,8 @@ if(1):
             tf_lossop_aberr = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_shiftIcX, muscat.TF_shiftIcY, muscat.TF_zernikefactors])
             tf_lossop_norm = tf_optimizer.minimize(tf_loss, var_list = [tf_glob_real,tf_glob_imag])
         ''' Initialize the model '''
-        sess = tf.Session()
+        #sess = tf.Session()
+        sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
         sess.run(tf.global_variables_initializer())
            
         ''' Compute the ATF '''
@@ -331,6 +344,8 @@ if(1):
             # print('Attetntion: Generalized costfunction1')
             if is_aberration and (iterx > is_aberation_iterstart) or is_estimatepsf:
                 sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:experiments.my_learningrate, muscat.tf_lambda_reg:experiments.lambda_reg, muscat.tf_eps:experiments.myepstvval})
+                
+                
         
         
             #if is_estimatepsf:
@@ -371,3 +386,13 @@ if(1):
         copyfile(src, savepath+'/optimization_bak.py')
         copyfile('./src/experiments.py', savepath+'/experiments_bak.py')
         
+
+# see performance of regularizers
+myepstvval = 1e-11
+tf_fidelity = (tf.abs((muscat.tf_meas) - tf_fwd))
+np_my_tv_loss_map, my_fidelity =  \
+    sess.run([my_tv_loss_map, tf_fidelity], \
+             feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:experiments.my_learningrate, muscat.tf_lambda_reg:experiments.lambda_reg, muscat.tf_eps:myepstvval})
+
+nip.v5(np_my_tv_loss_map)
+nip.v5(my_fidelity)

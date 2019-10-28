@@ -10,6 +10,9 @@ import tensorflow as tf
 import numpy as np
 import src.tf_helper as tf_helper
 
+
+regDefaultDataType = "float32"
+
 # %% sparsity penalty
 def Reg_Tichonov(tfin,regDataType=None):
     
@@ -127,7 +130,7 @@ def Reg_TV_sobel(toRegularize):
         tv_loss = tf.reduce_mean(tf.abs(tf.nn.conv3d(tf.sigmoid(toRegularize), sobel, (1,) * 5, "VALID"))) # tf.nn.conv3d filter shape: [filter_depth, filter_height, filter_width, in_channels, out_channels]
         return tv_loss
 
-def Reg_TV(toRegularize, BetaVals = [1,1,1], epsR = 1, epsC=1e-10, is_circ = True):
+def Reg_TV(toRegularize, BetaVals = [1,1,1], epsR = 1, epsC=1e-10, is_circ = True, is_z=False, is_xy=False):
     # used rainers version to realize the tv regularizer   
     #% The Regularisation modification with epsR was introduced, according to
     #% Ferreol Soulez et al. "Blind deconvolution of 3D data in wide field fluorescence microscopy
@@ -166,11 +169,16 @@ def Reg_TV(toRegularize, BetaVals = [1,1,1], epsR = 1, epsC=1e-10, is_circ = Tru
         aGradR_2 = (toRegularize_sub - toRegularize[1:-2,0:-3,1:-2])/BetaVals[1] # cyclic rotation
         aGradR_3 = (toRegularize_sub - toRegularize[1:-2,1:-2,0:-3])/BetaVals[2] # cyclic rotation
             
-    mySqrtL = tf.sqrt(tf_helper.tf_abssqr(aGradL_1)+tf_helper.tf_abssqr(aGradL_2)+tf_helper.tf_abssqr(aGradL_3)+epsR)
-    mySqrtR = tf.sqrt(tf_helper.tf_abssqr(aGradR_1)+tf_helper.tf_abssqr(aGradR_2)+tf_helper.tf_abssqr(aGradR_3)+epsR)
-     
-    
-    
+    if(is_z):
+        mySqrtL = tf.sqrt(tf_helper.tf_abssqr(aGradL_1)+epsR)
+        mySqrtR = tf.sqrt(tf_helper.tf_abssqr(aGradR_1)+epsR)
+    elif(is_xy):
+        mySqrtL = tf.sqrt(tf_helper.tf_abssqr(aGradL_2)+tf_helper.tf_abssqr(aGradL_3)+epsR)
+        mySqrtR = tf.sqrt(tf_helper.tf_abssqr(aGradR_2)+tf_helper.tf_abssqr(aGradR_3)+epsR)
+    else:
+        mySqrtL = tf.sqrt(tf_helper.tf_abssqr(aGradL_1)+tf_helper.tf_abssqr(aGradL_2)+tf_helper.tf_abssqr(aGradL_3)+epsR)
+        mySqrtR = tf.sqrt(tf_helper.tf_abssqr(aGradR_1)+tf_helper.tf_abssqr(aGradR_2)+tf_helper.tf_abssqr(aGradR_3)+epsR)
+         
     mySqrt = mySqrtL + mySqrtR; 
     
     if(0):
@@ -185,22 +193,99 @@ def Reg_TV(toRegularize, BetaVals = [1,1,1], epsR = 1, epsC=1e-10, is_circ = Tru
         
     myReg = tf.reduce_mean(mySqrt)
 
-    return mySqrt
+    return myReg
 
 
-def Reg_TV_RH(tfin, Eps=1e-15, doubleSided=False,regDataType=None):
-    if regDataType is None:
-        regDataType=tf.float32
-    loss=0.0
-    if doubleSided:
-        for d in range(tfin.shape.ndims):   # sum over the dimensions to calculate the one norm
-            loss += tf.square(tf.roll(tfin,-1,d) - tf.roll(tfin,1,d))
+def ndims(tfin):
+    """
+    returns the number of dimensions independent of the input type being nd.array or a tensor.
+    :param tfin: input array
+    :return: number of dimensions.
+    """
+    if istensor(tfin):
+        return tfin.shape.ndims
     else:
-        for d in range(tfin.shape.ndims):   # sum over the dimensions to calculate the one norm
-            loss += tf.square(tfin - tf.roll(tfin,1,d))
-    if doubleSided:
-        loss=loss/2.0
-    return tf.reduce_mean(tf.cast(tf.sqrt(loss+Eps),regDataType)) # /2.0
+        return tfin.ndim
+
+def istensor(tfin):
+    return isinstance(tfin,tf.Tensor) or isinstance(tfin,tf.Variable)
+
+def Reg_TV_RH(tfin, Eps=1e-15, gradType="cmean", regDataType=None):
+    """
+    Total variation norm in it's smooth form with an epsilon to warrant differentiation.
+    :param tfin: object to regularize
+    :param Eps: constant to warrant differentiability at zero
+    :param doubleSided: If True the differentiation is done symmetrically (potentially slower)
+    :param regDataType: Optionally defines the datatype to calculate the sum over all pixels in
+    :return: scalar regularisation "penalty" value
+    """
+    if regDataType is None:
+        regDataType=regDefaultDataType
+    loss = tf.cast(tf.sqrt(mySqrGrad(tfin, gradType)+Eps),regDataType)
+    return tf.reduce_mean(loss), loss # /2.0
+
+def Reg_GR_RH(tfin, Eps2=1e-15, regDataType=None, gradType="cmean"):
+    """
+    Good's roughness constraint:  Sum(GrandientSquared) / (ValueSquared + Eps1)
+    :param tfin: object to regularize
+    :param Eps2: Constant to warrant differentiability at zero
+    :param regDataType: Optionally defines the datatype to calculate the sum over all pixels in
+    :return: scalar regularisation "penalty" value
+    """
+    if regDataType is None:
+        regDataType=regDefaultDataType
+    for d in range(ndims(tfin)):
+        if gradType=="center":
+            if d == 0:
+                numerator = tf.square(tf.roll(tfin, -1, d) - tf.roll(tfin, 1, d)) # / 4.0, dealt with below
+                denominator = tf.square(tfin)
+            else:
+                numerator += tf.square(tf.roll(tfin, -1, d) - tf.roll(tfin, 1, d)) # / 4.0
+        elif gradType =="cmean":
+            rotated = tf.roll(tfin, 1, d)
+            if d == 0:
+                numerator = tf.square(tfin - rotated)
+                denominator = tf.abs(tfin + rotated)  # total : / (2.0 * ndims)
+            else:
+                numerator += tf.square(tfin - rotated)
+                denominator += tf.abs(tfin + rotated)  # / (2.0 * ndims)
+        else:
+            raise ValueError("unknown grad type version. Only center and cmean allowed.")
+    if gradType=="center":
+        return tf.reduce_mean(tf.cast(numerator / tf.sqrt(denominator+Eps2), regDataType)) / 4.0
+    else:
+        return tf.reduce_mean(tf.cast(numerator / (denominator+Eps2), regDataType)) * 2.0 * ndims(tfin)
+
+
+def mySqrGrad(tfin, gradType="cmean"):
+    GradSqr=0.0
+    if istensor(tfin):
+        roll = tf.roll
+        square = tf.square
+    else:
+        roll = np.roll
+        square = np.square
+    if gradType == "center":
+        for d in range(ndims(tfin)):   # sum over the dimensions to calculate the one norm
+            GradSqr += square(roll(tfin,-1,d) - roll(tfin,1,d))
+    elif gradType == "right":
+        for d in range(ndims(tfin)):  # sum over the dimensions to calculate the one norm
+            GradSqr += square(tfin - roll(tfin, 1, d))
+    elif gradType == "left":
+        for d in range(ndims(tfin)):  # sum over the dimensions to calculate the one norm
+            GradSqr += square(roll(tfin, -1, d) - tfin)
+    elif gradType == "cmean":
+        for d in range(ndims(tfin)):   # sum over the dimensions to calculate the one norm
+            GradSqr += square(tfin - roll(tfin,1,d))
+            GradSqr += square(roll(tfin,-1,d) - tfin)
+    else:
+        raise ValueError("unknown grad type version. Only center, left, right and cmean allowed.")
+    if gradType == "center":
+        GradSqr = GradSqr / 4.0
+    elif gradType == "cmean":
+        GradSqr = GradSqr / 2.0
+    return GradSqr
+
 
     
 def PreMonotonicPosNAN(tfin):

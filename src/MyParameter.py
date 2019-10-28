@@ -15,6 +15,7 @@ class MyParameter:
     nEmbb = 1.3300
     NAc = 0.5200
     NAci = 0
+    is_mictype = 'BF'
     NAo = 0.9500
     shiftIcX = 0
     shiftIcY = 0
@@ -55,7 +56,8 @@ class MyParameter:
         self.Ny = Ny
         self.dn = dn
         self.mysize = np.array((Nz, Nx, Ny))
-        self.zernikefactors = np.array((0,0,0,0,0,0,0,0,0,0,0))
+        self.Nzernikes = 9
+        self.zernikefactors = np.array(self.Nzernikes)
         self.zernikemask = np.zeros(self.zernikefactors.shape)
         self.mysubsamplingIC = mysubsamplingIC
         
@@ -83,10 +85,10 @@ class MyParameter:
         print('zernikefactors: '+str(self.zernikefactors))  
         print('zernikemask: '+str(self.zernikemask))  
     
-    def loadmat(self, mymatpath='./Data/DROPLETS/S19_multiple/Parameter.mat', mymatname='myParameter'):
+    def loadmat(self, experiments):
         # Cast the parameter-mat file into a python class
-        self.matpath = mymatpath
-        self.matname = mymatname
+        self.matpath = experiments.matlab_par_filename
+        self.matname = experiments.matlab_par_name
         
         myParamter = data.import_parameters_mat(filename = self.matpath, matname = self.matname)
 
@@ -95,10 +97,17 @@ class MyParameter:
         self.NAo= np.squeeze(np.array(myParamter.get('NAo'))); # Numerical aperture objective
         self.NAc= np.squeeze(np.array(myParamter.get('NAc'))); # Numerical aperture condenser
         try:
-            self.NAci = np.squeeze(np.array(myParamter.get('NAci'))); # Numerical aperture condenser
+            self.NAci = np.squeeze(np.array(myParamter.get('NAci')[0])); # Numerical aperture condenser
         except: 
             print('No inner NA has been defined!')
-            self.NAci = 0
+            self.NAci = None
+            
+        if self.NAci == None:
+            try:
+                self.NAci = np.squeeze(np.array(experiments.NAci)); # Numerical aperture condenser
+            except: 
+                print('No inner NA has been defined!')
+                self.NAci = self.NAc
                 
          
         # eventually decenter the illumination source - only integer!
@@ -121,6 +130,17 @@ class MyParameter:
         self.Nx=np.int(np.floor((2*self.Rsim)/self.dx));
         self.Ny=np.int(np.floor((2*self.Rsim)/self.dy))
          
+
+        self.mysize = (self.Nz,self.Nx,self.Ny) # ordering is (Nillu, Nz, Nx, Ny)
+        self.shiftIcY=experiments.shiftIcY
+        self.shiftIcX=experiments.shiftIcX
+        self.dn = experiments.dn
+        self.NAc = experiments.NAc
+        self.zernikefactors = experiments.zernikefactors
+        self.zernikemask = experiments.zernikemask
+        self.Nzernikes = np.squeeze(self.zernikefactors.shape)
+        self.is_mictype = experiments.is_mictype
+    
 
     def preset_40x(self, dz = .3):
         ''' This presets data for the 40x '''
@@ -165,4 +185,6 @@ class MyParameter:
         self.dy = experiments.dy
         self.dz = experiments.dz
         self.NAci = experiments.NAci
-        
+        self.zernikemask = experiments.zernikefactors
+        self.Nzernikes = experiments.zernikefactors.shape[0]
+        self.is_mictype = experiments.is_mictype

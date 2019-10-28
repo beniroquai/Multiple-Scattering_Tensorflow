@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import yaml
 from skimage.transform import warp, AffineTransform
-
+import NanoImagingPack as nip
 # own functions
 from src import tf_helper as tf_helper
 from src import zernike as zern
@@ -24,27 +24,25 @@ from src import poisson_disk as pd
 is_debug = False 
 
 class MuScatModel(object):
-    def __init__(self, my_mat_paras, is_optimization = False):
+    def __init__(self, myparams, is_optimization = False):
  
         ''' Create Multiple Scattering Class;
         INPUTS:
         my_mat_paras - parameter file from MATLAB containing the experimental details - has to be load previously!
         '''
         # new MATLAB v7.3 Format!
-        self.params = my_mat_paras
+        self.myparams = myparams
         self.is_optimization = is_optimization
         
-        self.dn = .1; # self.nImm - self.params.nEmbb
-        print('Assigned some value for dn which is not good!')
-         
         # add a vector of zernike factors
-        self.params.Nzernikes = 11
-        self.zernikefactors = np.zeros((self.params.Nzernikes,))
-        self.zernikemask = np.zeros((self.params.Nzernikes,))
+        self.zernikefactors = self.myparams.zernikefactors 
+        self.zernikemask = self.myparams.zernikemask
+        
         # kamilov uses 420 z-planes with an overall size of 30µm; dx=72nm
          
         # refractive index immersion and embedding
-        self.lambdaM = self.params.lambda0/self.params.nEmbb; # wavelength in the medium
+        self.dn = self.myparams.dn; # self.nImm - self.myparams.nEmbb
+        self.lambdaM = self.myparams.lambda0/self.myparams.nEmbb; # wavelength in the medium
  
     #@define_scope
     def computesys(self, obj=None, is_padding=False, is_tomo = False, mysubsamplingIC=0, is_compute_psf='BORN', is_dampic=True, is_mictype='BF'):
@@ -78,15 +76,14 @@ class MuScatModel(object):
         if(is_padding):
             print('--------->WARNING: Padding is not yet working correctly!!!!!!!!')
             # add padding in X/Y to avoid wrap-arounds
-            self.mysize_old = np.array((self.params.Nz, self.params.Nx, self.params.Ny))            
-            self.params.Nx=self.params.Nx*2
-            self.params.Ny=self.params.Ny*2
-            self.mysize = np.array((self.params.Nz, self.params.Nx, self.params.Ny))
+            self.mysize_old = np.array((self.myparams.Nz, self.myparams.Nx, self.myparams.Ny))            
+            self.myparams.Nx=self.myparams.Nx*2
+            self.myparams.Ny=self.myparams.Ny*2
+            self.mysize = np.array((self.myparams.Nz, self.myparams.Nx, self.myparams.Ny))
             self.obj = obj
-            self.params.dx=self.params.dx
-            self.params.dy=self.params.dy
+
         else:
-            self.mysize=np.array((self.params.Nz, self.params.Nx, self.params.Ny))
+            self.mysize=np.array((self.myparams.Nz, self.myparams.Nx, self.myparams.Ny))
             self.mysize_old = self.mysize
             
         # Allocate memory for the object 
@@ -128,22 +125,32 @@ class MuScatModel(object):
                 
         ## Establish normalized coordinates.
         #-----------------------------------------
-        vxx = tf_helper.xx((self.mysize[1], self.mysize[2]),'freq') * self.lambdaM * self.params.nEmbb / (self.params.dx * self.params.NAo);    # normalized optical coordinates in X
-        vyy = tf_helper.yy((self.mysize[1], self.mysize[2]),'freq') * self.lambdaM * self.params.nEmbb / (self.params.dy * self.params.NAo);    # normalized optical coordinates in Y
+        vxx = tf_helper.xx((self.mysize[1], self.mysize[2]),'freq') * self.lambdaM * self.myparams.nEmbb / (self.myparams.dx * self.myparams.NAo);    # normalized optical coordinates in X
+        vyy = tf_helper.yy((self.mysize[1], self.mysize[2]),'freq') * self.lambdaM * self.myparams.nEmbb / (self.myparams.dy * self.myparams.NAo);    # normalized optical coordinates in Y
          
         # AbbeLimit=lambda0/NAo;  # Rainer's Method
         # RelFreq = rr(mysize,'freq')*AbbeLimit/dx;  # Is not generally right (dx and dy)
         self.RelFreq = np.sqrt(tf_helper.abssqr(vxx) + tf_helper.abssqr(vyy));    # spanns the frequency grid of normalized pupil coordinates
         self.Po = np.complex128(self.RelFreq < 1.0);   # Create the pupil of the objective lens        
         
-        # Prepare the normalized spatial-frequency grid.
-        self.S = self.params.NAc/self.params.NAo;   # Coherence factor
+        if(1):
+            print('lens shadig (e.g. vignatting is applied!!)')
+            self.vignetting = -nip.rr(mysize=self.Po.shape)
+            self.vignetting = -np.exp(nip.rr(mysize=self.Po.shape,freq='ftfreq')**0.125)
+            self.vignetting -= np.min(self.vignetting)
+            self.Po *= self.vignetting
+            self.Po /= np.max(self.Po)
+            
+        
+            
+
+        # Prepare the normalized spatial-frequency grid
+        self.S = self.myparams.NAc/self.myparams.NAo;   # Coherence factor
  
         # Precomputing the first 9 zernike coefficients 
-        self.params.Nzernikes = np.squeeze(self.zernikefactors.shape)
-        self.myzernikes = np.zeros((self.Po.shape[0],self.Po.shape[1],self.params.Nzernikes))+ 1j*np.zeros((self.Po.shape[0],self.Po.shape[1],self.params.Nzernikes))
+        self.myzernikes = np.zeros((self.Po.shape[0],self.Po.shape[1],self.myparams.Nzernikes))+ 1j*np.zeros((self.Po.shape[0],self.Po.shape[1],self.myparams.Nzernikes))
         r, theta = zern.cart2pol(vxx, vyy)        
-        for i in range(0,self.params.Nzernikes):
+        for i in range(0,self.myparams.Nzernikes):
             self.myzernikes[:,:,i] = zern.zernike(r, theta, i+1, norm=False) # or 8 in X-direction
              
         # eventually introduce a phase factor to approximate the experimental data better
@@ -156,11 +163,12 @@ class MuScatModel(object):
         if(self.is_mictype=='BF' or self.is_mictype=='DF'):
             # Brightfield/Generic case
             self.Po = self.Po
+           
         elif(self.is_mictype=='PC'):
             # Anullar Phase-plate with generic absorption
             print('We are taking a phase-ring in the Pupil plane into account!')
-            p_o = (self.params.NAc*.9)/self.params.NAo;   # Coherence factor
-            p_i = (self.params.NAci*1.1)/self.params.NAo;   # Coherence factor
+            p_o = (self.myparams.NAc*.9)/self.myparams.NAo;   # Coherence factor
+            p_i = (self.myparams.NAci*1.1)/self.myparams.NAo;   # Coherence factor
             self.myphaseplate = (1.*(self.RelFreq < p_o) * 1.*(self.RelFreq > p_i))>0 # Create the pupil of the condenser plane
             self.Po *= np.exp(1j*np.pi/2*self.myphaseplate)
         elif(self.is_mictype=='DIC'):
@@ -181,26 +189,31 @@ class MuScatModel(object):
         elif(self.is_mictype=='PC' or self.is_mictype=='DF'):
         #if hasattr(self, 'NAci'):
             # Anullar illumination e.g. for PC or DF 
-            if self.params.NAci == None or self.params.NAci < 0:
-                self.params.NAci = self.params.NAc - .1
+            if self.myparams.NAci == None or self.myparams.NAci < 0:
+                self.myparams.NAci = self.myparams.NAc - .1
                 print('I detected a darkfield illumination aperture, but value was not set! ')
-            self.S_o = self.params.NAc/self.params.NAo;   # Coherence factor
-            self.S_i = self.params.NAci/self.params.NAo;   # Coherence factor
+            self.S_o = self.myparams.NAc/self.myparams.NAo;   # Coherence factor
+            self.S_i = self.myparams.NAci/self.myparams.NAo;   # Coherence factor
             self.Ic = (1.*(self.RelFreq < self.S_o) * 1.*(self.RelFreq > self.S_i))>0 # Create the pupil of the condenser plane
      
         # weigh the illumination source with some cos^2 intensity weight?!
         if(0):
             myIntensityFactor = 70
-            self.Ic_map = np.cos((myIntensityFactor *tf_helper.xx((self.params.Nx, self.params.Ny), mode='freq')**2+myIntensityFactor *tf_helper.yy((self.params.Nx, self.params.Ny), mode='freq')**2))**2
+            self.Ic_map = np.cos((myIntensityFactor *tf_helper.xx((self.myparams.Nx, self.myparams.Ny), mode='freq')**2+myIntensityFactor *tf_helper.yy((self.myparams.Nx, self.myparams.Ny), mode='freq')**2))**2
             print('We are taking the cosine illuminatino shape!')
-           
-        if(self.is_dampic>0):
+        elif(0):
+            print('We are taking the gaussian illuminatino shape!')
+            myIntensityFactor = .005#self.is_dampic
+            self.Ic_map = np.exp(-tf_helper.rr((self.myparams.Nx, self.myparams.Ny),mode='freq')**2/myIntensityFactor)
+            
+        elif(0):#self.is_dampic!=0):
             print('We are taking the gaussian illuminatino shape!')
             myIntensityFactor = self.is_dampic
-            self.Ic_map = np.exp(-tf_helper.rr((self.params.Nx, self.params.Ny),mode='freq')**2/myIntensityFactor)
+            self.Ic_map = (tf_helper.rr((self.myparams.Nx, self.myparams.Ny))+1)**(.5)
+            self.Ic_map /= np.max(self.Ic_map*self.Ic)
         else:
             print('We are not weighing our illumination!')
-            self.Ic_map = np.ones((self.params.Nx, self.params.Ny))
+            self.Ic_map = np.ones((self.myparams.Nx, self.myparams.Ny))
             
 
         
@@ -225,51 +238,51 @@ class MuScatModel(object):
  
         # Shift the pupil in X-direction (optical missalignment)
         if hasattr(self, 'shiftIcX') and self.is_compute_psf is None:
-            if self.params.shiftIcX != None:
-                if(is_padding): self.params.shiftIcX=self.params.shiftIcX*2
-                print('Shifting the illumination in X by: ' + str(self.params.shiftIcX) + ' Pixel')
+            if self.myparams.shiftIcX != None:
+                if(is_padding): self.myparams.shiftIcX=self.myparams.shiftIcX*2
+                print('Shifting the illumination in X by: ' + str(self.myparams.shiftIcX) + ' Pixel')
                 if(0):
-                    self.Ic = np.roll(self.Ic, self.params.shiftIcX, axis=1)
+                    self.Ic = np.roll(self.Ic, self.myparams.shiftIcX, axis=1)
                 elif(1):
-                    tform = AffineTransform(scale=(1, 1), rotation=0, shear=0, translation=(self.params.shiftIcX, 0))
+                    tform = AffineTransform(scale=(1, 1), rotation=0, shear=0, translation=(self.myparams.shiftIcX, 0))
                     self.Ic = warp(self.Ic, tform.inverse, output_shape=self.Ic.shape)
                 elif(0):
                     # We apply a phase-factor to shift the source in realspace - so make it trainable
                     self.shift_xx = tf_helper.xx((self.mysize[1], self.mysize[2]),'freq')
-                    self.Ic = np.abs(np.fft.ifft2(np.fft.fft2(self.Ic)*np.exp(1j*2*np.pi*self.shift_xx*self.params.shiftIcX))) 
+                    self.Ic = np.abs(np.fft.ifft2(np.fft.fft2(self.Ic)*np.exp(1j*2*np.pi*self.shift_xx*self.myparams.shiftIcX))) 
 
         # Shift the pupil in Y-direction (optical missalignment)
         if hasattr(self, 'shiftIcY') and self.is_compute_psf is None:
-            if self.params.shiftIcY != None:
-                if(is_padding): self.params.shiftIcY=self.params.shiftIcY*2
-                print('Shifting the illumination in Y by: ' + str(self.params.shiftIcY) + ' Pixel')
+            if self.myparams.shiftIcY != None:
+                if(is_padding): self.myparams.shiftIcY=self.myparams.shiftIcY*2
+                print('Shifting the illumination in Y by: ' + str(self.myparams.shiftIcY) + ' Pixel')
                 if(0):
-                    self.Ic = np.roll(self.Ic, self.params.shiftIcY, axis=0)
+                    self.Ic = np.roll(self.Ic, self.myparams.shiftIcY, axis=0)
                 elif(1):
                     # Rainer suggests to normalize everyhing to be within range of one - so why not using NA coordinates?
-                    self.TF_xx = tf_helper.xx((self.mysize[1],self.mysize[2])) * 2 * np.pi * self.TF_shiftIcX /( self.lambdaM*self.params.nEmbb/self.params.dx)
-                    self.TF_yy = tf_helper.yy((self.mysize[1],self.mysize[2])) * 2 * np.pi * self.TF_shiftIcY /( self.lambdaM*self.params.nEmbb/self.params.dy)
+                    self.TF_xx = tf_helper.xx((self.mysize[1],self.mysize[2])) * 2 * np.pi * self.TF_shiftIcX /( self.lambdaM*self.myparams.nEmbb/self.myparams.dx)
+                    self.TF_yy = tf_helper.yy((self.mysize[1],self.mysize[2])) * 2 * np.pi * self.TF_shiftIcY /( self.lambdaM*self.myparams.nEmbb/self.myparams.dy)
                 
                 
-                    tform = AffineTransform(scale=(1, 1), rotation=0, shear=0, translation=(0, self.params.shiftIcY))
+                    tform = AffineTransform(scale=(1, 1), rotation=0, shear=0, translation=(0, self.myparams.shiftIcY))
                     self.Ic = warp(self.Ic, tform.inverse, output_shape=self.Ic.shape)
                 elif(0):
                     # We apply a phase-factor to shift the source in realspace - so make it trainable
                     self.shift_yy = tf_helper.yy((self.mysize[1], self.mysize[2]),'freq')
-                    self.Ic = np.abs(np.fft.ifft2(np.fft.fft2(self.Ic)*np.exp(1j*self.shift_yy*self.params.shiftIcY))) 
+                    self.Ic = np.abs(np.fft.ifft2(np.fft.fft2(self.Ic)*np.exp(1j*self.shift_yy*self.myparams.shiftIcY))) 
 
         # Reduce the number of illumination source point by filtering it with the poissson random disk or alike
         self.Ic = self.Ic * self.checkerboard
         
         
         ## Forward propagator  (Ewald sphere based) DO NOT USE NORMALIZED COORDINATES HERE
-        self.kxysqr= (tf_helper.abssqr(tf_helper.xx((self.mysize[1], self.mysize[2]), 'freq') / self.params.dx) + 
-                      tf_helper.abssqr(tf_helper.yy((self.mysize[1], self.mysize[2]), 'freq') / self.params.dy)) + 0j;
+        self.kxysqr= (tf_helper.abssqr(tf_helper.xx((self.mysize[1], self.mysize[2]), 'freq') / self.myparams.dx) + 
+                      tf_helper.abssqr(tf_helper.yy((self.mysize[1], self.mysize[2]), 'freq') / self.myparams.dy)) + 0j;
         self.k0=1/self.lambdaM;
         self.kzsqr= tf_helper.abssqr(self.k0) - self.kxysqr;
         self.kz=np.sqrt(self.kzsqr);
         self.kz[self.kzsqr < 0]=0;
-        self.dphi = 2*np.pi*self.kz*self.params.dz;  # exp(1i*kz*dz) would be the propagator for one slice
+        self.dphi = 2*np.pi*self.kz*self.myparams.dz;  # exp(1i*kz*dz) would be the propagator for one slice
 
         self.Nc=np.sum(self.Ic>0); 
         print('Number of Illumination Angles / Plane waves: '+str(self.Nc))
@@ -302,7 +315,7 @@ class MuScatModel(object):
 
             # Precalculate the oblique effect on OPD to speed it up
             print('--------> ATTENTION: I added no pi factor - is this correct?!')
-            self.RefrEffect = np.reshape(np.squeeze(1j * self.params.dz * self.k0 * self.RefrCos), [self.Nc, 1, 1]) # pi-factor
+            self.RefrEffect = np.reshape(np.squeeze(1j * self.myparams.dz * self.k0 * self.RefrCos), [self.Nc, 1, 1]) # pi-factor
             
             myprop = np.exp(1j * self.dphi) * (self.dphi > 0);  # excludes the near field components in each step
             myprop = tf_helper.repmat4d(np.fft.fftshift(myprop), self.Nc)
@@ -312,7 +325,7 @@ class MuScatModel(object):
             self.myAllSlicePropagator_psf = 0*self.myAllSlicePropagator # dummy variable to make the algorithm happy
         
         if is_compute_psf=='sep':
-            self.Alldphi_psf = -(np.reshape(np.arange(0, self.mysize[0], 1), [1, 1, self.mysize[0]])-self.params.Nz/2)*np.repeat(self.dphi[:, :, np.newaxis], self.mysize[0], axis=2)
+            self.Alldphi_psf = -(np.reshape(np.arange(0, self.mysize[0], 1), [1, 1, self.mysize[0]])-self.myparams.Nz/2)*np.repeat(self.dphi[:, :, np.newaxis], self.mysize[0], axis=2)
             self.myAllSlicePropagator_psf = np.transpose(np.exp(1j*self.Alldphi_psf) * (np.repeat(np.fft.fftshift(self.dphi)[:, :, np.newaxis], self.mysize[0], axis=2) >0), [2, 0, 1]);  # Propagates a single end result backwards to all slices
             #self.myAllSlicePropagator_psf = np.transpose(np.exp(1j*self.Alldphi_psf) * (np.repeat(self.dphi[:, :, np.newaxis], self.mysize[0], axis=2) >0), [2, 0, 1]);  # Propagates a single end result backwards to all slices
             
@@ -365,8 +378,8 @@ class MuScatModel(object):
                     
             # Only update those Factors which are really necesarry (e.g. Defocus is not very likely!)
             self.TF_zernikefactors = tf.Variable(self.zernikefactors, dtype = tf.float32, name='var_zernikes')
-            self.TF_shiftIcX = tf.Variable(self.params.shiftIcX, dtype=tf.float32, name='tf_shiftIcX')
-            self.TF_shiftIcY = tf.Variable(self.params.shiftIcY, dtype=tf.float32, name='tf_shiftIcY')        
+            self.TF_shiftIcX = tf.Variable(self.myparams.shiftIcX, dtype=tf.float32, name='tf_shiftIcX')
+            self.TF_shiftIcY = tf.Variable(self.myparams.shiftIcY, dtype=tf.float32, name='tf_shiftIcY')        
             
 
             #indexes = tf.constant([[4], [5], [6], [7], [8], [9]])
@@ -375,7 +388,7 @@ class MuScatModel(object):
             # Take slice
             # Build tensor with "filtered" gradient
             part_X = tf.scatter_nd(indexes, updates, tf.shape(self.TF_zernikefactors))
-            self.TF_zernikefactors_filtered = part_X + tf.stop_gradient(-part_X + self.TF_zernikefactors)
+            self.TF_zernikefactors_filtered =  part_X + tf.stop_gradient(-part_X + self.TF_zernikefactors)
           
         if self.is_compute_psf is 'BPM':
             with tf.name_scope('Variable_assignment_BPM'):
@@ -392,8 +405,8 @@ class MuScatModel(object):
                 if(is_debug): self.TF_A_input = tf.Print(self.TF_A_input, [], 'Casting TF_A_input')     
 
                 # make illuminatino decentering "learnable"
-                self.TF_xx = tf_helper.xx((self.mysize[1],self.mysize[2])) * 2 * np.pi * self.TF_shiftIcX /( self.lambdaM*self.params.nEmbb/self.params.dx)
-                self.TF_yy = tf_helper.yy((self.mysize[1],self.mysize[2])) * 2 * np.pi * self.TF_shiftIcY /( self.lambdaM*self.params.nEmbb/self.params.dy)
+                self.TF_xx = tf_helper.xx((self.mysize[1],self.mysize[2])) * 2 * np.pi * self.TF_shiftIcX /( self.lambdaM*self.myparams.nEmbb/self.myparams.dx)
+                self.TF_yy = tf_helper.yy((self.mysize[1],self.mysize[2])) * 2 * np.pi * self.TF_shiftIcY /( self.lambdaM*self.myparams.nEmbb/self.myparams.dy)
                 
                 TF_icshift = tf.exp(1j*tf.cast((self.TF_xx+self.TF_yy), tf.complex64))
                 self.TF_A_input  *= tf.expand_dims(TF_icshift,-1) # add global phase ramp in x/y  to decenter the source
@@ -425,11 +438,11 @@ class MuScatModel(object):
             self.TF_allSumAmp = self.TF_allSumAmp*tf.exp(tf.cast(-1j*np.pi/2, tf.complex64)) # align it with the born model
         else:
             if self.is_compute_psf=='BORN': 
-                self.TF_ASF, self.TF_ATF = self.computepsf()
+                self.TF_ASF, self.TF_ATF = self.compute_psf()
             if self.is_compute_psf=='3QDPC': 
-                self.TF_ASF, self.TF_ATF = self.computepsf_3dqdpc()
+                self.TF_ASF, self.TF_ATF = self.compute_psf_3dqdpc()
             elif self.is_compute_psf=='sep': #
-                self.TF_ASF, self.TF_ATF = self.computepsf_sepang()
+                self.TF_ASF, self.TF_ATF = self.compute_psf_sepang()
 
             # ASsign dummy variable- not used
             self.TF_allSumAmp = None 
@@ -437,32 +450,32 @@ class MuScatModel(object):
             
         # negate padding        
         if self.is_padding:
-            self.TF_allSumAmp = self.TF_allSumAmp[:,self.params.Nx//2-self.params.Nx//4:self.params.Nx//2+self.params.Nx//4, self.params.Ny//2-self.params.Ny//4:self.params.Ny//2+self.params.Ny//4]
+            self.TF_allSumAmp = self.TF_allSumAmp[:,self.myparams.Nx//2-self.myparams.Nx//4:self.myparams.Nx//2+self.myparams.Nx//4, self.myparams.Ny//2-self.myparams.Ny//4:self.myparams.Ny//2+self.myparams.Ny//4]
         
         return self.TF_allSumAmp
 
     
-    def compute_bpm(self, obj, is_padding=False, mysubsamplingIC=0, is_dampic=True):
+    def compute_bpm(self, obj, is_padding=False, mysubsamplingIC=0, is_dampic=True, is_mictype='BF'):
         # this funciton is a wrapper for the bpm forward model
         
         if obj is None:
             # Compute System Function
-            self.computesys(obj=None, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BPM', is_dampic=is_dampic)
+            self.computesys(obj=None, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BPM', is_dampic=is_dampic, is_mictype=is_mictype)
         
         else:
             # We need to subtract the background as BPM assumes dn as per-slice refractive index
-            obj = obj - self.params.nEmbb
+            obj = obj - self.myparams.nEmbb
             
             # Compute System Function
-            self.computesys(obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BPM', is_dampic=is_dampic)
+            self.computesys(obj, is_padding=is_padding, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BPM', is_dampic=is_dampic, is_mictype=is_mictype)
         
         # Compute Model
         return self.computemodel() #*tf.exp(np.complex64(-1j*np.pi)) # subtracting the background field!
 
     
-    def compute_born(self, obj, is_padding=False, mysubsamplingIC=0, is_precompute_psf=True, is_dampic=True):
+    def compute_born(self, obj, is_padding=False, mysubsamplingIC=0, is_precompute_psf=True, is_dampic=True, is_mictype='BF'):
         # This function is a wrapper to compute the Born fwd-model (convolution)
-        self.computesys(obj, is_padding=False, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BORN',is_dampic=is_dampic)
+        self.computesys(obj, is_padding=False, mysubsamplingIC=mysubsamplingIC, is_compute_psf='BORN',is_dampic=is_dampic, is_mictype=is_mictype)
         
         # Create Model Instance
         self.computemodel()
@@ -482,11 +495,11 @@ class MuScatModel(object):
             TF_ASF = self.TF_ASF
 
         # Define Fwd operator
-        return self.computeconvolution(TF_ASF=TF_ASF, is_padding=is_padding)
+        return self.compute_convolution(TF_ASF=TF_ASF, is_padding=is_padding)
     
-    def compute_3qdpc(self, obj, is_padding=False, mysubsamplingIC=0, is_precompute_psf=True, is_dampic=True):
+    def compute_3qdpc(self, obj, is_padding=False, mysubsamplingIC=0, is_precompute_psf=True, is_dampic=True, is_mictype='BF'):
         # This function is a wrapper to compute the Born fwd-model (convolution)
-        self.computesys(obj, is_padding=False, mysubsamplingIC=mysubsamplingIC, is_compute_psf='3QDPC',is_dampic=is_dampic)
+        self.computesys(obj, is_padding=False, mysubsamplingIC=mysubsamplingIC, is_compute_psf='3QDPC',is_dampic=is_dampic, is_mictype=is_mictype)
         
         # Create Model Instance
         self.computemodel()
@@ -506,11 +519,11 @@ class MuScatModel(object):
             TF_ASF = self.TF_ASF
 
         # Define Fwd operator
-        return self.computeconvolution(TF_ASF=TF_ASF, is_padding=is_padding)
+        return self.compute_convolution(TF_ASF=TF_ASF, is_padding=is_padding)
     
          
     
-    def computepsf_sepang(self):
+    def compute_psf_sepang(self):
         # here we only want to gather the partially coherent transfer function PTF
         # which is the correlation of the PTF_c and PTF_i 
         # we compute it as the slice propagation of the pupil function
@@ -535,7 +548,7 @@ class MuScatModel(object):
 
 
 
-    def computepsf(self):
+    def compute_psf(self):
 
         # here we only want to gather the partially coherent transfer function PTF
         # which is the correlation of the PTF_c and PTF_i 
@@ -544,8 +557,8 @@ class MuScatModel(object):
         # 1. + 2.) Define the input field as the BFP and effective pupil plane of the condenser 
         # Compute the ASF for the Condenser and Imaging Pupil
         # Rainer suggests to normalize everyhing to be within range of one - so why not using NA coordinates?
-        self.TF_xx = tf_helper.xx((self.mysize[1],self.mysize[2])) * 2 * np.pi * self.TF_shiftIcX /( self.lambdaM*self.params.nEmbb/self.params.dx)
-        self.TF_yy = tf_helper.yy((self.mysize[1],self.mysize[2])) * 2 * np.pi * self.TF_shiftIcY /( self.lambdaM*self.params.nEmbb/self.params.dy)
+        self.TF_xx = tf_helper.xx((self.mysize[1],self.mysize[2])) * 2 * np.pi * self.TF_shiftIcX /( self.lambdaM*self.myparams.nEmbb/self.myparams.dx)
+        self.TF_yy = tf_helper.yy((self.mysize[1],self.mysize[2])) * 2 * np.pi * self.TF_shiftIcY /( self.lambdaM*self.myparams.nEmbb/self.myparams.dy)
     
         # Making sure the illumination shift can be achieved
         TF_icshift = tf.exp(1j*tf.cast((self.TF_xx+self.TF_yy), tf.complex64))
@@ -575,13 +588,17 @@ class MuScatModel(object):
         TF_h_res = TF_h_res/self.TF_normfac #/ # TODO: norm Tensorflow?! 
         
         # 4.) precompute ATF - just im case
+                
+
+        
         TF_H_res = tf_helper.my_ft3d(TF_h_res)
+        
         #TF_H_res = TF_H_res/tf.complex(tf.sqrt(tf.reduce_max(tf.abs(TF_H_res))),0.)
         #TF_h_res = tf_helper.my_ift3d(TF_H_res)
         return TF_h_res, TF_H_res
     
     
-    def computepsf_3dqpc(self):
+    def compute_psf_3dqpc(self):
         # Borrowed from: https://github.com/Waller-Lab/3DQuantitativeDPC/blob/master/python_code/algorithm_3ddpc.py
         # here we only want to gather the partially coherent transfer function PTF
         # which is the correlation of the PTF_c and PTF_i 
@@ -590,8 +607,8 @@ class MuScatModel(object):
         # 1. + 2.) Define the input field as the BFP and effective pupil plane of the condenser 
         # Compute the ASF for the Condenser and Imaging Pupil
         # Rainer suggests to normalize everyhing to be within range of one - so why not using NA coordinates?
-        self.TF_xx = tf_helper.xx((self.mysize[1],self.mysize[2])) * 2 * np.pi * self.TF_shiftIcX /( self.lambdaM*self.params.nEmbb/self.params.dx)
-        self.TF_yy = tf_helper.yy((self.mysize[1],self.mysize[2])) * 2 * np.pi * self.TF_shiftIcY /( self.lambdaM*self.params.nEmbb/self.params.dy)
+        self.TF_xx = tf_helper.xx((self.mysize[1],self.mysize[2])) * 2 * np.pi * self.TF_shiftIcX /( self.lambdaM*self.myparams.nEmbb/self.myparams.dx)
+        self.TF_yy = tf_helper.yy((self.mysize[1],self.mysize[2])) * 2 * np.pi * self.TF_shiftIcY /( self.lambdaM*self.myparams.nEmbb/self.myparams.dy)
     
         TF_icshift = tf.exp(1j*tf.cast((self.TF_xx+self.TF_yy), tf.complex64))
         self.TF_Ic_shift = tf_helper.my_ift2d(tf_helper.my_ft2d(self.TF_Ic)*TF_icshift)
@@ -604,15 +621,15 @@ class MuScatModel(object):
         TF_h_res = tf.conj(TF_h_det) * TF_h_illu 
 
         # 3.) correlation of the pupil function to get the APTF
-        dfx = self.mysize[1]/self.params.dx
-        dfy = self.mysize[2]/self.params.dy
+        dfx = self.mysize[1]/self.myparams.dx
+        dfy = self.mysize[2]/self.myparams.dy
         
         TF_H_res = (2.0*tf_helper.my_ft2d(1.0j*TF_h_res*dfx*dfy))
 
         # do 1D fft along Z
         TF_H_res = tf.transpose(TF_H_res, [1,2,0])
         TF_H_res = tf.manip.roll(tf.spectral.fft(tf.manip.roll(TF_H_res,self.mysize[0]//2,-1)),self.mysize[0]//2,-1)
-        TF_H_res = tf.transpose(TF_H_res, [2,0,1])*self.params.dz
+        TF_H_res = tf.transpose(TF_H_res, [2,0,1])*self.myparams.dz
         
         #self.total_source = tf.reduce_sum(self.TF_Ic_shift*self.TF_Po_aberr*tf.conj(self.TF_Po_aberr))*dfx*dfy
         self.total_source = tf.complex(tf.sqrt(tf.reduce_sum(tf.abs(TF_h_res),0)),0.) # THIS IS THE ONE!
@@ -622,18 +639,20 @@ class MuScatModel(object):
         #normfac = tf.sqrt(tf.reduce_sum(tf_helper.tf_abssqr(TF_ATF[self.mysize[0]//2,:,:])))
         return TF_h_res, TF_H_res 
 
-    def computeconvolution(self, TF_ASF=None, is_padding=False, border_region=(10,10,10)):
+    def compute_convolution(self, TF_ASF=None, is_padding=False, border_region=(10,10,10)):
         # We want to compute the born-fwd model
         # TF_ATF - is the tensorflow node holding the ATF - alternatively use numpy arry!
         print('Computing the fwd model in born approximation')
 
         # compute the scattering potential according to 1st Born
         self.TF_nr = tf.complex(self.TF_obj, self.TF_obj_absorption)
-        self.TF_no = tf.cast(self.params.nEmbb+0j, tf.complex64)
-        k02 = (2*np.pi*self.params.nEmbb/self.params.lambda0)**2
+        self.TF_no = tf.cast(self.myparams.nEmbb+0j, tf.complex64)
+        k02 = (2*np.pi*self.myparams.nEmbb/self.myparams.lambda0)**2
         #self.TF_V = (k02/(4*np.pi))*(self.TF_nr**2-self.TF_no**2)
         #self.TF_V = (k02)*(self.TF_nr**2-self.TF_no**2)
-        self.TF_V = (4*np.pi)*(k02)*(self.TF_nr**2-self.TF_no**2)        
+        self.TF_V = (4*np.pi)*(k02)*(-self.TF_nr**2+self.TF_no**2) 
+        
+        
         
         # We need to have a placeholder because the ATF is computed afterwards...
         if (TF_ASF is None):
@@ -646,6 +665,13 @@ class MuScatModel(object):
             # Here we leave the ASF open to be optimized - it's a pass-through
             self.TF_ASF_placeholder = tf.cast(TF_ASF, tf.complex64)
         
+        print('TEST!!!!!!! Damping PSF!')
+        damp_map = np.float32(tf_helper.rr((self.myparams.Nz, self.myparams.Nx, self.myparams.Ny))+1)**(2)
+        damp_map /= np.max(damp_map)
+        self.tf_damp_map = tf.complex(damp_map, damp_map)
+        self.tf_damp_map = tf_helper.extract(self.tf_damp_map, self.mysize+2*border_region)
+            
+
         # convolve object with ASF
         if is_padding==True or is_padding=='pad':
             # to avoid wrap-around artifacts
@@ -655,7 +681,7 @@ class MuScatModel(object):
             TF_res = tf_helper.extract(TF_res, self.mysize)
         elif is_padding=='border':
             self.TF_ASF_placeholder_tmp = tf_helper.extract(self.TF_ASF_placeholder, self.mysize+2*border_region)
-            TF_res = tf_helper.my_ift3d(tf_helper.my_ft3d(self.TF_V)*tf_helper.my_ft3d(self.TF_ASF_placeholder_tmp))
+            TF_res = tf_helper.my_ift3d(tf_helper.my_ft3d(self.TF_V)*tf_helper.my_ft3d(self.TF_ASF_placeholder_tmp)) # convolution of object with asf
             TF_res = tf_helper.extract(TF_res, self.mysize)
         else:
             TF_res = tf_helper.my_ift3d(tf_helper.my_ft3d(self.TF_V)*tf_helper.my_ft3d(self.TF_ASF_placeholder))
@@ -666,7 +692,7 @@ class MuScatModel(object):
         print('ATTENTION: WEIRD MAGIC NUMBER for background field!!')
         #myfac = 1
         #return tf.squeeze(TF_res+(myfac-1j*myfac))/np.sqrt(2)
-        return tf.squeeze(TF_res - 1j) # add the background to make it equivalent to BPM
+        return tf.squeeze(TF_res - tf.complex(0.,1.)) # add the background to make it equivalent to BPM
            
     
     def computedeconv(self, ain, alpha = 5e-2):
@@ -706,7 +732,7 @@ class MuScatModel(object):
                         TF_imag = (TF_imag_3D[-pz,:,:])
                         
 
-                    self.TF_f = tf.exp(self.TF_RefrEffect*tf.complex(TF_real, TF_imag))
+                    self.TF_f = tf.exp(-self.TF_RefrEffect*tf.complex(TF_real, TF_imag))
                     self.TF_A_prop = self.TF_A_prop * self.TF_f  # refraction step
                 with tf.name_scope('Propagate'):
                     self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * self.TF_myprop) # diffraction step
@@ -719,7 +745,7 @@ class MuScatModel(object):
         ''' Here we generate a focus stack for all illumination modes independtly. 
         it follows the routine "propslices". '''
         # TF_A_prop - Input field to propagate
-        TF_allSumAmp = tf.zeros([self.mysize[0], self.params.Nx, self.params.Ny], dtype=tf.complex64)
+        TF_allSumAmp = tf.zeros([self.mysize[0], self.myparams.Nx, self.myparams.Ny], dtype=tf.complex64)
         
         # create Z-Stack by backpropagating Information in BFP to Z-Position
         self.kzcoord = np.reshape(self.kz[self.Ic>0], [1, 1, 1, self.Nc]);
@@ -738,7 +764,7 @@ class MuScatModel(object):
                         # and then apply the XYZ shift using the Fourier shift theorem (corresponds to physically shifting the object volume, scattered field stays the same):
                         self.TF_AdjustKXY = tf.squeeze(tf.conj(self.TF_A_input[pillu,:,:,])) # Maybe a bit of a dirty hack, but we first need to shift the zero coordinate to the center
                         self.TF_AdjustKZ = tf.cast(tf.transpose(np.exp(
-                            2 * np.pi * 1j * self.params.dz * np.reshape(np.arange(0, self.mysize[0], 1), # We want to start from first Z-slice then go to last which faces the objective lens
+                            2 * np.pi * 1j * self.myparams.dz * np.reshape(np.arange(0, self.mysize[0], 1), # We want to start from first Z-slice then go to last which faces the objective lens
                                   [1, 1, self.mysize[0]]) * self.kzcoord[:, :, :,pillu]), [2, 1, 0]), tf.complex64)
                         self.TF_allAmp = tf.ifft2d(tf.fft2d(OneAmp) * self.TF_myAllSlicePropagator) * self.TF_AdjustKZ * self.TF_AdjustKXY  # * (TF_AdjustKZ);  # 2x bfxfun.  Propagates a single amplitude pattern back to the whole stack
                         #tf_global_phase = tf.cast(tf.angle(self.TF_allAmp[self.mid3D[0],self.mid3D[1],self.mid3D[2]]), tf.complex64)
@@ -787,7 +813,7 @@ class MuScatModel(object):
         print('Only Experimental! Tomographic data?!')
         # Bring the slice back to focus - does this make any sense?! 
         print('----------> Bringing field back to focus')
-        TF_centerprop = tf.exp(-1j*tf.cast(self.params.Nz/2*tf.angle(self.TF_myprop), tf.complex64))
+        TF_centerprop = tf.exp(-1j*tf.cast(self.myparams.Nz/2*tf.angle(self.TF_myprop), tf.complex64))
         self.TF_A_prop = tf.ifft2d(tf.fft2d(self.TF_A_prop) * TF_centerprop) # diffraction step
         return self.TF_A_prop
 
@@ -804,19 +830,19 @@ class MuScatModel(object):
     def writeParameterFile(self, mylr, mytv, myeps, filepath = '/myparameters.yml'):
         ''' Write out all parameters to a yaml file in case we need it later'''
         mydata = dict(
-                shiftIcX = float(self.params.shiftIcX),
-                shiftIcY = float(self.params.shiftIcY),                
-                NAc = float(self.params.NAc),
-                NAo = float(self.params.NAo), 
+                shiftIcX = float(self.myparams.shiftIcX),
+                shiftIcY = float(self.myparams.shiftIcY),                
+                NAc = float(self.myparams.NAc),
+                NAo = float(self.myparams.NAo), 
                 Nc = float(self.Nc), 
-                Nx = float(self.params.Nx), 
-                Ny = float(self.params.Ny),
-                Nz = float(self.params.Nz),
-                dx = float(self.params.dx),
-                dy = float(self.params.dy),
-                dz = float(self.params.dz),
+                Nx = float(self.myparams.Nx), 
+                Ny = float(self.myparams.Ny),
+                Nz = float(self.myparams.Nz),
+                dx = float(self.myparams.dx),
+                dy = float(self.myparams.dy),
+                dz = float(self.myparams.dz),
                 dn = float(self.dn),
-                lambda0 = float(self.params.lambda0),
+                lambda0 = float(self.myparams.lambda0),
                 lambdaM = float(self.lambdaM),
                 learningrate = mylr, 
                 lambda_reg = mytv, 
@@ -879,9 +905,9 @@ class MuScatModel(object):
         plt.subplot(334), plt.title('Residual Imag XZ'),plt.imshow((np.imag(myfwd)-np.imag(mymeas))[:,myfwd.shape[1]//2,:]), plt.colorbar()#, plt.show()
         plt.subplot(335), plt.title('Residual Imag XZ'),plt.imshow((np.imag(myfwd)-np.imag(mymeas))[:,:,myfwd.shape[2]//2]), plt.colorbar()#, plt.show()
         plt.subplot(336), plt.title('Residual Imag XY'),plt.imshow((np.imag(myfwd)-np.imag(mymeas))[myfwd.shape[0]//2,:,:]), plt.colorbar()#, plt.show()
-        plt.subplot(337), plt.title('Residual abssqr XZ'), plt.imshow((((myresi)))[:,myresi.shape[1]//2,:]), plt.colorbar()#, plt.show()
-        plt.subplot(338), plt.title('Residual abssqr XY'), plt.imshow((((myresi)))[:,:,myresi.shape[2]//2]), plt.colorbar()#, plt.show()    
-        plt.subplot(339), plt.title('Residual abssqr Yz'), plt.imshow((((myresi)))[myresi.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
+        plt.subplot(337), plt.title('Residual abssqr XZ'), plt.imshow((((myresi)**.1))[:,myresi.shape[1]//2,:]), plt.colorbar()#, plt.show()
+        plt.subplot(338), plt.title('Residual abssqr XY'), plt.imshow((((myresi)**.1))[:,:,myresi.shape[2]//2]), plt.colorbar()#, plt.show()    
+        plt.subplot(339), plt.title('Residual abssqr Yz'), plt.imshow((((myresi)**.1))[myresi.shape[0]//2,:,:]), plt.colorbar()#, plt.show()    
         
 
         plt.savefig(savepath+'/res_myresidual'+figsuffix+'.png'), plt.show()

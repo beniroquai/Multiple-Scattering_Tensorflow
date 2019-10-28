@@ -46,16 +46,17 @@ elif(1):
 
     # Generic Microscope Parameters
     NAo = .95
-    NAc = .1
-    NAci = .0
+    NAc = .32
+    NAci = .2
     lambda0 = .65 
     dx = .15
     dy = .15
-    dz = .5
+    dz = dx#lambda0/nEmbb/2
 
+    is_mictype = 'BF'
     # Systematic parametres for microscpe 
-    shiftIcY = 0. # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-    shiftIcX = 0. # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    shiftIcY = 0.0 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    shiftIcX = 0.0 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
     
     
     zernikefactors = np.array((0,0,0,0,0,0,0,-.0,-.0,0,0,0.0,.0))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
@@ -65,7 +66,7 @@ elif(1):
     mybackgroundval= .3+1.1j
     mysubsamplingIC = 0 #
     mysize = ((60,70,70)) # Z, X, Y
-    mysize = ((128,128,128)) # Z, X, Y    
+    #mysize = ((128,128,128)) # Z, X, Y    
     
     # Path's 
     mysavepath = './Data/Simulations/'
@@ -88,7 +89,7 @@ elif(1):
     lambda_zernike = 0*1.
     lambda_icshift = 0*1.
     lambda_neg = 0*100.
-    myepstvval = 1e-6 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
+    myepstvval = 1e-11 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
     
              
 # Miroslav stuff
