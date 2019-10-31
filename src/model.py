@@ -669,7 +669,7 @@ class MuScatModel(object):
         damp_map = np.float32(tf_helper.rr((self.myparams.Nz, self.myparams.Nx, self.myparams.Ny))+1)**(2)
         damp_map /= np.max(damp_map)
         self.tf_damp_map = tf.complex(damp_map, damp_map)
-        self.tf_damp_map = tf_helper.extract(self.tf_damp_map, self.mysize+2*border_region)
+        self.tf_damp_map = tf_helper.extract(self.tf_damp_map, self.mysize+np.dot(2,border_region))
             
 
         # convolve object with ASF
