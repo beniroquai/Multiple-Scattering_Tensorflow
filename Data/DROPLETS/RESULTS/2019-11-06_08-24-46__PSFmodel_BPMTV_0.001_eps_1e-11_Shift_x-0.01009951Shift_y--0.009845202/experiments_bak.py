@@ -91,9 +91,9 @@ if(1):
     #zernikefactors = 0*np.array((0.,0.,0.,0.,0.49924508,-1.162684,-0.09952152,-0.4380897,-0.6640752,0.16908956,0.860051))
     
     #for BORN
-    if(1):
+    if(0):
         regularizer = 'TV'
-        lambda_reg = 1e-0
+        lambda_reg = 1e-2
         my_learningrate = 1e0  # learning rate
         lambda_zernike = 1.
         lambda_icshift = 1.

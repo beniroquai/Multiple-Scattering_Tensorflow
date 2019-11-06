@@ -20,6 +20,9 @@ import os
 import NanoImagingPack as nip
 import src.tf_helper as tf_helper
 
+from IPython import get_ipython
+get_ipython().run_line_magic('gui', 'qt5')
+
 # change the following to %matplotlib notebook for interactive plotting
 # %matplotlib inline
 
@@ -227,3 +230,5 @@ data.export_realdatastack_h5(savepath+'/myfwd.h5', 'real, imag',
                                   np.imag(myfwd)), axis=0))
        
 
+import napari
+viewer = napari.view_image(np.abs(muscat.myATF))

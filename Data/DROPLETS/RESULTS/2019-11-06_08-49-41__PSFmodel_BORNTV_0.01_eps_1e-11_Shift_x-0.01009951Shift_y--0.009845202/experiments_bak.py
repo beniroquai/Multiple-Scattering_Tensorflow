@@ -93,7 +93,7 @@ if(1):
     #for BORN
     if(1):
         regularizer = 'TV'
-        lambda_reg = 1e-0
+        lambda_reg = 1e-2
         my_learningrate = 1e0  # learning rate
         lambda_zernike = 1.
         lambda_icshift = 1.

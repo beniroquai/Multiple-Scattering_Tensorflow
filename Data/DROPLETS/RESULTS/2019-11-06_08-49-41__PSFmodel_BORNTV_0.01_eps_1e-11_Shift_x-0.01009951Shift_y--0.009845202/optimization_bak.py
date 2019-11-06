@@ -47,7 +47,7 @@ is_absorption = 0
 is_obj_init_tikhonov = False # intialize the 
 is_norm = False # Want to have a floating value for the background?
 is_recomputemodel = True  # TODO: Make it automatic! 
-is_estimatepsf = True
+is_estimatepsf = False
 mybordersize = 20
 psf_model = 'BPM'
 #psf_model = '3QDPC'
@@ -75,19 +75,26 @@ if is_recomputemodel:
     
     ''' 1.) Read in the parameters of the dataset ''' 
     if(experiments.obj_meas_filename.find('mat')==-1):
-        np_meas = np.load(experiments.np_meas_filename)
+        obj_meas = np.load(experiments.obj_meas_filename)
     else:
-        np_meas = data.import_realdata_h5(filename = experiments.obj_meas_filename, matname = experiments.matlab_val_name, is_complex=True)
-    
+        obj_meas = data.import_realdata_h5(filename = experiments.obj_meas_filename, matname=experiments.matlab_val_name, is_complex=True)
+        
     # If Z-is odd numbered
-    if(np.mod(np_meas.shape[0],2)==1):
-        np_meas = np_meas[0:np_meas.shape[0]-1,:,:]
-    np_meas = np_meas[:,:,:,]
+    if(np.mod(obj_meas.shape[0],2)==1):
+        obj_meas = obj_meas[0:obj_meas.shape[0]-1,:,:]
+    obj_meas = obj_meas[:,:,:,]
 
     # Eventually add an imaginary background to synchronize to methods 
     if(psf_model=='BORN'):
-        np_meas = np_meas + experiments.mybackgroundval
+        obj_meas = obj_meas + experiments.mybackgroundval
     
+    ''' 2.) Read (optional) referecne object for PSF calibration ''' 
+    if(is_estimatepsf): # if we know the object already, we only need to update the PSF
+        obj_meas = data.import_realdata_h5(filename = experiments.matlab_obj_file, matname='mysphere_mat', is_complex=False)
+        obj_guess =  -obj_meas*experiments.dn+experiments.dn+1j*.1*obj_meas
+        #obj_guess = np.random.rand(obj_meas.shape[0],obj_meas.shape[1],obj_meas.shape[2])*muscat.dn/2
+    
+
     ''' 3.) Read in the parameters of the dataset ''' 
     # File which stores the experimental parameters from the Q-PHASE setup 
     myparams = paras.MyParameter()
@@ -112,7 +119,7 @@ if is_recomputemodel:
             obj_guess_filename = 'myrefractiveindex.h5'
             obj_guess = data.import_realdata_h5(filename = obj_guess_filename, matname='phase, abs0', is_complex=False)
         else:
-             obj_guess =  np.zeros(np_meas.shape)+myparams.nEmbb # np.angle(np_meas)## 
+             obj_guess =  np.zeros(obj_meas.shape)+myparams.nEmbb # np.angle(obj_meas)## 
              obj_guess = np.load('thikonovinvse.npy')
         
         #obj_guess = obj_guess-np.min(obj_guess); obj_guess = obj_guess/np.max(obj_guess)
@@ -122,20 +129,13 @@ if is_recomputemodel:
         else:
             obj_guess = experiments.dn*np.real(obj_guess)/np.max(np.real(obj_guess))
     else:
-        ''' 2.) Read (optional) referecne object for PSF calibration ''' 
-        if(is_estimatepsf): # if we know the object already, we only need to update the PSF
-            obj_guess = myparams.nEmbb+experiments.dn*data.import_realdata_h5(filename = experiments.matlab_obj_file, matname='mysphere_mat', is_complex=False)
-            obj_guess[obj_guess<(experiments.dn+myparams.nEmbb)] = myparams.nEmbb
-            
-            
-        else: 
-            obj_guess = np.zeros(np_meas.shape)# np.angle(np_meas)## 
-            obj_guess = obj_guess+myparams.nEmbb # add background
-        #obj_guess = np.random.randn(myparams.Nz, myparams.Nx, myparams.Ny)*myparams.dn
+        obj_guess = np.zeros(obj_meas.shape)# np.angle(obj_meas)## 
     
+        #obj_guess = np.random.randn(myparams.Nz, myparams.Nx, myparams.Ny)*myparams.dn
+    obj_guess = obj_guess+myparams.nEmbb # add background
    # obj_guess = myobj_old 
    
-   #np_meas = np_meas    
+    np_meas = obj_meas    
     
     ''' 5.) Create the Model
     This computes the physical model (e.g. Aperture, Pixelsize, etc.) '''
@@ -147,9 +147,9 @@ if is_recomputemodel:
     if(psf_model=='BORN' or psf_model == '3QDPC'):
         # Test this Carringotn Padding to have borders at the dges where the optimizer can make pseudo-update
         # add carrington boundary regions
-        my_border_region = np.array((np_meas.shape[0]//2,mybordersize,mybordersize)) # border-region around the object 
+        my_border_region = np.array((obj_meas.shape[0]//2,mybordersize,mybordersize)) # border-region around the object 
         bz, bx, by = my_border_region
-        obj_guess_real = np.pad(np.real(obj_guess),[(bz, bz), (bx, bx), (by, by)], mode='constant', constant_values=np.min(np.real(obj_guess)))
+        obj_guess_real = np.pad(np.real(obj_guess),[(bz, bz), (bx, bx), (by, by)], mode='constant', constant_values=np.mean(np.real(obj_guess)))
         obj_guess_imag = np.pad(np.imag(obj_guess),[(bz, bz), (bx, bx), (by, by)], mode='constant', constant_values=np.mean(1j*np.mean(np.imag(obj_guess))))
         obj_guess = obj_guess_real + 1j*obj_guess_imag
 
@@ -268,7 +268,7 @@ if is_recomputemodel:
     if is_estimatepsf:
         # unordinary case - we want to optimize for the system only
         tf_lossop_aberr = tf_optimizer_aberr.minimize(tf_loss, var_list = [muscat.TF_shiftIcX, muscat.TF_shiftIcY, muscat.TF_zernikefactors])
-        #tf_lossop_norm = tf_optimizer_aberr.minimize(tf_loss, var_list = [tf_glob_real,tf_glob_imag])
+        tf_lossop_norm = tf_optimizer_aberr.minimize(tf_loss, var_list = [tf_glob_real,tf_glob_imag])
     else:
         # ordinary case - we want to optimize for the object                
         tf_lossop_obj = tf_optimizer.minimize(tf_loss, var_list = [muscat.TF_obj])
@@ -325,7 +325,7 @@ globalimaglist = []; myfwdlist = []
 ''' Optimize the model '''
 print('Start optimizing')
 #import scipy.io
-#scipy.io.savemat('ExperimentAsfObj.mat', dict(asf=np.array(myASF), obj=np.array(np_meas)))
+#scipy.io.savemat('ExperimentAsfObj.mat', dict(asf=np.array(myASF), obj=np.array(obj_meas)))
 
 for iterx in range(iter_last,Niter):
     
@@ -370,14 +370,11 @@ for iterx in range(iter_last,Niter):
     #sess.run([tf_lossop_tv], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:experiments.my_learningrate, muscat.tf_lambda_reg:experiments.lambda_reg, muscat.tf_eps:experiments.myepstvval})
 
     # Do not optimize the object if we try to estimate the PSF (object is known!)
-    if is_estimatepsf:
-        sess.run(tf_lossop_aberr, feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:experiments.my_learningrate, muscat.tf_lambda_reg:experiments.lambda_reg, muscat.tf_eps:experiments.myepstvval})
+    if is_absorption and not is_estimatepsf:
+        sess.run(tf_lossop_obj_absorption  , feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:experiments.my_learningrate, muscat.tf_lambda_reg:experiments.lambda_reg, muscat.tf_eps:experiments.myepstvval})
     else:
-        if is_absorption:
-            sess.run(tf_lossop_obj_absorption  , feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:experiments.my_learningrate, muscat.tf_lambda_reg:experiments.lambda_reg, muscat.tf_eps:experiments.myepstvval})
-        else:
-            sess.run(tf_lossop_obj, feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:experiments.my_learningrate, muscat.tf_lambda_reg:experiments.lambda_reg, muscat.tf_eps:experiments.myepstvval})
-       
+        sess.run(tf_lossop_obj, feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:experiments.my_learningrate, muscat.tf_lambda_reg:experiments.lambda_reg, muscat.tf_eps:experiments.myepstvval})
+   
     # print('Attetntion: Generalized costfunction1')
     if is_aberration and (iterx > is_aberation_iterstart) or is_estimatepsf:
         sess.run([tf_lossop_aberr], feed_dict={muscat.tf_meas:np_meas, muscat.tf_learningrate:experiments.my_learningrate, muscat.tf_lambda_reg:experiments.lambda_reg, muscat.tf_eps:experiments.myepstvval})
@@ -411,12 +408,7 @@ print('ShiftX/Y: '+ str(sess.run(muscat.TF_shiftIcX))+' / ' + str(sess.run(musca
 #nip.v5(nip.cat(np.stack(((nip.extract(result_absorptionlist[-1], muscat.mysize,None,None)),np.real(np_meas), np.imag(np_meas)), axis=0)))
 
 import tifffile as tif
-tif.imsave(savepath+'/tif_rec_real_tif.tif', np.real(my_obj), dtype='float32')
-tif.imsave(savepath+'/tif_rec_imag_tif.tif', np.imag(my_obj), dtype='float32')
-tif.imsave(savepath+'/tif_obj_real_tif.tif', np.float32(np.real(np_meas)))
-tif.imsave(savepath+'/tif_obj_imag_tif.tif', np.float32(np.imag(np_meas)))
-
-np.concatenate((np.expand_dims(np.float32(np.imag(np_meas)),0), np.expand_dims(np.float32(np.imag(np_meas))),0), 0)
+#tif.imsave('real_tif.tif', nip.extract(result_phaselist[-1], muscat.mysize,None,None), dtype='float32')
 # backup current script
 from shutil import copyfile
 src = (os.path.basename(__file__))

@@ -31,13 +31,16 @@ We provide a iPython notebook file to test the "Partially Coherent Imager" based
 The following packages are needed in order to make the toolbox work. 
 
 
-
-* pip install tifffile 
-* pip install matplotlib
-* pip install pyyaml
-* pip install scipy
-* pip install scikit
-
+```
+pip install tifffile 
+pip install matplotlib
+pip install pyyaml
+pip install scipy
+pip install scikit
+pip install git+https://NanoImagingUser:NanoImagingUser@gitlab.com/bionanoimaging/nanoimagingpack
+pip install pyaml
+pip install scikit-image
+```
 
 ## Data
 Data can be provided upon request.

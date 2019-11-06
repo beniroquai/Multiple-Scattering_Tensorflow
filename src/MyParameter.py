@@ -84,6 +84,7 @@ class MyParameter:
         print('mysize: ' +str(self.mysize))
         print('zernikefactors: '+str(self.zernikefactors))  
         print('zernikemask: '+str(self.zernikemask))  
+        print('Imaging Method: '+self.is_mictype)
     
     def loadmat(self, experiments):
         # Cast the parameter-mat file into a python class

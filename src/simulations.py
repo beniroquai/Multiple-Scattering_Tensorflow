@@ -53,13 +53,13 @@ elif(1):
     dy = .15
     dz = dx#lambda0/nEmbb/2
 
-    is_mictype = 'BF'
+    is_mictype = 'DF'
     # Systematic parametres for microscpe 
-    shiftIcY = 0.0 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
-    shiftIcX = 0.0 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    shiftIcY = 0.10 # has influence on the YZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
+    shiftIcX = 0.10 # has influence on the XZ-Plot - negative values shifts the input wave (coming from 0..end) to the left
     
     
-    zernikefactors = np.array((0,0,0,0,0,0,0,-.0,-.0,0,0,0.0,.0))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
+    zernikefactors = np.array((0,0,0,0,0,0,0,-1,-1,0,0,1.0,.0))  # 7: ComaX, 8: ComaY, 11: Spherical Aberration
     zernikemask = np.array(np.abs(zernikefactors)>0)*1# mask of factors that should be updated
     zernikemask[0]=0 # we don't want the first one to be shifting the phase!!
     is_dampic=1

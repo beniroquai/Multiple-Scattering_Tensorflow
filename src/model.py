@@ -135,9 +135,8 @@ class MuScatModel(object):
         
         if(1):
             print('lens shadig (e.g. vignatting is applied!!)')
-            self.vignetting = -nip.rr(mysize=self.Po.shape)
-            self.vignetting = -np.exp(nip.rr(mysize=self.Po.shape,freq='ftfreq')**0.125)
-            self.vignetting -= np.min(self.vignetting)
+            self.vignetting = np.exp(-nip.rr(mysize=self.Po.shape,freq='ftfreq')**2/0.0125)
+            #self.vignetting -= np.min(self.vignetting)
             self.Po *= self.vignetting
             self.Po /= np.max(self.Po)
             

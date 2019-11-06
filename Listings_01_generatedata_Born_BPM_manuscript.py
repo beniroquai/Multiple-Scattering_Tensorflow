@@ -60,9 +60,7 @@ psf_model =  'BORN' # MultiSlice
 #psf_model =  '3QDPC' # MultiSlice
 #psf_model =  'BPM' # 1st Born
 
-'''Choose your microscope type, Brightfield, Darkfield, etc. '''
-is_mictype='BF' # BF, DF, DIC, PC
-   
+
 # Generate Test-Object
 ''' File which stores the experimental parameters from the Q-PHASE setup 
     2.) Read in the parameters of the dataset ''' 
@@ -78,7 +76,7 @@ muscat = mus.MuScatModel(myparams, is_optimization=is_optimization)
   
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
 mydiameter = 1
-objtype = 'cheek100'#'cheek100' # 'sphere', 'twosphere', 'slphantom'
+objtype = 'sphere'# 'cheek100'#'cheek100' # 'sphere', 'twosphere', 'slphantom'
 if(objtype == 'sphere'):
     obj_real= tf_go.generateObject(mysize=myparams.mysize, obj_dim=np.array((myparams.dz, myparams.dx, myparams.dy)), obj_type ='sphere', diameter = mydiameter, dn = experiments.dn, nEmbb = myparams.nEmbb)#)dn)
     obj_absorption= tf_go.generateObject(mysize=myparams.mysize, obj_dim=np.array((myparams.dz, myparams.dx, myparams.dy)), obj_type ='sphere', diameter = mydiameter, dn = .01, nEmbb = 0.)#)dn)
