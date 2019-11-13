@@ -60,37 +60,37 @@ is_optimization_psf = False
 is_flip = False
 is_measurement = False
 
-tf.reset_default_graph()
 '''Choose between Born (BORN) or BPM (BPM)'''
-
 psf_model =  'BORN' # MultiSlice
 #psf_model =  '3QDPC' # MultiSlice
 #psf_model =  'BPM' # 1st Born
 #psf_model = None
 
-
+''' Remove any old instance of the QPhase model which resists in memory'''
 tf.reset_default_graph()
-# need to figure out why this holds somehow true - at least produces reasonable results
- 
-   
+
 # Generate Test-Object
 ''' File which stores the experimental parameters from the Q-PHASE setup 
     2.) Read in the parameters of the dataset ''' 
 myparams = paras.MyParameter()
-#myparams.loadmat(mymatpath = experiments.matlab_par_file, mymatname = experiments.matlab_par_name)
+
+# Load simulation data into the parameter class
 myparams.loadExperiment(experiments)
 myparams.print()
+# optional: make some adjustments 
 myparams.Nz,myparams.Nx,myparams.Ny =  experiments.mysize
 myparams.mysize = (myparams.Nz,myparams.Nx,myparams.Ny) # ordering is (Nillu, Nz, Nx, Ny)
 
-#experiments.dn = .1
 ''' Create the Model'''
 muscat = mus.MuScatModel(myparams, is_optimization=is_optimization)
-#experiments.zernikefactors = np.array((0,0,0,0, -1.2058168e-04, -2.3622499e-03, -7.7374041e-02 ,-1.4900701e-02,  -6.6282146e-04 ,-4.2013789e-04 , -1.2619525e+00))
-    
-muscat.zernikefactors = experiments.zernikefactors
-muscat.zernikemask = experiments.zernikemask
-  
+# optional: assign some external paramters which are not in the simulation file    
+muscat.zernikefactors = experiments.zernikefactors# introduce zernike factors here
+muscat.zernikemask = experiments.zernikemask # this is only important for optimization 
+#muscat.zernikefactors = np.array((0,0,0,0,0,0,.1,-1,0,0,-2)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
+
+
+#%%
+
 ''' Create a 3D Refractive Index Distributaton as a artificial sample'''
 mydiameter = 1
 objtype = 'sphere'#'cheek100' # 'sphere', 'twosphere', 'slphantom'
@@ -133,13 +133,9 @@ elif(objtype == 'slphantom'):
     obj_real =  np.load('./Data/PHANTOM/phantom_50_50_50.npy')*experiments.dn+ myparams.nEmbb
     obj_absorption = obj_real*0
 
-obj = (obj_real)# + 1j*obj_absorption)
-#obj = np.roll(obj, shift=5, axis=0)
+obj = obj_real + obj_absorption
 
-# introduce zernike factors here
-muscat.zernikefactors = experiments.zernikefactors
-#muscat.zernikefactors = np.array((0,0,0,0,0,0,.1,-1,0,0,-2)) # 7: ComaX, 8: ComaY, 11: Spherical Aberration
-muscat.zernikemask = experiments.zernikefactors*0
+
 
 print('Start the TF-session')
 sess = tf.Session()#config=tf.ConfigProto(log_device_placement=True))
@@ -170,10 +166,11 @@ else:
     
     
 
-''' Evaluate the model '''
+
 print('Initiliaze Variables')
 sess.run(tf.global_variables_initializer())    
 
+''' Evaluate the model '''
 # The first call is -unfortunately- very expensive... 
 print('Compute Result')  
 start = time.time()
@@ -192,7 +189,7 @@ if(psf_model == 'BORN' or psf_model == '3QDPC'):
     tf_helper.plot_obj_fft(savepath, myfwd)
 #%%
 #%% Display Apertures
-plt.subplot(131), plt.title('Ic'),plt.imshow(muscat.Ic), plt.colorbar()#, plt.show()
+plt.subplot(131), plt.title('Ic'),plt.imshow(np.abs(muscat.Ic)), plt.colorbar()#, plt.show()
 plt.subplot(132), plt.title('Abs Po'),plt.imshow(np.abs(muscat.Po)), plt.colorbar()#, plt.show()
 plt.subplot(133), plt.title('Angle Po'),plt.imshow(np.angle(muscat.Po)), plt.colorbar()# plt.show()
 
@@ -229,6 +226,3 @@ data.export_realdatastack_h5(savepath+'/myfwd.h5', 'real, imag',
                         np.stack((np.real(myfwd),
                                   np.imag(myfwd)), axis=0))
        
-
-import napari
-viewer = napari.view_image(np.abs(muscat.myATF))
