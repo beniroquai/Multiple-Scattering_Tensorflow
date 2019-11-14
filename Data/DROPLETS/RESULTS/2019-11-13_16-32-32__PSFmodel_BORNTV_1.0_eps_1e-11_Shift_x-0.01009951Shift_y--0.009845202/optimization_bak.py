@@ -98,9 +98,7 @@ if is_recomputemodel:
         print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!ATTENTION weird magic number to match the pixelsize')
         myparams.dx *= (35/25)
         myparams.dy *= (35/25)
-        myparams.dz = 0.4
-        myparams.NAc = .3
-        
+        myparams.dz = experiments.dz
         
 
     myparams.print()
@@ -263,7 +261,7 @@ if is_recomputemodel:
             
     if is_estimatepsf:
         # unordinary case - we want to optimize for the system only
-        tf_lossop_aberr = tf_optimizer_aberr.minimize(tf_loss, var_list = [muscat.TF_shiftIcX, muscat.TF_shiftIcY, muscat.TF_zernikefactors))#, muscat.TF_scale_object])
+        tf_lossop_aberr = tf_optimizer_aberr.minimize(tf_loss, var_list = [muscat.TF_shiftIcX, muscat.TF_shiftIcY, muscat.TF_zernikefactors])
         #tf_lossop_norm = tf_optimizer_aberr.minimize(tf_loss, var_list = [tf_glob_real,tf_glob_imag])
     else:
         # ordinary case - we want to optimize for the object                

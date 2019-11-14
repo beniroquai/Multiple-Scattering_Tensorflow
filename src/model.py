@@ -135,7 +135,7 @@ class MuScatModel(object):
         
         if(1):
             print('lens shadig (e.g. vignatting is applied!!)')
-            self.vignetting = np.exp(-nip.rr(mysize=self.Po.shape,freq='ftfreq')**2/0.0125)
+            self.vignetting = np.exp(-nip.rr(mysize=self.Po.shape,freq='ftfreq')**2/0.125)
             #self.vignetting -= np.min(self.vignetting)
             self.Po *= self.vignetting
             self.Po /= np.max(self.Po)
@@ -356,8 +356,8 @@ class MuScatModel(object):
                   
             # Only update those Factors which are really necesarry (e.g. Defocus is not very likely!)
             self.TF_zernikefactors = tf.Variable(self.zernikefactors, dtype = tf.float32, name='var_zernikes')
-            self.TF_shiftIcX = tf.Variable(self.myparams.shiftIcX, dtype=tf.int8, name='tf_shiftIcX')
-            self.TF_shiftIcY = tf.Variable(self.myparams.shiftIcY, dtype=tf.int8, name='tf_shiftIcY')        
+            self.TF_shiftIcX = tf.Variable(np.int32(self.myparams.shiftIcX), dtype=tf.int32, name='tf_shiftIcX')
+            self.TF_shiftIcY = tf.Variable(np.int32(self.myparams.shiftIcY), dtype=tf.int32, name='tf_shiftIcY')        
             
 
             #indexes = tf.constant([[4], [5], [6], [7], [8], [9]])
@@ -625,12 +625,13 @@ class MuScatModel(object):
         print('Computing the fwd model in born approximation')
 
         # compute the scattering potential according to 1st Born
+        # self.TF_scale_object = tf.Variable(1.0, dtype=tf.float32, name='tf_scale')
         self.TF_nr = tf.complex(self.TF_obj, self.TF_obj_absorption)
         self.TF_no = tf.cast(self.myparams.nEmbb+0j, tf.complex64)
         k02 = (2*np.pi*self.myparams.nEmbb/self.myparams.lambda0)**2
         #self.TF_V = (k02/(4*np.pi))*(self.TF_nr**2-self.TF_no**2)
         #self.TF_V = (k02)*(self.TF_nr**2-self.TF_no**2)
-        self.TF_V = (4*np.pi)*(k02)*(-self.TF_nr**2+self.TF_no**2) 
+        self.TF_V = (4*np.pi)*(k02)*(-self.TF_nr**2+self.TF_no**2)# * tf.complex(self.TF_scale_object, 0.)
         
         # We need to have a placeholder because the ATF is computed afterwards...
         if (TF_ASF is None):
