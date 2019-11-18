@@ -43,6 +43,7 @@ class MuScatModel(object):
         # refractive index immersion and embedding
         self.dn = self.myparams.dn; # self.nImm - self.myparams.nEmbb
         self.lambdaM = self.myparams.lambda0/self.myparams.nEmbb; # wavelength in the medium
+        self.lamba0 = self.myparams.lambda0
  
     #@define_scope
     def computesys(self, obj=None, is_padding=False, is_tomo = False, mysubsamplingIC=0, is_compute_psf='BORN', is_dampic=True, is_mictype='BF'):
@@ -298,7 +299,7 @@ class MuScatModel(object):
 
             # Precalculate the oblique effect on OPD to speed it up
             print('--------> ATTENTION: I added no pi factor - is this correct?!')
-            self.RefrEffect = np.reshape(np.squeeze(1j * self.myparams.dz * self.k0 * self.RefrCos), [self.Nc, 1, 1]) # pi-factor
+            self.RefrEffect = np.reshape(np.squeeze(1j * 2* np.pi/self.lambda0* self.myparams.dz * self.RefrCos), [self.Nc, 1, 1]) # pi-factor
             
             myprop = np.exp(1j * self.dphi) * (self.dphi > 0);  # excludes the near field components in each step
             myprop = tf_helper.repmat4d(np.fft.fftshift(myprop), self.Nc)

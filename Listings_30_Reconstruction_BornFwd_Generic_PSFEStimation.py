@@ -47,11 +47,11 @@ is_absorption = 0
 is_obj_init_tikhonov = False # intialize the 
 is_norm = False # Want to have a floating value for the background?
 is_recomputemodel = True  # TODO: Make it automatic! 
-is_estimatepsf = True
+is_estimatepsf = 0
 mybordersize = 20
 psf_model = 'BPM'
 #psf_model = '3QDPC'
-psf_model = 'BORN' # either compute BORN or BPM ()
+#psf_model = 'BORN' # either compute BORN or BPM ()
 is_debugging = True # don't write all data to disk
 
 
@@ -263,7 +263,7 @@ if is_recomputemodel:
             
     if is_estimatepsf:
         # unordinary case - we want to optimize for the system only
-        tf_lossop_aberr = tf_optimizer_aberr.minimize(tf_loss, var_list = [muscat.TF_shiftIcX, muscat.TF_shiftIcY, muscat.TF_zernikefactors))#, muscat.TF_scale_object])
+        tf_lossop_aberr = tf_optimizer_aberr.minimize(tf_loss, var_list = [muscat.TF_shiftIcX, muscat.TF_shiftIcY, muscat.TF_zernikefactors])#, muscat.TF_scale_object])
         #tf_lossop_norm = tf_optimizer_aberr.minimize(tf_loss, var_list = [tf_glob_real,tf_glob_imag])
     else:
         # ordinary case - we want to optimize for the object                
