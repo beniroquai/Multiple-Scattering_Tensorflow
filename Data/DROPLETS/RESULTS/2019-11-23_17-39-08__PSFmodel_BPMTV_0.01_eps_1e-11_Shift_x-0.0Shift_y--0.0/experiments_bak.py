@@ -111,7 +111,7 @@ if(1):
         myepstvval = 1e-11 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
       
         NAci = .1
-        NAc = .2
+        NAc = .3
         my_learningrate = 1e0  # learning rate
         mysubsamplingIC = 0
         dz = .3

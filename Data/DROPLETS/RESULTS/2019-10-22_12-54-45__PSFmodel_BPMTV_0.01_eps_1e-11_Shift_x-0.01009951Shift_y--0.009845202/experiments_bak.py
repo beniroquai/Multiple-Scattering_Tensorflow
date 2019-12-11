@@ -50,7 +50,9 @@ if(1):
     roi_center = (229,295)
     cc_center = np.array((637, 1418))
     cc_size = np.array((600, 600))
-
+   
+    dz = .2
+    
     ''' Reconstruction Parameters '''
     # data files for parameters and measuremets 
     obj_meas_filename = './Data/cells/S0105k_zstack_dz0-2um_25C_40x_Ap0-52_Int63_sameAlignment.tif_allAmp.mat'
@@ -91,7 +93,7 @@ if(1):
     #for BORN
     if(0):
         regularizer = 'TV'
-        lambda_reg = 1e-0
+        lambda_reg = 1e-1
         my_learningrate = 1e0  # learning rate
         lambda_zernike = 1.
         lambda_icshift = 1.
@@ -99,25 +101,21 @@ if(1):
         myepstvval = 1e-11 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
         dz = .3
         #zernikefactors *= 0
-        NAci = 0
-        NAc = .4
-        is_mictype = 'BF'
+        NAci = .2
+        NAc = .3
     else:
         ''' Control-Parameters - Optimization '''
-        is_mictype = 'BF'
+        is_mictype = 'DF'
         
         regularizer = 'TV'
         lambda_reg = 1e-2
         myepstvval = 1e-11 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
       
         NAci = .1
-        NAc = .2
-        my_learningrate = 1e0  # learning rate
-        mysubsamplingIC = 0
+        NAc = .32
+        my_learningrate = 1e1  # learning rate
+        mysubsamplingIC = 1
         dz = .3
-        shiftIcX *= 0.
-        shiftIcY *= 0.
-        zernikefactors *= 0
 
 elif(0):
     

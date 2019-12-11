@@ -89,7 +89,7 @@ if(1):
     #zernikefactors = 0*np.array((0.,0.,0.,0.,0.49924508,-1.162684,-0.09952152,-0.4380897,-0.6640752,0.16908956,0.860051))
     
     #for BORN
-    if(0):
+    if(1):
         regularizer = 'TV'
         lambda_reg = 1e-0
         my_learningrate = 1e0  # learning rate
@@ -104,20 +104,17 @@ if(1):
         is_mictype = 'BF'
     else:
         ''' Control-Parameters - Optimization '''
-        is_mictype = 'BF'
+        is_mictype = 'DF'
         
         regularizer = 'TV'
-        lambda_reg = 1e-2
+        lambda_reg = 1e-3
         myepstvval = 1e-11 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
       
         NAci = .1
         NAc = .2
-        my_learningrate = 1e0  # learning rate
+        my_learningrate = 1e1  # learning rate
         mysubsamplingIC = 0
         dz = .3
-        shiftIcX *= 0.
-        shiftIcY *= 0.
-        zernikefactors *= 0
 
 elif(0):
     

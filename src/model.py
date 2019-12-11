@@ -43,7 +43,7 @@ class MuScatModel(object):
         # refractive index immersion and embedding
         self.dn = self.myparams.dn; # self.nImm - self.myparams.nEmbb
         self.lambdaM = self.myparams.lambda0/self.myparams.nEmbb; # wavelength in the medium
-        self.lamba0 = self.myparams.lambda0
+        self.lambda0 = self.myparams.lambda0
  
     #@define_scope
     def computesys(self, obj=None, is_padding=False, is_tomo = False, mysubsamplingIC=0, is_compute_psf='BORN', is_dampic=True, is_mictype='BF'):
@@ -206,7 +206,7 @@ class MuScatModel(object):
             myIntensityFactor = .005#self.is_dampic
             self.Ic_map = np.exp(-tf_helper.rr((self.myparams.Nx, self.myparams.Ny),mode='freq')**2/myIntensityFactor)
             
-        elif(1):#self.is_dampic!=0):
+        elif(0):#self.is_dampic!=0):
             print('We are taking the gaussian illuminatino shape!')
             myIntensityFactor = self.is_dampic
             self.Ic_map = (tf_helper.rr((self.myparams.Nx, self.myparams.Ny))+1)**(.5)

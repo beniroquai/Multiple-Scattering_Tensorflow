@@ -104,20 +104,17 @@ if(1):
         is_mictype = 'BF'
     else:
         ''' Control-Parameters - Optimization '''
-        is_mictype = 'BF'
+        is_mictype = 'DF'
         
         regularizer = 'TV'
-        lambda_reg = 1e-2
+        lambda_reg = 1e-3
         myepstvval = 1e-11 ##, 1e-12, 1e-8, 1e-6)) # - 1e-1 # smaller == more blocky
       
         NAci = .1
         NAc = .2
-        my_learningrate = 1e0  # learning rate
+        my_learningrate = 1e1  # learning rate
         mysubsamplingIC = 0
         dz = .3
-        shiftIcX *= 0.
-        shiftIcY *= 0.
-        zernikefactors *= 0
 
 elif(0):
     

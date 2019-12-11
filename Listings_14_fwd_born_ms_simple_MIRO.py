@@ -79,7 +79,10 @@ myparams.print()
 ''' Create the Model'''
 muscat = mus.MuScatModel(myparams, is_optimization=is_optimization)
 #experiments.zernikefactors = np.array((0,0,0,0, -1.2058168e-04, -2.3622499e-03, -7.7374041e-02 ,-1.4900701e-02,  -6.6282146e-04 ,-4.2013789e-04 , -1.2619525e+00))
-    
+
+experiments.zernikemask = np.ones(muscat.zernikemask.shape)
+
+
 obj_real = np.zeros(myparams.mysize)
 obj_real[0,:,:] = 1.33+.01*tf_go.generateSpeckle(mysize=myparams.Nx, D=20)
 obj_real[1,:,:]=1.33+myparams.dn*(nip.rr(mysize=(myparams.Nx,myparams.Ny))<10)*(nip.rr(mysize=(myparams.Nx,myparams.Ny),freq='ftfreq'))
