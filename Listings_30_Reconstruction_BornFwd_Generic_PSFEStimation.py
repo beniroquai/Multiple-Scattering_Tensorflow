@@ -8,7 +8,7 @@ Created on Thu Jan 17 12:04:55 2019
 This file creates a fwd-model for the TESCAN Q-PHASE under 
 multiple-scattering. It is majorly derived from  "LEarning approach for optical tomography"
 U. S. Kamilov, BIG, EPFL, 2014.
-"""
+""" 
 # %load_ext autoreload
 import tensorflow as tf
 import numpy as np
